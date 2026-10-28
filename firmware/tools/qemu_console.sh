@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 # Boot the lock_unit firmware in QEMU (as an ESP32-C3, the closest target QEMU
-# supports) and type console commands into it. No hardware needed.
+# supports). No hardware needed. Usually run as `./esp.sh qemu ...`.
 #
-#   firmware/tools/qemu_console.sh "user add Alice" "code add 1 1234" "pin 1234" status
+#   qemu_console.sh                          # interactive console (Ctrl-A X quits)
+#   qemu_console.sh "user add Alice" "code add 1 1234" "pin 1234" status
 #
 # Flash state persists in build-qemu/flash.bin between runs, so a second
 # invocation simulates a reboot. Pass --fresh to start from a blank flash.
-# For an interactive session instead:
-#   idf.py -B build-qemu -D IDF_TARGET=esp32c3 -D SDKCONFIG=build-qemu/sdkconfig \
-#       -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.qemu" qemu monitor
 # QEMU has no Bluetooth controller, so these builds run without the link.
 set -euo pipefail
 
-APP_DIR="$(cd "$(dirname "$0")/../apps/lock_unit" && pwd)"
-IDF_PATH="${IDF_PATH:-$HOME/esp/esp-idf-v6.0.2}"
-# shellcheck disable=SC1091
-. "$IDF_PATH/export.sh" >/dev/null 2>&1
+TOOLS="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="$TOOLS/../apps/lock_unit"
+# shellcheck source=idf_env.sh
+. "$TOOLS/idf_env.sh"
+idf_env_load
 QEMU_BIN="$(ls -d "$HOME"/.espressif/tools/qemu-riscv32/*/qemu/bin 2>/dev/null | tail -1)"
 export PATH="$QEMU_BIN:$PATH"
 
@@ -31,6 +30,12 @@ if ! build_log=$(idf.py -B build-qemu -D SDKCONFIG=build-qemu/sdkconfig -D IDF_T
 fi
 if [[ ! -f build-qemu/flash.bin ]]; then
     (cd build-qemu && esptool --chip esp32c3 merge-bin --pad-to-size 4MB -o flash.bin @flash_args >/dev/null)
+fi
+
+if [[ $# -eq 0 ]]; then
+    echo "QEMU console: type 'help'; Ctrl-A X quits." >&2
+    exec qemu-system-riscv32 -nographic -machine esp32c3 \
+        -drive file=build-qemu/flash.bin,if=mtd,format=raw -serial mon:stdio
 fi
 
 {

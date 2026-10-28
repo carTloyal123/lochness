@@ -13,7 +13,8 @@
 | `apps/lock_unit` | Lock unit firmware (ESP32-C6): lock task, BLE GATT server, console. Motor is simulated until the driver lands. |
 | `apps/keypad` | Wireless keypad firmware (ESP32-C6 for now, H2 later): BLE central, button matrix, LEDs and buzzer, console. |
 | `test/host` | Host tests: lock_core, Noise test vectors, protocol, and end-to-end keypad ↔ lock over an in-memory transport. |
-| `tools/qemu_console.sh` | Run lock_unit in QEMU and script its console. |
+| `../esp.sh` | Run any `idf.py` command without sourcing ESP-IDF: one app, `all` apps, `host` tests, or `qemu`. |
+| `tools/qemu_console.sh` | Run lock_unit in QEMU, interactive or scripted (`./esp.sh qemu`). |
 | `tools/compile_db.py` | Build the merged `compile_commands.json` that clangd and clang-tidy use. |
 | `tools/lint.sh` | Run clang-tidy with every check (`.clang-tidy`). |
 
@@ -50,11 +51,16 @@ In VS Code or Cursor, use the clangd extension and disable Microsoft's C/C++ Int
 
 ## Build, flash and monitor (ESP32-C6-DevKitC-1)
 
+From any shell, without sourcing ESP-IDF first:
+
 ```sh
-cd firmware/apps/lock_unit
-idf.py build
-idf.py -p /dev/cu.usbserial-XXXX flash monitor   # use the board's "UART" USB port
+./esp.sh all build                 # build every app
+./esp.sh lock_unit flash monitor   # any idf.py command in one app
+./esp.sh keypad menuconfig
+./esp.sh host                      # build and run the host tests
 ```
+
+`esp.sh` loads ESP-IDF and passes its arguments to `idf.py`. If the first argument names an app, it runs in that app, and `all` runs it in each app in turn. Otherwise it runs in the current directory. Use the board's "UART" USB port; add `-p /dev/cu.usbserial-XXXX` if more than one is connected.
 
 `idf.py menuconfig` → **Lochness lock unit** sets the door-sensor GPIO and simulated motor timing. **Lochness platform** selects the PIN key source.
 
@@ -87,9 +93,12 @@ With no input hardware configured, the keypad's `keys` command stands in for the
 ## Run without hardware
 
 ```sh
-firmware/tools/qemu_console.sh --fresh "user add Alice" "code add 1 1234" "pin 1234" status
-firmware/tools/qemu_console.sh "user list" status      # second run = reboot; state persists
+./esp.sh qemu                       # interactive lock console; Ctrl-A X quits
+./esp.sh qemu --fresh "user add Alice" "code add 1 1234" "pin 1234" status
+./esp.sh qemu "user list" status     # second run = reboot; state persists
 ```
+
+The lock_unit app runs as an ESP32-C3, the closest chip QEMU emulates. Flash is kept in `apps/lock_unit/build-qemu/flash.bin` across runs, whether interactive or scripted, so each run is a reboot. Pass `--fresh` to start from a blank flash.
 
 QEMU has no Bluetooth controller, so QEMU builds use `apps/lock_unit/sdkconfig.qemu` to compile the link out. The link is covered by the host tests.
 
