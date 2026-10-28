@@ -1,0 +1,56 @@
+---
+# Every check is on. The only removals are checks that cannot apply to this
+# code base (they target another project or language), and their reasons are
+# listed below. Prefer fixing or NOLINT(check) with a reason over adding here.
+#
+#   altera-*      Intel FPGA OpenCL kernels.
+#   llvmlibc-*    LLVM's own libc implementation (namespaces, entrypoint macros).
+#   clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+#                 Wants C11 Annex K memcpy_s/memset_s; picolibc and glibc lack
+#                 it. Secret wiping is handled by sl_wipe / volatile loops.
+#   modernize-use-nullptr (and its hicpp alias)
+#                 ESP-IDF builds are C23, but the portable components are also
+#                 built as C11 for the host tests, where nullptr doesn't exist.
+Checks: >
+  *,
+  -altera-*,
+  -llvmlibc-*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -modernize-use-nullptr,
+  -hicpp-use-nullptr,
+WarningsAsErrors: ''
+# Lint our headers, not ESP-IDF's or the vendored Monocypher.
+HeaderFilterRegex: '.*/firmware/(apps|components|test)/.*'
+ExcludeHeaderFilterRegex: '.*/components/monocypher/.*'
+FormatStyle: none
+CheckOptions:
+  # Naming: C conventions used throughout (lc_lock_t, lc_request, LC_MAX_USERS).
+  readability-identifier-naming.FunctionCase: lower_case
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.ParameterCase: lower_case
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.StructCase: lower_case
+  readability-identifier-naming.UnionCase: lower_case
+  readability-identifier-naming.EnumCase: lower_case
+  readability-identifier-naming.TypedefCase: lower_case
+  readability-identifier-naming.TypedefSuffix: _t
+  readability-identifier-naming.EnumConstantCase: UPPER_CASE
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+  readability-identifier-naming.GlobalConstantCase: UPPER_CASE
+  readability-identifier-naming.StaticConstantCase: UPPER_CASE
+  # Short names that are idiomatic in C: loop indices, contexts, buffers.
+  readability-identifier-length.IgnoredVariableNames: '^(i|j|k|n|p|q|r|s|t|e|c|d|v|ok|rc|ev|hs|ll|lc|kp|rl|ck|ad|it|op|ms|id)$'
+  readability-identifier-length.IgnoredParameterNames: '^(i|j|k|n|p|q|r|s|t|e|c|d|v|ok|ev|hs|ll|lc|kp|rl|ck|ad|op|ms|id|a|b|rs)$'
+  # Powers of two (masks, sizes), 255 and 1000 (ms per s) read fine as literals.
+  readability-magic-numbers.IgnoredIntegerValues: '0;1;2;3;255;1000'
+  readability-magic-numbers.IgnorePowersOf2IntegerValues: true
+  # Aliases keep their own options; keep the two in step.
+  cppcoreguidelines-avoid-magic-numbers.IgnoredIntegerValues: '0;1;2;3;255;1000'
+  cppcoreguidelines-avoid-magic-numbers.IgnorePowersOf2IntegerValues: true
+  readability-function-cognitive-complexity.IgnoreMacros: true
+  readability-function-size.LineThreshold: 120
+  # Known cycles inside ESP-IDF (FreeRTOS.h <-> idf_additions.h, NimBLE).
+  misc-header-include-cycle.IgnoredFilesList: 'FreeRTOS\.h;ble_hs\.h'
+  bugprone-easily-swappable-parameters.MinimumLength: 3
+  misc-include-cleaner.IgnoreHeaders: 'sdkconfig\.h;freertos/.*;esp_.*\.h;host/.*;nimble/.*;services/.*'
+...

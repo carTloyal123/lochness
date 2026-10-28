@@ -14,6 +14,8 @@
 | `apps/keypad` | Wireless keypad firmware (ESP32-C6 for now, H2 later): BLE central, button matrix, LEDs and buzzer, console. |
 | `test/host` | Host tests: lock_core, Noise test vectors, protocol, and end-to-end keypad ↔ lock over an in-memory transport. |
 | `tools/qemu_console.sh` | Run lock_unit in QEMU and script its console. |
+| `tools/compile_db.py` | Build the merged `compile_commands.json` that clangd and clang-tidy use. |
+| `tools/lint.sh` | Run clang-tidy with every check (`.clang-tidy`). |
 
 ## Toolchain setup (macOS)
 
@@ -26,9 +28,25 @@ git clone -b v6.0.2 --depth 1 --recursive --shallow-submodules \
     https://github.com/espressif/esp-idf.git esp-idf-v6.0.2
 cd esp-idf-v6.0.2 && ./install.sh esp32c6,esp32h2,esp32c3
 python3 tools/idf_tools.py install qemu-riscv32   # optional: run without hardware
+python3 tools/idf_tools.py install esp-clang      # optional: clang-tidy for tools/lint.sh
 ```
 
 Each new shell: `. ~/esp/esp-idf-v6.0.2/export.sh` (an alias like `alias idf='. ~/esp/esp-idf-v6.0.2/export.sh'` helps).
+
+## Editor (clangd) and lint
+
+```sh
+firmware/tools/compile_db.py --configure   # once, and again after adding source files
+firmware/tools/lint.sh                     # all checks; or: lint.sh lock_link, lint.sh --fix kp.c
+```
+
+`compile_db.py` merges the lock, keypad and host-test builds into `firmware/compile_commands.json`. It also rewrites ESP-IDF's GCC commands so clang can parse them: RISC-V target, picolibc headers, GCC-only flags dropped. `firmware/.clangd` points clangd at that file, so headers resolve in every app and component. The build's own databases under `apps/*/build` are not used.
+
+Any recent clangd works, including Xcode's `/usr/bin/clangd`. Espressif's (`~/.espressif/tools/esp-clang/*/esp-clang/bin/clangd`) matches the clang-tidy that `lint.sh` uses. clangd runs the `.clang-tidy` checks as you type.
+
+In VS Code or Cursor, use the clangd extension and disable Microsoft's C/C++ IntelliSense.
+
+`.clang-tidy` enables every check except a few that target other projects; each is listed with its reason. Monocypher is vendored, so it is not linted.
 
 ## Build, flash and monitor (ESP32-C6-DevKitC-1)
 

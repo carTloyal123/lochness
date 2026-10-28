@@ -1,0 +1,39 @@
+# clangd config for the firmware. Generate the database it points at with:
+#   firmware/tools/compile_db.py --configure
+CompileFlags:
+  # Pin the merged database; otherwise clangd would pick up each app's raw
+  # ESP-IDF database (GCC flags clang cannot parse) from apps/*/build.
+  CompilationDatabase: .
+Diagnostics:
+  # clang-tidy checks come from .clang-tidy; run them as you type.
+  ClangTidy:
+    FastCheckFilter: None
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
+  Includes:
+    # ESP-IDF and NimBLE headers must be reached through their umbrella
+    # headers; don't suggest the internal ones.
+    IgnoreHeader:
+      - 'freertos/.*'
+      - 'esp_.*\.h'
+      - 'sdkconfig\.h'
+      - 'host/.*'
+      - 'nimble/.*'
+      - 'services/.*'
+Index:
+  StandardLibrary: Yes
+InlayHints:
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes
+Hover:
+  ShowAKA: Yes
+---
+# Vendored upstream code: no lint, no include suggestions.
+If:
+  PathMatch: components/monocypher/.*
+Diagnostics:
+  ClangTidy:
+    Remove: '*'
+  UnusedIncludes: None
+  MissingIncludes: None
