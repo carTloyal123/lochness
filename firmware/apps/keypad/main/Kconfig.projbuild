@@ -1,0 +1,78 @@
+menu "Lochness keypad"
+
+    config KEYPAD_FW_MAJOR
+        int "Firmware major version"
+        default 0
+    config KEYPAD_FW_MINOR
+        int "Firmware minor version"
+        default 1
+
+    menu "Button matrix (3 columns x 4 rows)"
+        config KEYPAD_MATRIX
+            bool "Enable 3x4 button matrix"
+            default n
+            help
+                Layout:  1 2 3 / 4 5 6 / 7 8 9 / * 0 #
+                Rows are driven low one at a time; columns are inputs with
+                pull-ups. '*' clears, '#' unlocks.
+        config KEYPAD_ROW0_GPIO
+            int "Row 0 GPIO"
+            depends on KEYPAD_MATRIX
+            default 0
+        config KEYPAD_ROW1_GPIO
+            int "Row 1 GPIO"
+            depends on KEYPAD_MATRIX
+            default 1
+        config KEYPAD_ROW2_GPIO
+            int "Row 2 GPIO"
+            depends on KEYPAD_MATRIX
+            default 2
+        config KEYPAD_ROW3_GPIO
+            int "Row 3 GPIO"
+            depends on KEYPAD_MATRIX
+            default 3
+        config KEYPAD_COL0_GPIO
+            int "Column 0 GPIO"
+            depends on KEYPAD_MATRIX
+            default 4
+        config KEYPAD_COL1_GPIO
+            int "Column 1 GPIO"
+            depends on KEYPAD_MATRIX
+            default 5
+        config KEYPAD_COL2_GPIO
+            int "Column 2 GPIO"
+            depends on KEYPAD_MATRIX
+            default 6
+    endmenu
+
+    config KEYPAD_LOCK_BUTTON_GPIO
+        int "Lock button GPIO (-1 = none)"
+        range -1 30
+        default -1
+        help
+            Dedicated one-touch lock button, active low.
+
+    config KEYPAD_PAIR_BUTTON_GPIO
+        int "Pair button GPIO (-1 = none; DevKitC BOOT button is GPIO 9)"
+        range -1 30
+        default 9
+        help
+            Hold for 3 seconds to enter pairing mode. On the production
+            keypad this sits behind the mounting plate.
+
+    config KEYPAD_LED_GREEN_GPIO
+        int "Green LED GPIO (-1 = none)"
+        range -1 30
+        default -1
+    config KEYPAD_LED_RED_GPIO
+        int "Red LED GPIO (-1 = none)"
+        range -1 30
+        default -1
+    config KEYPAD_BUZZER_GPIO
+        int "Piezo buzzer GPIO (-1 = none)"
+        range -1 30
+        default -1
+
+    comment "Capacitive touch keys: backend pending touch-controller selection"
+
+endmenu

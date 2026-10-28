@@ -127,8 +127,8 @@ Toolchain: **ESP-IDF v5.x + esp-matter**.
 - **Latency:** persistent connection at a ~500 ms–1 s interval with peripheral latency, giving ≤1 s remote unlock at tens of µA average.
 
 ### 4.4 Secure channel (shared by hub, keypad and app)
-- BLE LE Secure Connections, plus an app-layer **Noise `KK`** channel (X25519, ChaCha20-Poly1305, SHA-256) with monotonic counters. BLE-layer security alone isn't trusted.
-- Static keys are exchanged during pairing, confirmed by a short authentication code (shown on the keypad LEDs, the app screen or the hub LED).
+- An app-layer **Noise** channel (X25519, ChaCha20-Poly1305, SHA-256). Sessions use **IK**: one round trip, mutual authentication, and the initiator's identity is encrypted. Pairing uses **XX**. BLE-layer security isn't relied on. See [LINK_PROTOCOL.md](LINK_PROTOCOL.md).
+- Static keys are exchanged during pairing. Keypads pair inside the physical window ("just works"). Hub and phone pairing will add a confirmation code derived from the handshake hash.
 - Every peer has a role (`hub`, `keypad`, `admin_phone`, `user_phone`) the lock enforces. Revoke a peer from an admin phone or with a factory reset.
 
 ---
@@ -160,7 +160,7 @@ firmware/
   components/
     lock_core/        # Pure C11, no ESP-IDF deps: users/PINs/schedules, rate limiting,
                       #   access log, lock state machine and policy. Host unit-tested.
-    secure_link/      # Noise KK channel (hub/keypad/app)
+    secure_link/      # Noise IK/XX channel (hub/keypad/app)
     link_proto/       # Versioned message definitions + test vectors
     platform_esp/     # NVS/eFuse-HMAC/BLE/GPIO/motor adapters for lock_core
   apps/
@@ -180,7 +180,7 @@ docs/
 
 1. **M0 – Core logic on host:** `lock_core` (users, PINs, schedules, rate limiter, access log, lock state machine, operating modes, auto-relock) with host tests. ✅
 2. **M1 – Standalone lock:** lock unit on a C6 devkit. ← *in progress: app, NVS persistence, PIN digest, door sensor and console done; motor/encoder driver pending hardware.* Motor + encoder + door sensor, NVS persistence, a serial console standing in for the keypad.
-3. **M2 – Secure link + wireless keypad:** `secure_link` + `link_proto`, keypad firmware on a second devkit, pairing flow.
+3. **M2 – Secure link + wireless keypad:** `secure_link` + `link_proto`, keypad firmware on a second devkit, pairing flow. ← *first pass done: Noise IK/XX verified against test vectors, lock-side server, keypad state machine, end-to-end host tests, BLE glue for both apps (built, not yet run on hardware).*
 4. **M3 – Matter hub:** esp-matter Door Lock on a third devkit, commissioned into Apple Home / Home Assistant, driving the real lock over the link.
 5. **M4 – iOS app:** enrollment, calibration, local log, offline lock/unlock.
 6. **M5 – Hardening + power:** secure boot, flash/NVS encryption, HMAC-bound PINs, power profiling of the lock and keypad.

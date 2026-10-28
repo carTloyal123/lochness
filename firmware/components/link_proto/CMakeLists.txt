@@ -1,0 +1,6 @@
+if(ESP_PLATFORM)
+    idf_component_register(SRCS src/lp.c INCLUDE_DIRS include)
+else()
+    add_library(link_proto STATIC src/lp.c)
+    target_include_directories(link_proto PUBLIC include)
+endif()

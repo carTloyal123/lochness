@@ -73,8 +73,9 @@ typedef struct {
     const char *pin;
 } request_args_t;
 
-static int do_request(lc_t *lc, void *arg)
+static int do_request(lock_ctx_t *ctx, void *arg)
 {
+    lc_t *lc = &ctx->lc;
     request_args_t *a = arg;
     uint16_t user = 0;
     lc_err_t e = lc_request(lc, a->op, a->source, a->pin ? (const uint8_t *)a->pin : NULL,
@@ -131,8 +132,9 @@ typedef struct {
     char **argv;
 } argv_t;
 
-static int do_user(lc_t *lc, void *arg)
+static int do_user(lock_ctx_t *ctx, void *arg)
 {
+    lc_t *lc = &ctx->lc;
     argv_t *a = arg;
     const char *sub = a->argv[1];
 
@@ -198,8 +200,9 @@ static int cmd_user(int argc, char **argv)
     return strcmp(argv[1], "list") == 0 && e == LC_OK ? 0 : report(e);
 }
 
-static int do_code(lc_t *lc, void *arg)
+static int do_code(lock_ctx_t *ctx, void *arg)
 {
+    lc_t *lc = &ctx->lc;
     argv_t *a = arg;
     lc_err_t e;
     if (strcmp(a->argv[1], "add") == 0 && a->argc == 4) {
@@ -242,8 +245,9 @@ static bool parse_hhmm(const char *s, uint16_t *out)
     return true;
 }
 
-static int do_sched(lc_t *lc, void *arg)
+static int do_sched(lock_ctx_t *ctx, void *arg)
 {
+    lc_t *lc = &ctx->lc;
     argv_t *a = arg;
     uint16_t user = (uint16_t)atoi(a->argv[1]);
     if (a->argc == 3 && strcmp(a->argv[2], "clear") == 0) {
@@ -307,8 +311,9 @@ static bool parse_bool(const char *s, bool *out)
     return false;
 }
 
-static int do_config(lc_t *lc, void *arg)
+static int do_config(lock_ctx_t *ctx, void *arg)
 {
+    lc_t *lc = &ctx->lc;
     argv_t *a = arg;
     lc_config_t *c = &lc->cfg;
     if (a->argc == 1) {
@@ -388,8 +393,9 @@ static int cmd_time(int argc, char **argv)
 
 /* ---- status / log ---------------------------------------------------------- */
 
-static int do_status(lc_t *lc, void *arg)
+static int do_status(lock_ctx_t *ctx, void *arg)
 {
+    lc_t *lc = &ctx->lc;
     (void)arg;
     lc_wall_time_t wt;
     bool known = lc->plat.wall_time(NULL, &wt);
@@ -420,8 +426,9 @@ static int cmd_status(int argc, char **argv)
     return lock_task_call(do_status, NULL);
 }
 
-static int do_log(lc_t *lc, void *arg)
+static int do_log(lock_ctx_t *ctx, void *arg)
 {
+    lc_t *lc = &ctx->lc;
     int n = *(int *)arg;
     int start = lc->log.count > n ? lc->log.count - n : 0;
     for (int i = start; i < lc->log.count; i++) {
@@ -437,6 +444,93 @@ static int cmd_log(int argc, char **argv)
 {
     int n = argc > 1 ? atoi(argv[1]) : 20;
     return lock_task_call(do_log, &n);
+}
+
+/* ---- link pairing ---------------------------------------------------------- */
+
+static const char *role_names[] = {"?", "keypad", "hub", "phone"};
+
+typedef struct {
+    lp_role_t role;
+    uint32_t seconds;
+} pair_args_t;
+
+static int do_pair(lock_ctx_t *ctx, void *arg)
+{
+    pair_args_t *a = arg;
+    if (a->seconds == 0) {
+        ll_close_pairing(&ctx->ll);
+    } else {
+        ll_open_pairing(&ctx->ll, a->role, a->seconds);
+    }
+    return LC_OK;
+}
+
+static int cmd_pair(int argc, char **argv)
+{
+    /* Stand-in for the physical pairing button on the lock unit. */
+    if (argc < 2) {
+        printf("usage: pair keypad|hub|phone [seconds]   |   pair stop\n");
+        return 1;
+    }
+    pair_args_t a = {.seconds = argc > 2 ? (uint32_t)atoi(argv[2]) : 60};
+    if (!strcmp(argv[1], "stop")) {
+        a.seconds = 0;
+    } else {
+        int r = lookup(argv[1], role_names, 4);
+        if (r < 1) {
+            printf("unknown role\n");
+            return 1;
+        }
+        a.role = (lp_role_t)r;
+    }
+    lock_task_call(do_pair, &a);
+    if (a.seconds) {
+        printf("pairing window open for %s, %lu s\n", argv[1], (unsigned long)a.seconds);
+    } else {
+        printf("pairing window closed\n");
+    }
+    return 0;
+}
+
+static int do_peers(lock_ctx_t *ctx, void *arg)
+{
+    int del = *(int *)arg;
+    if (del >= 0) {
+        if (!ll_peer_remove(&ctx->ll, (uint8_t)del)) {
+            return LC_ERR_NOT_FOUND;
+        }
+        return LC_OK;
+    }
+    for (int i = 0; i < LL_MAX_PEERS; i++) {
+        const ll_peer_t *p = &ctx->ll.peers.peers[i];
+        if (!p->in_use) {
+            continue;
+        }
+        bool online = false;
+        for (int c = 0; c < LL_MAX_CONNS; c++) {
+            online |= ctx->ll.conns[c].state == LL_CONN_ESTABLISHED && ctx->ll.conns[c].peer == i;
+        }
+        printf("%d  %-7s  key %02x%02x%02x%02x…  %s\n", i, p->role <= 3 ? role_names[p->role] : "?",
+               p->static_pub[0], p->static_pub[1], p->static_pub[2], p->static_pub[3],
+               online ? "connected" : "");
+    }
+    printf("lock key %02x%02x%02x%02x…  pairing %s\n", ctx->ll.identity.pub[0], ctx->ll.identity.pub[1],
+           ctx->ll.identity.pub[2], ctx->ll.identity.pub[3], ll_pairing_open(&ctx->ll) ? "OPEN" : "closed");
+    return LC_OK;
+}
+
+static int cmd_peers(int argc, char **argv)
+{
+    int del = -1;
+    if (argc == 3 && !strcmp(argv[1], "del")) {
+        del = atoi(argv[2]);
+    } else if (argc != 1) {
+        printf("usage: peers [del <index>]\n");
+        return 1;
+    }
+    lc_err_t e = (lc_err_t)lock_task_call(do_peers, &del);
+    return del >= 0 ? report(e) : 0;
 }
 
 /* ---- simulation ------------------------------------------------------------ */
@@ -460,7 +554,7 @@ static int cmd_sim(int argc, char **argv)
 static int cmd_factory_reset(int argc, char **argv)
 {
     if (argc != 2 || strcmp(argv[1], "confirm")) {
-        printf("erases all users, codes, log and settings. usage: factory-reset confirm\n");
+        printf("erases all users, codes, log, settings and paired peers. usage: factory-reset confirm\n");
         return 1;
     }
     ESP_ERROR_CHECK(pe_store_erase());
@@ -496,6 +590,8 @@ void console_start(void)
     reg("time", "Set wall-clock time (hub stand-in)", cmd_time);
     reg("status", "Show lock state", cmd_status);
     reg("log", "Show the last N access log entries", cmd_log);
+    reg("pair", "Open a pairing window (stand-in for the lock's pair button)", cmd_pair);
+    reg("peers", "List or remove paired keypads/hubs/phones", cmd_peers);
     reg("sim", "Simulate door sensor, manual turns, jams", cmd_sim);
     reg("factory-reset", "Erase all lock state", cmd_factory_reset);
 

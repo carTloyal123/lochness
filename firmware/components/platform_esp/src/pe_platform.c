@@ -5,8 +5,7 @@
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
-#include "nvs.h"
-#include "nvs_flash.h"
+#include "ln_store.h"
 #include "psa/crypto.h"
 #include "sdkconfig.h"
 
@@ -16,7 +15,6 @@
 
 static const char *TAG = "pe";
 
-#define KEY_NAMESPACE "lochness_key"
 #define KEY_NAME "pin_hmac"
 #define KEY_LEN 32
 
@@ -31,27 +29,10 @@ static psa_key_id_t s_pin_key;
 static esp_err_t dev_key_init(void)
 {
     uint8_t key[KEY_LEN];
-    nvs_handle_t h;
-    esp_err_t err = nvs_open(KEY_NAMESPACE, NVS_READWRITE, &h);
+    esp_err_t err = ln_secret_get_or_create(KEY_NAME, key, sizeof(key));
     if (err != ESP_OK) {
         return err;
     }
-    size_t len = sizeof(key);
-    err = nvs_get_blob(h, KEY_NAME, key, &len);
-    if (err == ESP_ERR_NVS_NOT_FOUND || (err == ESP_OK && len != sizeof(key))) {
-        esp_fill_random(key, sizeof(key));
-        err = nvs_set_blob(h, KEY_NAME, key, sizeof(key));
-        if (err == ESP_OK) {
-            err = nvs_commit(h);
-        }
-        ESP_LOGI(TAG, "generated new development PIN key");
-    }
-    nvs_close(h);
-    if (err != ESP_OK) {
-        memset(key, 0, sizeof(key));
-        return err;
-    }
-
     psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attr, PSA_KEY_TYPE_HMAC);
     psa_set_key_bits(&attr, KEY_LEN * 8);
@@ -65,13 +46,7 @@ static esp_err_t dev_key_init(void)
 
 esp_err_t pe_init(void)
 {
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        /* Only happens after a partition layout or NVS format change. */
-        ESP_LOGW(TAG, "NVS unusable (%s), erasing", esp_err_to_name(err));
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
+    esp_err_t err = ln_store_init();
     if (err != ESP_OK) {
         return err;
     }

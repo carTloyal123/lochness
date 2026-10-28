@@ -26,7 +26,11 @@ esp_err_t pe_store_save(const lc_t *lc, lc_persist_t what);
 esp_err_t pe_store_save_config(const lc_config_t *cfg);
 /* Returns false if no saved config exists. */
 bool pe_store_load_config(lc_config_t *cfg);
-/* Erase all lock state (users, PINs, log, config). The PIN key is kept. */
+/* Paired link peers (opaque blob owned by lock_link). Erased by pe_store_erase. */
+esp_err_t pe_store_save_peers(const void *peers, size_t len);
+bool pe_store_load_peers(void *peers, size_t len);
+
+/* Erase all lock state (users, PINs, log, config, paired peers). Device keys are kept. */
 esp_err_t pe_store_erase(void);
 
 #ifdef __cplusplus

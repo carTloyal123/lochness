@@ -1,3 +1,4 @@
+#include "ble_server.h"
 #include "console.h"
 #include "door.h"
 #include "esp_log.h"
@@ -11,7 +12,8 @@ void app_main(void)
 {
     ESP_ERROR_CHECK(pe_init());
     motor_sim_init();
-    lock_task_start();
+    lock_task_start(); /* creates device keys: must precede the radio */
+    ESP_ERROR_CHECK(ble_server_start());
 
     lc_door_t door = door_init();
     if (door != LC_DOOR_UNKNOWN) {

@@ -3,9 +3,16 @@
 | Path | What |
 |---|---|
 | `components/lock_core` | Pure C11 lock logic (users, PINs, rate limiting, log, state machine). Builds for ESP-IDF and the host. |
+| `components/secure_link` | Noise IK/XX handshakes + transport encryption (SHA-256/HMAC here, X25519 and ChaCha20-Poly1305 from Monocypher). Portable. |
+| `components/link_proto` | Link frames and messages, plus the BLE UUIDs. The contract with the apps (see `docs/LINK_PROTOCOL.md`). Portable. |
+| `components/lock_link` | Lock-side link server: paired peers, handshakes, request dispatch. Portable. |
+| `components/keypad_core` | Keypad state machine: key entry, link, pairing, feedback. Portable. |
+| `components/monocypher` | Vendored Monocypher 4.0.2. |
 | `components/platform_esp` | ESP-IDF adapters for lock_core: NVS persistence, HMAC PIN digests, time, RNG. |
-| `apps/lock_unit` | Lock unit firmware (ESP32-C6). Motor is simulated until the driver lands. |
-| `test/host` | Host unit tests for lock_core. |
+| `components/ln_store` | ESP-IDF NVS helpers and device-secret generation (shared by both apps). |
+| `apps/lock_unit` | Lock unit firmware (ESP32-C6): lock task, BLE GATT server, console. Motor is simulated until the driver lands. |
+| `apps/keypad` | Wireless keypad firmware (ESP32-C6 for now, H2 later): BLE central, button matrix, LEDs and buzzer, console. |
+| `test/host` | Host tests: lock_core, Noise test vectors, protocol, and end-to-end keypad ↔ lock over an in-memory transport. |
 | `tools/qemu_console.sh` | Run lock_unit in QEMU and script its console. |
 
 ## Toolchain setup (macOS)
@@ -43,12 +50,30 @@ sim door open|closed           sim turn locked|unlocked sim jam        status   
 factory-reset confirm
 ```
 
+## Pairing a keypad (two dev boards)
+
+Flash `apps/lock_unit` to one C6 board and `apps/keypad` to another, with a serial monitor on each.
+
+```
+lochness> user add Alice
+lochness> code add 1 1234
+lochness> pair keypad              # stand-in for the lock's pair button (60 s window)
+keypad>   pair                     # or hold the BOOT button for 3 s
+          ... keypad logs "PAIRED"; `peers` on the lock shows it
+keypad>   keys 1234#               # → lock unlocks (simulated motor), keypad shows UNLOCKED
+keypad>   keys L                   # one-touch lock
+```
+
+With no input hardware configured, the keypad's `keys` command stands in for the buttons. `idf.py menuconfig` → **Lochness keypad** sets the button matrix, lock/pair buttons, LEDs and buzzer pins.
+
 ## Run without hardware
 
 ```sh
 firmware/tools/qemu_console.sh --fresh "user add Alice" "code add 1 1234" "pin 1234" status
 firmware/tools/qemu_console.sh "user list" status      # second run = reboot; state persists
 ```
+
+QEMU has no Bluetooth controller, so QEMU builds use `apps/lock_unit/sdkconfig.qemu` to compile the link out. The link is covered by the host tests.
 
 ## Security notes for dev boards
 

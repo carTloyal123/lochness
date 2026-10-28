@@ -1,0 +1,2 @@
+# Overlay for QEMU smoke tests (tools/qemu_console.sh): QEMU has no BT controller.
+CONFIG_BT_ENABLED=n

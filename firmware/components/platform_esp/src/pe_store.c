@@ -120,6 +120,19 @@ bool pe_store_load_config(lc_config_t *cfg)
     return ok;
 }
 
+esp_err_t pe_store_save_peers(const void *peers, size_t len) { return save_blob("peers", peers, len); }
+
+bool pe_store_load_peers(void *peers, size_t len)
+{
+    nvs_handle_t h;
+    if (open_checked(NVS_READONLY, &h) != ESP_OK) {
+        return false;
+    }
+    bool ok = load_blob(h, "peers", peers, len) == ESP_OK;
+    nvs_close(h);
+    return ok;
+}
+
 esp_err_t pe_store_erase(void)
 {
     nvs_handle_t h;

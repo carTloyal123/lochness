@@ -1,0 +1,7 @@
+if(ESP_PLATFORM)
+    idf_component_register(SRCS src/kp.c INCLUDE_DIRS include REQUIRES secure_link link_proto)
+else()
+    add_library(keypad_core STATIC src/kp.c)
+    target_include_directories(keypad_core PUBLIC include)
+    target_link_libraries(keypad_core PUBLIC secure_link link_proto)
+endif()

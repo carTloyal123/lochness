@@ -1,0 +1,7 @@
+if(ESP_PLATFORM)
+    idf_component_register(SRCS src/ll.c INCLUDE_DIRS include REQUIRES secure_link link_proto)
+else()
+    add_library(lock_link STATIC src/ll.c)
+    target_include_directories(lock_link PUBLIC include)
+    target_link_libraries(lock_link PUBLIC secure_link link_proto)
+endif()

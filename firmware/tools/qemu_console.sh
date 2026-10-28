@@ -7,7 +7,9 @@
 # Flash state persists in build-qemu/flash.bin between runs, so a second
 # invocation simulates a reboot. Pass --fresh to start from a blank flash.
 # For an interactive session instead:
-#   idf.py -B build-qemu -D IDF_TARGET=esp32c3 -D SDKCONFIG=build-qemu/sdkconfig qemu monitor
+#   idf.py -B build-qemu -D IDF_TARGET=esp32c3 -D SDKCONFIG=build-qemu/sdkconfig \
+#       -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.qemu" qemu monitor
+# QEMU has no Bluetooth controller, so these builds run without the link.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/../apps/lock_unit" && pwd)"
@@ -22,9 +24,13 @@ if [[ "${1:-}" == "--fresh" ]]; then
     rm -f build-qemu/flash.bin
     shift
 fi
-idf.py -B build-qemu -D SDKCONFIG=build-qemu/sdkconfig -D IDF_TARGET=esp32c3 build >/dev/null
+if ! build_log=$(idf.py -B build-qemu -D SDKCONFIG=build-qemu/sdkconfig -D IDF_TARGET=esp32c3 \
+        -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.qemu" build 2>&1); then
+    echo "$build_log"
+    exit 1
+fi
 if [[ ! -f build-qemu/flash.bin ]]; then
-    (cd build-qemu && esptool.py --chip esp32c3 merge_bin --fill-flash-size 4MB -o flash.bin @flash_args >/dev/null)
+    (cd build-qemu && esptool --chip esp32c3 merge-bin --pad-to-size 4MB -o flash.bin @flash_args >/dev/null)
 fi
 
 {

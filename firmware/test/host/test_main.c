@@ -40,7 +40,34 @@ int test_failures = 0;
     X(test_passage_mode_suspends_relock)                                                           \
     X(test_already_in_state_no_motor)                                                              \
     X(test_reboot_during_lockout)                                                                  \
-    X(test_invalid_requests)
+    X(test_invalid_requests)                                                                       \
+    X(test_sha256_vectors)                                                                         \
+    X(test_hmac_rfc4231)                                                                           \
+    X(test_dh_rejects_low_order)                                                                   \
+    X(test_noise_ik_vector)                                                                        \
+    X(test_noise_xx_vector)                                                                        \
+    X(test_ik_wrong_responder_key_fails)                                                           \
+    X(test_prologue_mismatch_fails)                                                                \
+    X(test_session_rejects_replay_and_tamper)                                                      \
+    X(test_handshake_out_of_turn)                                                                  \
+    X(test_handshake_truncated_message) \
+    X(test_lp_roundtrip) \
+    X(test_lp_rejects_malformed) \
+    X(test_lp_fixed_sizes) \
+    X(test_link_pairing_requires_window) \
+    X(test_link_pair_then_unlock) \
+    X(test_link_wrong_pin_and_lockout) \
+    X(test_link_one_touch_lock) \
+    X(test_link_unpaired_keypad_rejected) \
+    X(test_link_removed_peer_rejected) \
+    X(test_link_replay_rejected) \
+    X(test_link_ciphertext_length_hides_pin) \
+    X(test_link_wrong_role_window) \
+    X(test_link_pairing_window_expires) \
+    X(test_link_lock_unreachable) \
+    X(test_link_entry_timeout_clears_digits) \
+    X(test_link_lock_idle_timeout) \
+    X(test_link_too_long_pin_rejected_locally)
 
 TESTS
 #undef X
