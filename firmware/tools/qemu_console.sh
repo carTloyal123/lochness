@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Boot the lock_unit firmware in QEMU (as an ESP32-C3, the closest target QEMU
+# supports) and type console commands into it. No hardware needed.
+#
+#   firmware/tools/qemu_console.sh "user add Alice" "code add 1 1234" "pin 1234" status
+#
+# Flash state persists in build-qemu/flash.bin between runs, so a second
+# invocation simulates a reboot. Pass --fresh to start from a blank flash.
+# For an interactive session instead:
+#   idf.py -B build-qemu -D IDF_TARGET=esp32c3 -D SDKCONFIG=build-qemu/sdkconfig qemu monitor
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "$0")/../apps/lock_unit" && pwd)"
+IDF_PATH="${IDF_PATH:-$HOME/esp/esp-idf-v6.0.2}"
+# shellcheck disable=SC1091
+. "$IDF_PATH/export.sh" >/dev/null 2>&1
+QEMU_BIN="$(ls -d "$HOME"/.espressif/tools/qemu-riscv32/*/qemu/bin 2>/dev/null | tail -1)"
+export PATH="$QEMU_BIN:$PATH"
+
+cd "$APP_DIR"
+if [[ "${1:-}" == "--fresh" ]]; then
+    rm -f build-qemu/flash.bin
+    shift
+fi
+idf.py -B build-qemu -D SDKCONFIG=build-qemu/sdkconfig -D IDF_TARGET=esp32c3 build >/dev/null
+if [[ ! -f build-qemu/flash.bin ]]; then
+    (cd build-qemu && esptool.py --chip esp32c3 merge_bin --fill-flash-size 4MB -o flash.bin @flash_args >/dev/null)
+fi
+
+{
+    sleep 4
+    for c in "$@"; do printf '%s\r\n' "$c"; sleep 1.2; done
+    sleep 1
+} | timeout 120 qemu-system-riscv32 -nographic -machine esp32c3 \
+        -drive file=build-qemu/flash.bin,if=mtd,format=raw -serial stdio -monitor none 2>&1 \
+  | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' \
+  | grep -vE '^(I \([0-9]+\) (boot|esp_image|cpu_start|heap_init|spi_flash|sleep_gpio|main_task|app_init|efuse_init)|ESP-ROM|Build:|rst:|SPIWP|mode:|load:|entry|\s*$)' || true

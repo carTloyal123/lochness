@@ -1,0 +1,30 @@
+menu "Lochness platform"
+
+    choice LOCHNESS_PIN_KEY
+        prompt "PIN digest key source"
+        default LOCHNESS_PIN_KEY_DEV_NVS
+        help
+            Where the HMAC key that protects stored PIN digests lives.
+
+        config LOCHNESS_PIN_KEY_DEV_NVS
+            bool "Development: random key stored in NVS (INSECURE)"
+            help
+                A random key is generated on first boot and stored in NVS.
+                Without flash/NVS encryption, anyone who dumps the flash can
+                brute-force every PIN offline. Use only on dev boards.
+
+        config LOCHNESS_PIN_KEY_EFUSE
+            bool "Production: eFuse HMAC key (hardware-bound)"
+            help
+                PIN digests are computed by the HMAC peripheral using a key
+                burned into an eFuse key block with purpose HMAC_UP. Software
+                cannot read the key. Burning eFuses is irreversible.
+    endchoice
+
+    config LOCHNESS_PIN_KEY_EFUSE_BLOCK
+        int "eFuse HMAC key block (0-5)"
+        depends on LOCHNESS_PIN_KEY_EFUSE
+        range 0 5
+        default 4
+
+endmenu

@@ -1,0 +1,18 @@
+menu "Lochness lock unit"
+
+    config LOCHNESS_DOOR_GPIO
+        int "Door reed switch GPIO (-1 = none, use 'sim door')"
+        range -1 30
+        default -1
+        help
+            Reed switch to GND with internal pull-up. Closed contact (magnet
+            present) means the door is closed.
+
+    config LOCHNESS_SIM_MOTOR_MS
+        int "Simulated motor travel time (ms)"
+        default 800
+        help
+            Until the H-bridge/encoder driver lands, the motor is simulated
+            and reports success after this delay.
+
+endmenu
