@@ -2,11 +2,12 @@
 #include "console.h"
 #include "door.h"
 #include "esp_log.h"
+#include "lock_core/lc_lock.h"
 #include "lock_task.h"
 #include "motor_sim.h"
 #include "platform_esp/pe_platform.h"
 
-static const char *TAG = "main";
+static const char *const TAG = "main";
 
 void app_main(void)
 {

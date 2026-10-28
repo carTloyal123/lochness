@@ -1,5 +1,9 @@
 #include "lock_link/ll.h"
+#include "link_proto/lp.h"
+#include "secure_link/sl_crypto.h"
+#include "secure_link/sl_noise.h"
 
+#include <stdint.h>
 #include <string.h>
 
 static uint64_t now_ms(const ll_t *ll) { return ll->hooks.now_ms(ll->hooks.ctx); }
@@ -21,7 +25,7 @@ void ll_open_pairing(ll_t *ll, lp_role_t role, uint32_t seconds)
 {
     ll->pairing_open = true;
     ll->pairing_role = (uint8_t)role;
-    ll->pairing_until_ms = now_ms(ll) + (uint64_t)seconds * 1000u;
+    ll->pairing_until_ms = now_ms(ll) + (uint64_t)seconds * 1000U;
 }
 
 void ll_close_pairing(ll_t *ll) { ll->pairing_open = false; }
@@ -77,11 +81,13 @@ static bool send_frame(ll_t *ll, ll_conn_t *c, uint8_t type, const uint8_t *body
 
 static bool send_msg(ll_t *ll, ll_conn_t *c, const lp_msg_t *msg)
 {
-    uint8_t pt[32], frame[LP_MAX_FRAME];
-    size_t pt_len = lp_encode(msg, pt, sizeof(pt)), ct_len;
-    bool ok = pt_len &&
-              sl_session_encrypt(&c->sess, pt, pt_len, frame + 1, sizeof(frame) - 1, &ct_len) == SL_OK;
-    sl_wipe(pt, sizeof(pt));
+    uint8_t plain[32];
+    uint8_t frame[LP_MAX_FRAME];
+    size_t plain_len = lp_encode(msg, plain, sizeof(plain));
+    size_t ct_len = 0;
+    bool ok = plain_len &&
+              sl_session_encrypt(&c->sess, plain, plain_len, frame + 1, sizeof(frame) - 1, &ct_len) == SL_OK;
+    sl_wipe(plain, sizeof(plain));
     if (!ok) {
         return false;
     }
@@ -99,18 +105,20 @@ static void establish(ll_t *ll, ll_conn_t *c, uint8_t peer)
 
 static void handle_ik1(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
 {
-    uint8_t pt[32], out[LP_MAX_FRAME];
-    size_t pt_len, out_len;
+    uint8_t plain[32];
+    uint8_t out[LP_MAX_FRAME];
+    size_t plain_len = 0;
+    size_t out_len = 0;
     lp_msg_t hello = {0};
 
     if (sl_handshake_init(&c->hs, SL_PATTERN_IK, SL_RESPONDER, (const uint8_t *)LP_PROLOGUE,
                           LP_PROLOGUE_LEN, &ll->identity, NULL, rng, ll) != SL_OK ||
-        sl_handshake_read(&c->hs, body, len, pt, sizeof(pt), &pt_len) != SL_OK) {
+        sl_handshake_read(&c->hs, body, len, plain, sizeof(plain), &plain_len) != SL_OK) {
         drop(ll, c);
         return;
     }
     uint8_t peer = find_peer(ll, sl_handshake_remote_static(&c->hs));
-    if (peer == LL_NO_PEER || !lp_decode(pt, pt_len, &hello) || hello.type != LP_MSG_HELLO ||
+    if (peer == LL_NO_PEER || !lp_decode(plain, plain_len, &hello) || hello.type != LP_MSG_HELLO ||
         hello.hello.role != ll->peers.peers[peer].role) {
         drop(ll, c);
         return;
@@ -118,8 +126,8 @@ static void handle_ik1(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
 
     lp_msg_t ack = {.type = LP_MSG_HELLO_ACK,
                     .hello_ack = {.proto = LP_PROTO_VERSION, .bolt = (uint8_t)ll->hooks.bolt(ll->hooks.ctx)}};
-    pt_len = lp_encode(&ack, pt, sizeof(pt));
-    if (sl_handshake_write(&c->hs, pt, pt_len, out, sizeof(out), &out_len) != SL_OK ||
+    plain_len = lp_encode(&ack, plain, sizeof(plain));
+    if (sl_handshake_write(&c->hs, plain, plain_len, out, sizeof(out), &out_len) != SL_OK ||
         sl_handshake_split(&c->hs, &c->sess) != SL_OK || !send_frame(ll, c, LP_FRAME_IK2, out, out_len)) {
         drop(ll, c);
         return;
@@ -132,12 +140,14 @@ static void handle_ik1(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
 
 static void handle_xx1(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
 {
-    uint8_t pt[8], out[LP_MAX_FRAME];
-    size_t pt_len, out_len;
+    uint8_t plain[8];
+    uint8_t out[LP_MAX_FRAME];
+    size_t plain_len = 0;
+    size_t out_len = 0;
     if (!ll_pairing_open(ll) ||
         sl_handshake_init(&c->hs, SL_PATTERN_XX, SL_RESPONDER, (const uint8_t *)LP_PROLOGUE,
                           LP_PROLOGUE_LEN, &ll->identity, NULL, rng, ll) != SL_OK ||
-        sl_handshake_read(&c->hs, body, len, pt, sizeof(pt), &pt_len) != SL_OK || pt_len != 0 ||
+        sl_handshake_read(&c->hs, body, len, plain, sizeof(plain), &plain_len) != SL_OK || plain_len != 0 ||
         sl_handshake_write(&c->hs, NULL, 0, out, sizeof(out), &out_len) != SL_OK ||
         !send_frame(ll, c, LP_FRAME_XX2, out, out_len)) {
         drop(ll, c);
@@ -149,11 +159,12 @@ static void handle_xx1(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
 
 static void handle_xx3(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
 {
-    uint8_t pt[32], pub[SL_KEY_LEN];
-    size_t pt_len;
+    uint8_t plain[32];
+    uint8_t pub[SL_KEY_LEN];
+    size_t plain_len = 0;
     lp_msg_t hello;
-    if (sl_handshake_read(&c->hs, body, len, pt, sizeof(pt), &pt_len) != SL_OK ||
-        !lp_decode(pt, pt_len, &hello) || hello.type != LP_MSG_HELLO || !ll_pairing_open(ll) ||
+    if (sl_handshake_read(&c->hs, body, len, plain, sizeof(plain), &plain_len) != SL_OK ||
+        !lp_decode(plain, plain_len, &hello) || hello.type != LP_MSG_HELLO || !ll_pairing_open(ll) ||
         hello.hello.role != ll->pairing_role) {
         drop(ll, c);
         return;
@@ -196,16 +207,16 @@ static void handle_xx3(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
 
 static void handle_data(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
 {
-    uint8_t pt[64];
-    size_t pt_len;
+    uint8_t plain[64];
+    size_t plain_len = 0;
     lp_msg_t msg;
-    if (sl_session_decrypt(&c->sess, body, len, pt, sizeof(pt), &pt_len) != SL_OK) {
+    if (sl_session_decrypt(&c->sess, body, len, plain, sizeof(plain), &plain_len) != SL_OK) {
         drop(ll, c);
         return;
     }
     c->deadline_ms = now_ms(ll) + LL_IDLE_TIMEOUT_MS;
-    bool ok = lp_decode(pt, pt_len, &msg);
-    sl_wipe(pt, sizeof(pt));
+    bool ok = lp_decode(plain, plain_len, &msg);
+    sl_wipe(plain, sizeof(plain));
     if (!ok) {
         return; /* authenticated but unknown/malformed: ignore for forward compatibility */
     }

@@ -1,7 +1,9 @@
+#include <stdint.h>
 #include <string.h>
 
 #include "fake_platform.h"
 #include "lock_core/lc_creds.h"
+#include "lock_core/lc_types.h"
 #include "test.h"
 
 #define PIN(s) (const uint8_t *)(s), strlen(s)
@@ -18,9 +20,9 @@ TEST(test_pin_validation)
 
 TEST(test_pin_set_and_match)
 {
-    fake_t f;
-    fake_reset(&f);
-    lc_platform_t plat = fake_platform(&f);
+    fake_t fake;
+    fake_reset(&fake);
+    lc_platform_t plat = fake_platform(&fake);
     lc_creds_t c;
     lc_creds_init(&c);
 
@@ -41,9 +43,9 @@ TEST(test_pin_set_and_match)
 
 TEST(test_pin_not_stored_in_clear)
 {
-    fake_t f;
-    fake_reset(&f);
-    lc_platform_t plat = fake_platform(&f);
+    fake_t fake;
+    fake_reset(&fake);
+    lc_platform_t plat = fake_platform(&fake);
     lc_creds_t c;
     lc_creds_init(&c);
     lc_user_set(&c, 1, LC_USER_UNRESTRICTED, NULL);
@@ -61,9 +63,9 @@ TEST(test_pin_not_stored_in_clear)
 
 TEST(test_same_pin_different_salt)
 {
-    fake_t f;
-    fake_reset(&f);
-    lc_platform_t plat = fake_platform(&f);
+    fake_t fake;
+    fake_reset(&fake);
+    lc_platform_t plat = fake_platform(&fake);
     lc_creds_t c;
     lc_creds_init(&c);
     lc_user_set(&c, 1, LC_USER_UNRESTRICTED, NULL);
@@ -77,9 +79,9 @@ TEST(test_same_pin_different_salt)
 
 TEST(test_duplicate_pin_rejected)
 {
-    fake_t f;
-    fake_reset(&f);
-    lc_platform_t plat = fake_platform(&f);
+    fake_t fake;
+    fake_reset(&fake);
+    lc_platform_t plat = fake_platform(&fake);
     lc_creds_t c;
     lc_creds_init(&c);
     lc_user_set(&c, 1, LC_USER_UNRESTRICTED, NULL);
@@ -91,9 +93,9 @@ TEST(test_duplicate_pin_rejected)
 
 TEST(test_user_clear_removes_credentials)
 {
-    fake_t f;
-    fake_reset(&f);
-    lc_platform_t plat = fake_platform(&f);
+    fake_t fake;
+    fake_reset(&fake);
+    lc_platform_t plat = fake_platform(&fake);
     lc_creds_t c;
     lc_creds_init(&c);
     lc_user_set(&c, 3, LC_USER_UNRESTRICTED, "Carol");
@@ -120,19 +122,23 @@ TEST(test_schedule_access)
     lc_creds_t c;
     lc_creds_init(&c);
     lc_user_set(&c, 1, LC_USER_WEEKDAY_SCHEDULE, "Cleaner");
+    enum { MONDAY = 1, TUESDAY = 2, WEDNESDAY = 3 };
+    enum { AT_9AM = 9 * 60, AT_10AM = 10 * 60, AT_NOON = 12 * 60 };
     /* Mon + Wed, 09:00-12:00 */
-    lc_weekday_schedule_t s = {.days_mask = (1 << 1) | (1 << 3), .start_min = 540, .end_min = 720};
+    lc_weekday_schedule_t s = {.days_mask = (1U << (unsigned)MONDAY) | (1U << (unsigned)WEDNESDAY),
+                               .start_min = AT_9AM,
+                               .end_min = AT_NOON};
     CHECK_EQ(lc_user_set_schedules(&c, 1, &s, 1), LC_OK);
 
-    lc_wall_time_t mon_10 = {.weekday = 1, .minute_of_day = 600};
-    lc_wall_time_t mon_12 = {.weekday = 1, .minute_of_day = 720};
-    lc_wall_time_t tue_10 = {.weekday = 2, .minute_of_day = 600};
+    lc_wall_time_t mon_10 = {.weekday = MONDAY, .minute_of_day = AT_10AM};
+    lc_wall_time_t mon_12 = {.weekday = MONDAY, .minute_of_day = AT_NOON};
+    lc_wall_time_t tue_10 = {.weekday = TUESDAY, .minute_of_day = AT_10AM};
     CHECK_EQ(lc_user_access_check(&c, 1, &mon_10), LC_OK);
     CHECK_EQ(lc_user_access_check(&c, 1, &mon_12), LC_ERR_SCHEDULE); /* end exclusive */
     CHECK_EQ(lc_user_access_check(&c, 1, &tue_10), LC_ERR_SCHEDULE);
     CHECK_EQ(lc_user_access_check(&c, 1, NULL), LC_ERR_SCHEDULE); /* fail closed */
 
-    lc_weekday_schedule_t bad = {.days_mask = 0, .start_min = 0, .end_min = 10};
+    lc_weekday_schedule_t bad = {.days_mask = 0, .start_min = 0, .end_min = AT_9AM}; /* no days */
     CHECK_EQ(lc_user_set_schedules(&c, 1, &bad, 1), LC_ERR_INVALID_ARG);
 }
 
@@ -151,13 +157,13 @@ TEST(test_disabled_and_non_access_users)
 
 TEST(test_digest_failure_is_platform_error)
 {
-    fake_t f;
-    fake_reset(&f);
-    lc_platform_t plat = fake_platform(&f);
+    fake_t fake;
+    fake_reset(&fake);
+    lc_platform_t plat = fake_platform(&fake);
     lc_creds_t c;
     lc_creds_init(&c);
     lc_user_set(&c, 1, LC_USER_UNRESTRICTED, NULL);
-    f.digest_fail = true;
+    fake.digest_fail = true;
     CHECK_EQ(lc_pin_set(&c, &plat, 1, 1, PIN("1234")), LC_ERR_PLATFORM);
     CHECK(!c.creds[0].in_use);
     CHECK_EQ(lc_pin_match(&c, &plat, PIN("1234"), NULL), LC_ERR_PLATFORM);

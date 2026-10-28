@@ -1,6 +1,30 @@
 #include "test.h"
 
-int test_failures = 0;
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+
+static int g_failures; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): harness tally
+
+void test_check(bool ok, const char *file, int line, const char *expr)
+{
+    if (!ok) {
+        (void)fprintf(stderr, "  FAIL %s:%d: %s\n", file, line, expr);
+        g_failures++;
+    }
+}
+
+void test_check_eq(long long actual, long long expected, const char *file, int line,
+                   const char *actual_expr, const char *expected_expr)
+{
+    if (actual != expected) {
+        (void)fprintf(stderr, "  FAIL %s:%d: %s == %s (%lld != %lld)\n", file, line, actual_expr,
+                      expected_expr, actual, expected);
+        g_failures++;
+    }
+}
+
+int test_failure_count(void) { return g_failures; }
 
 #define X(name) TEST(name);
 #define TESTS                                                                                      \
@@ -75,17 +99,17 @@ TESTS
 int main(void)
 {
 #define X(name) {#name, name},
-    static const test_case_t cases[] = {TESTS};
+    static const test_case_t CASES[] = {TESTS};
 #undef X
     int failed_cases = 0;
-    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
-        int before = test_failures;
-        cases[i].fn();
-        bool ok = test_failures == before;
-        printf("%s %s\n", ok ? "PASS" : "FAIL", cases[i].name);
+    for (size_t i = 0; i < sizeof(CASES) / sizeof(CASES[0]); i++) {
+        int before = test_failure_count();
+        CASES[i].fn();
+        bool ok = test_failure_count() == before;
+        printf("%s %s\n", ok ? "PASS" : "FAIL", CASES[i].name);
         failed_cases += !ok;
     }
-    printf("\n%d/%zu passed\n", (int)(sizeof(cases) / sizeof(cases[0])) - failed_cases,
-           sizeof(cases) / sizeof(cases[0]));
+    printf("\n%d/%zu passed\n", (int)(sizeof(CASES) / sizeof(CASES[0])) - failed_cases,
+           sizeof(CASES) / sizeof(CASES[0]));
     return failed_cases ? 1 : 0;
 }

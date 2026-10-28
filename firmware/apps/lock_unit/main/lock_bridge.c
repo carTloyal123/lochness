@@ -1,4 +1,10 @@
 #include "lock_bridge.h"
+#include "link_proto/lp.h"
+#include "lock_core/lc_lock.h"
+#include "lock_core/lc_types.h"
+#include "lock_link/ll.h"
+#include <stddef.h>
+#include <stdint.h>
 
 static lp_result_t to_result(lc_err_t e)
 {
@@ -26,11 +32,13 @@ lp_bolt_t lock_bridge_bolt(const lc_t *lc)
     }
 }
 
+enum { MS_PER_S = 1000 };
+
 ll_access_result_t lock_bridge_access(lc_t *lc, lp_role_t role, lp_op_t op, const uint8_t *pin,
                                       size_t pin_len)
 {
     ll_access_result_t r = {.result = LP_RESULT_NOT_PERMITTED};
-    lc_source_t source;
+    lc_source_t source = LC_SOURCE_KEYPAD;
     switch (role) {
     case LP_ROLE_KEYPAD: source = LC_SOURCE_KEYPAD; break;
     case LP_ROLE_HUB: source = LC_SOURCE_REMOTE; break;
@@ -44,7 +52,7 @@ ll_access_result_t lock_bridge_access(lc_t *lc, lp_role_t role, lp_op_t op, cons
     if (lc->rl.locked) {
         uint64_t now = lc->plat.now_ms(lc->plat.ctx);
         uint64_t left = lc->rl.locked_until_ms > now ? lc->rl.locked_until_ms - now : 0;
-        uint64_t s = (left + 999) / 1000;
+        uint64_t s = (left + MS_PER_S - 1) / MS_PER_S; /* round up */
         r.lockout_s = (uint16_t)(s > UINT16_MAX ? UINT16_MAX : s);
     }
     return r;

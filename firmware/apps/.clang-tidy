@@ -1,0 +1,8 @@
+---
+# ESP-IDF glue. ESP_LOGx expands to `(level) | ESP_LOG_CONFIGS_DEFAULT` on
+# signed enums, so hicpp-signed-bitwise fires on every log call (and on the
+# NimBLE flag macros) with no call-site fix. The check stays on for the
+# portable components and tests.
+InheritParentConfig: true
+Checks: '-hicpp-signed-bitwise'
+...

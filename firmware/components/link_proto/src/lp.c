@@ -1,28 +1,39 @@
 #include "link_proto/lp.h"
 
+#include <stdint.h>
 #include <string.h>
 
-/* Body sizes, excluding the type byte. */
+/* Body sizes, excluding the type byte. Layouts are in docs/LINK_PROTOCOL.md. */
+enum {
+    HELLO_BODY_LEN = 6,         /* proto, role, fw_major, fw_minor, battery_mv(2) */
+    HELLO_ACK_BODY_LEN = 2,     /* proto, bolt */
+    ACCESS_REQ_HEAD_LEN = 3,    /* seq, op, pin_len; then the PIN field */
+    ACCESS_RESULT_BODY_LEN = 5, /* seq, result, bolt, lockout_s(2) */
+    KEYPAD_STATUS_BODY_LEN = 3, /* battery_mv(2), flags */
+    PAIR_RESULT_BODY_LEN = 1,   /* accepted */
+};
+
 static int body_len(uint8_t type)
 {
     switch (type) {
-    case LP_MSG_HELLO: return 6;
-    case LP_MSG_HELLO_ACK: return 2;
-    case LP_MSG_ACCESS_REQ: return 3 + LP_PIN_FIELD_LEN;
-    case LP_MSG_ACCESS_RESULT: return 5;
-    case LP_MSG_KEYPAD_STATUS: return 3;
-    case LP_MSG_PAIR_RESULT: return 1;
+    case LP_MSG_HELLO: return HELLO_BODY_LEN;
+    case LP_MSG_HELLO_ACK: return HELLO_ACK_BODY_LEN;
+    case LP_MSG_ACCESS_REQ: return ACCESS_REQ_HEAD_LEN + LP_PIN_FIELD_LEN;
+    case LP_MSG_ACCESS_RESULT: return ACCESS_RESULT_BODY_LEN;
+    case LP_MSG_KEYPAD_STATUS: return KEYPAD_STATUS_BODY_LEN;
+    case LP_MSG_PAIR_RESULT: return PAIR_RESULT_BODY_LEN;
     default: return -1;
     }
 }
 
-static void put16(uint8_t *p, uint16_t v)
+/* 16-bit fields are little-endian. */
+static void put16(uint8_t *dst, uint16_t value)
 {
-    p[0] = (uint8_t)v;
-    p[1] = (uint8_t)(v >> 8);
+    dst[0] = (uint8_t)value;
+    dst[1] = (uint8_t)((unsigned)value >> 8U);
 }
 
-static uint16_t get16(const uint8_t *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
+static uint16_t get16(const uint8_t *src) { return (uint16_t)((unsigned)src[0] | ((unsigned)src[1] << 8U)); }
 
 static bool pin_ok(uint8_t len, const uint8_t *pin)
 {
@@ -37,55 +48,57 @@ static bool pin_ok(uint8_t len, const uint8_t *pin)
     return true;
 }
 
-size_t lp_encode(const lp_msg_t *m, uint8_t *buf, size_t cap)
+size_t lp_encode(const lp_msg_t *msg, uint8_t *buf, size_t cap)
 {
-    int n = body_len(m->type);
+    int n = body_len(msg->type);
     if (n < 0 || (size_t)n + 1 > cap) {
         return 0;
     }
-    uint8_t *b = buf + 1;
-    buf[0] = m->type;
-    switch (m->type) {
+    uint8_t *body = buf + 1;
+    buf[0] = msg->type;
+    switch (msg->type) {
     case LP_MSG_HELLO:
-        b[0] = m->hello.proto;
-        b[1] = m->hello.role;
-        b[2] = m->hello.fw_major;
-        b[3] = m->hello.fw_minor;
-        put16(b + 4, m->hello.battery_mv);
+        body[0] = msg->hello.proto;
+        body[1] = msg->hello.role;
+        body[2] = msg->hello.fw_major;
+        body[3] = msg->hello.fw_minor;
+        put16(body + 4, msg->hello.battery_mv);
         break;
     case LP_MSG_HELLO_ACK:
-        b[0] = m->hello_ack.proto;
-        b[1] = m->hello_ack.bolt;
+        body[0] = msg->hello_ack.proto;
+        body[1] = msg->hello_ack.bolt;
         break;
     case LP_MSG_ACCESS_REQ:
-        if (m->access_req.op > LP_OP_UNLOCK || !pin_ok(m->access_req.pin_len, m->access_req.pin)) {
+        if (msg->access_req.op > LP_OP_UNLOCK || !pin_ok(msg->access_req.pin_len, msg->access_req.pin)) {
             return 0;
         }
-        b[0] = m->access_req.seq;
-        b[1] = m->access_req.op;
-        b[2] = m->access_req.pin_len;
-        memcpy(b + 3, m->access_req.pin, LP_PIN_FIELD_LEN);
+        body[0] = msg->access_req.seq;
+        body[1] = msg->access_req.op;
+        body[2] = msg->access_req.pin_len;
+        memcpy(body + ACCESS_REQ_HEAD_LEN, msg->access_req.pin, LP_PIN_FIELD_LEN);
         break;
     case LP_MSG_ACCESS_RESULT:
-        b[0] = m->access_result.seq;
-        b[1] = m->access_result.result;
-        b[2] = m->access_result.bolt;
-        put16(b + 3, m->access_result.lockout_s);
+        body[0] = msg->access_result.seq;
+        body[1] = msg->access_result.result;
+        body[2] = msg->access_result.bolt;
+        put16(body + 3, msg->access_result.lockout_s);
         break;
     case LP_MSG_KEYPAD_STATUS:
-        put16(b, m->keypad_status.battery_mv);
-        b[2] = m->keypad_status.flags;
+        put16(body, msg->keypad_status.battery_mv);
+        body[2] = msg->keypad_status.flags;
         break;
     case LP_MSG_PAIR_RESULT:
-        b[0] = m->pair_result.accepted;
+        body[0] = msg->pair_result.accepted;
         break;
+    default:
+        return 0; /* unreachable: body_len() rejected unknown types */
     }
     return (size_t)n + 1;
 }
 
-bool lp_decode(const uint8_t *buf, size_t len, lp_msg_t *m)
+bool lp_decode(const uint8_t *buf, size_t len, lp_msg_t *msg)
 {
-    memset(m, 0, sizeof(*m));
+    memset(msg, 0, sizeof(*msg));
     if (len < 1) {
         return false;
     }
@@ -93,51 +106,52 @@ bool lp_decode(const uint8_t *buf, size_t len, lp_msg_t *m)
     if (n < 0 || len != (size_t)n + 1) {
         return false;
     }
-    const uint8_t *b = buf + 1;
-    m->type = buf[0];
-    switch (m->type) {
+    const uint8_t *body = buf + 1;
+    msg->type = buf[0];
+    switch (msg->type) {
     case LP_MSG_HELLO:
-        m->hello.proto = b[0];
-        m->hello.role = b[1];
-        m->hello.fw_major = b[2];
-        m->hello.fw_minor = b[3];
-        m->hello.battery_mv = get16(b + 4);
-        return m->hello.role >= LP_ROLE_KEYPAD && m->hello.role <= LP_ROLE_PHONE;
+        msg->hello.proto = body[0];
+        msg->hello.role = body[1];
+        msg->hello.fw_major = body[2];
+        msg->hello.fw_minor = body[3];
+        msg->hello.battery_mv = get16(body + 4);
+        return msg->hello.role >= LP_ROLE_KEYPAD && msg->hello.role <= LP_ROLE_PHONE;
     case LP_MSG_HELLO_ACK:
-        m->hello_ack.proto = b[0];
-        m->hello_ack.bolt = b[1];
+        msg->hello_ack.proto = body[0];
+        msg->hello_ack.bolt = body[1];
         return true;
     case LP_MSG_ACCESS_REQ:
-        m->access_req.seq = b[0];
-        m->access_req.op = b[1];
-        m->access_req.pin_len = b[2];
-        memcpy(m->access_req.pin, b + 3, LP_PIN_FIELD_LEN);
-        if (m->access_req.op > LP_OP_UNLOCK || !pin_ok(m->access_req.pin_len, m->access_req.pin)) {
-            lp_msg_wipe(m);
+        msg->access_req.seq = body[0];
+        msg->access_req.op = body[1];
+        msg->access_req.pin_len = body[2];
+        memcpy(msg->access_req.pin, body + ACCESS_REQ_HEAD_LEN, LP_PIN_FIELD_LEN);
+        if (msg->access_req.op > LP_OP_UNLOCK || !pin_ok(msg->access_req.pin_len, msg->access_req.pin)) {
+            lp_msg_wipe(msg);
             return false;
         }
         return true;
     case LP_MSG_ACCESS_RESULT:
-        m->access_result.seq = b[0];
-        m->access_result.result = b[1];
-        m->access_result.bolt = b[2];
-        m->access_result.lockout_s = get16(b + 3);
+        msg->access_result.seq = body[0];
+        msg->access_result.result = body[1];
+        msg->access_result.bolt = body[2];
+        msg->access_result.lockout_s = get16(body + 3);
         return true;
     case LP_MSG_KEYPAD_STATUS:
-        m->keypad_status.battery_mv = get16(b);
-        m->keypad_status.flags = b[2];
+        msg->keypad_status.battery_mv = get16(body);
+        msg->keypad_status.flags = body[2];
         return true;
     case LP_MSG_PAIR_RESULT:
-        m->pair_result.accepted = b[0];
-        return b[0] <= 1;
+        msg->pair_result.accepted = body[0];
+        return body[0] <= 1;
+    default:
+        return false; /* unreachable: body_len() rejected unknown types */
     }
-    return false;
 }
 
-void lp_msg_wipe(lp_msg_t *m)
+void lp_msg_wipe(lp_msg_t *msg)
 {
-    volatile uint8_t *p = (volatile uint8_t *)m;
-    for (size_t i = 0; i < sizeof(*m); i++) {
-        p[i] = 0;
+    volatile uint8_t *bytes = (volatile uint8_t *)msg;
+    for (size_t i = 0; i < sizeof(*msg); i++) {
+        bytes[i] = 0;
     }
 }

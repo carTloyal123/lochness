@@ -1,49 +1,59 @@
+#include <stdint.h>
 #include <string.h>
 
 #include "monocypher.h"
 #include "secure_link/sl_crypto.h"
 
+enum {
+    HMAC_BLOCK_LEN = 64,   /* SHA-256 block size */
+    AEAD_NONCE_LEN = 12,   /* RFC 8439 IETF nonce */
+    NONCE_ZERO_PREFIX = 4, /* Noise: 32 zero bits, then the 64-bit counter little-endian */
+    NONCE_COUNTER_LEN = 8,
+};
+static const unsigned HMAC_IPAD = 0x36U; /* RFC 2104 */
+static const unsigned HMAC_OPAD = 0x5CU; /* RFC 2104 */
+
 void sl_wipe(void *p, size_t len) { crypto_wipe(p, len); }
 
 bool sl_ct_equal(const uint8_t *a, const uint8_t *b, size_t len)
 {
-    uint8_t d = 0;
+    unsigned diff = 0;
     for (size_t i = 0; i < len; i++) {
-        d |= a[i] ^ b[i];
+        diff |= (unsigned)a[i] ^ (unsigned)b[i];
     }
-    return d == 0;
+    return diff == 0;
 }
 
 void sl_hmac_sha256(const uint8_t *key, size_t key_len, const uint8_t *data, size_t len,
                     uint8_t out[SL_HASH_LEN])
 {
-    uint8_t k[64] = {0};
-    if (key_len > sizeof(k)) {
-        sl_sha256(key, key_len, k);
+    uint8_t block_key[HMAC_BLOCK_LEN] = {0};
+    if (key_len > sizeof(block_key)) {
+        sl_sha256(key, key_len, block_key);
     } else {
-        memcpy(k, key, key_len);
+        memcpy(block_key, key, key_len);
     }
-    uint8_t pad[64];
+    uint8_t pad[HMAC_BLOCK_LEN];
     sl_sha256_t ctx;
     uint8_t inner[SL_HASH_LEN];
 
-    for (int i = 0; i < 64; i++) {
-        pad[i] = k[i] ^ 0x36;
+    for (size_t i = 0; i < HMAC_BLOCK_LEN; i++) {
+        pad[i] = (uint8_t)((unsigned)block_key[i] ^ HMAC_IPAD);
     }
     sl_sha256_init(&ctx);
     sl_sha256_update(&ctx, pad, sizeof(pad));
     sl_sha256_update(&ctx, data, len);
     sl_sha256_final(&ctx, inner);
 
-    for (int i = 0; i < 64; i++) {
-        pad[i] = k[i] ^ 0x5c;
+    for (size_t i = 0; i < HMAC_BLOCK_LEN; i++) {
+        pad[i] = (uint8_t)((unsigned)block_key[i] ^ HMAC_OPAD);
     }
     sl_sha256_init(&ctx);
     sl_sha256_update(&ctx, pad, sizeof(pad));
     sl_sha256_update(&ctx, inner, sizeof(inner));
     sl_sha256_final(&ctx, out);
 
-    sl_wipe(k, sizeof(k));
+    sl_wipe(block_key, sizeof(block_key));
     sl_wipe(pad, sizeof(pad));
     sl_wipe(inner, sizeof(inner));
 }
@@ -75,44 +85,44 @@ void sl_keypair_from_private(sl_keypair_t *kp) { crypto_x25519_public_key(kp->pu
 
 bool sl_dh(const uint8_t priv[SL_KEY_LEN], const uint8_t pub[SL_KEY_LEN], uint8_t out[SL_KEY_LEN])
 {
-    static const uint8_t zero[SL_KEY_LEN] = {0};
+    static const uint8_t ZERO[SL_KEY_LEN] = {0};
     crypto_x25519(out, priv, pub);
-    return !sl_ct_equal(out, zero, SL_KEY_LEN);
+    return !sl_ct_equal(out, ZERO, SL_KEY_LEN);
 }
 
-static void nonce_bytes(uint64_t n, uint8_t out[12])
+static void nonce_bytes(uint64_t counter, uint8_t out[AEAD_NONCE_LEN])
 {
-    memset(out, 0, 4);
-    for (int i = 0; i < 8; i++) {
-        out[4 + i] = (uint8_t)(n >> (8 * i));
+    memset(out, 0, NONCE_ZERO_PREFIX);
+    for (unsigned i = 0; i < NONCE_COUNTER_LEN; i++) {
+        out[NONCE_ZERO_PREFIX + i] = (uint8_t)(counter >> (8U * i));
     }
 }
 
 void sl_aead_encrypt(const uint8_t key[SL_KEY_LEN], uint64_t nonce, const uint8_t *ad, size_t ad_len,
-                     const uint8_t *pt, size_t len, uint8_t *out)
+                     const uint8_t *plaintext, size_t len, uint8_t *out)
 {
-    uint8_t iv[12];
-    nonce_bytes(nonce, iv);
+    uint8_t nonce_buf[AEAD_NONCE_LEN];
+    nonce_bytes(nonce, nonce_buf);
     /* A fresh context per message: Monocypher ratchets the key after each
      * write, so only the first message of a context is plain RFC 8439. */
     crypto_aead_ctx ctx;
-    crypto_aead_init_ietf(&ctx, key, iv);
-    crypto_aead_write(&ctx, out, out + len, ad, ad_len, pt, len);
+    crypto_aead_init_ietf(&ctx, key, nonce_buf);
+    crypto_aead_write(&ctx, out, out + len, ad, ad_len, plaintext, len);
     crypto_wipe(&ctx, sizeof(ctx));
 }
 
 bool sl_aead_decrypt(const uint8_t key[SL_KEY_LEN], uint64_t nonce, const uint8_t *ad, size_t ad_len,
-                     const uint8_t *in, size_t in_len, uint8_t *out)
+                     const uint8_t *ciphertext, size_t ciphertext_len, uint8_t *out)
 {
-    if (in_len < SL_TAG_LEN) {
+    if (ciphertext_len < SL_TAG_LEN) {
         return false;
     }
-    size_t len = in_len - SL_TAG_LEN;
-    uint8_t iv[12];
-    nonce_bytes(nonce, iv);
+    size_t len = ciphertext_len - SL_TAG_LEN;
+    uint8_t nonce_buf[AEAD_NONCE_LEN];
+    nonce_bytes(nonce, nonce_buf);
     crypto_aead_ctx ctx;
-    crypto_aead_init_ietf(&ctx, key, iv);
-    int rc = crypto_aead_read(&ctx, out, in + len, ad, ad_len, in, len);
+    crypto_aead_init_ietf(&ctx, key, nonce_buf);
+    int rc = crypto_aead_read(&ctx, out, ciphertext + len, ad, ad_len, ciphertext, len);
     crypto_wipe(&ctx, sizeof(ctx));
     return rc == 0;
 }

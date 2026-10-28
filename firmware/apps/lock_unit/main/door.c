@@ -3,7 +3,7 @@
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
-#include "lock_task.h"
+#include "lock_core/lc_lock.h"
 #include "sdkconfig.h"
 
 #if CONFIG_LOCHNESS_DOOR_GPIO >= 0

@@ -11,6 +11,10 @@
 #   modernize-use-nullptr (and its hicpp alias)
 #                 ESP-IDF builds are C23, but the portable components are also
 #                 built as C11 for the host tests, where nullptr doesn't exist.
+#   readability-implicit-bool-conversion
+#                 Written for C++. In C, ==, < and && yield int, so every
+#                 `bool ok = a == b` and `return x && y` is flagged and the
+#                 fixes add (int) casts and `!= 0` to correct code.
 Checks: >
   *,
   -altera-*,
@@ -18,6 +22,7 @@ Checks: >
   -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
   -modernize-use-nullptr,
   -hicpp-use-nullptr,
+  -readability-implicit-bool-conversion,
 WarningsAsErrors: ''
 # Lint our headers, not ESP-IDF's or the vendored Monocypher.
 HeaderFilterRegex: '.*/firmware/(apps|components|test)/.*'
@@ -49,8 +54,8 @@ CheckOptions:
   cppcoreguidelines-avoid-magic-numbers.IgnorePowersOf2IntegerValues: true
   readability-function-cognitive-complexity.IgnoreMacros: true
   readability-function-size.LineThreshold: 120
-  # Known cycles inside ESP-IDF (FreeRTOS.h <-> idf_additions.h, NimBLE).
-  misc-header-include-cycle.IgnoredFilesList: 'FreeRTOS\.h;ble_hs\.h'
+  # Known cycles inside ESP-IDF (FreeRTOS.h <-> idf_additions.h, NimBLE os/).
+  misc-header-include-cycle.IgnoredFilesList: 'FreeRTOS\.h;ble_hs\.h;os_mbuf\.h'
   bugprone-easily-swappable-parameters.MinimumLength: 3
   misc-include-cleaner.IgnoreHeaders: 'sdkconfig\.h;freertos/.*;esp_.*\.h;host/.*;nimble/.*;services/.*'
 ...

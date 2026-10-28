@@ -1,17 +1,25 @@
 #include "lock_core/lc_creds.h"
+#include "lock_core/lc_types.h"
 
+#include <stdint.h>
 #include <string.h>
+
+static const unsigned DAYS_MASK_ALL = 0x7FU; /* bits 0..6 = Sunday..Saturday */
+enum {
+    MINUTES_PER_DAY = 1440,
+    LAST_WEEKDAY = 6, /* Saturday */
+};
 
 static bool user_index_valid(uint16_t i) { return i >= 1 && i <= LC_MAX_USERS; }
 static bool cred_index_valid(uint16_t i) { return i >= 1 && i <= LC_MAX_CREDENTIALS; }
 
 static uint8_t ct_diff(const uint8_t *a, const uint8_t *b, size_t len)
 {
-    uint8_t d = 0;
+    unsigned diff = 0;
     for (size_t i = 0; i < len; i++) {
-        d |= a[i] ^ b[i];
+        diff |= (unsigned)a[i] ^ (unsigned)b[i];
     }
-    return d;
+    return (uint8_t)diff;
 }
 
 static void wipe(void *p, size_t len)
@@ -29,17 +37,17 @@ lc_err_t lc_user_set(lc_creds_t *c, uint16_t user_index, lc_user_type_t type, co
     if (!user_index_valid(user_index) || type > LC_USER_NON_ACCESS) {
         return LC_ERR_INVALID_ARG;
     }
-    lc_user_t *u = &c->users[user_index - 1];
-    bool existed = u->in_use;
-    u->in_use = true;
+    lc_user_t *user = &c->users[user_index - 1];
+    bool existed = user->in_use;
+    user->in_use = true;
     if (!existed) {
-        u->enabled = true;
-        u->schedule_count = 0;
+        user->enabled = true;
+        user->schedule_count = 0;
     }
-    u->type = type;
-    memset(u->name, 0, sizeof(u->name));
+    user->type = type;
+    memset(user->name, 0, sizeof(user->name));
     if (name) {
-        strncpy(u->name, name, LC_USER_NAME_MAX);
+        strncpy(user->name, name, LC_USER_NAME_MAX);
     }
     return LC_OK;
 }
@@ -49,11 +57,11 @@ lc_err_t lc_user_set_enabled(lc_creds_t *c, uint16_t user_index, bool enabled)
     if (!user_index_valid(user_index)) {
         return LC_ERR_INVALID_ARG;
     }
-    lc_user_t *u = &c->users[user_index - 1];
-    if (!u->in_use) {
+    lc_user_t *user = &c->users[user_index - 1];
+    if (!user->in_use) {
         return LC_ERR_NOT_FOUND;
     }
-    u->enabled = enabled;
+    user->enabled = enabled;
     return LC_OK;
 }
 
@@ -66,20 +74,21 @@ lc_err_t lc_user_set_schedules(lc_creds_t *c, uint16_t user_index,
     }
     for (uint8_t i = 0; i < count; i++) {
         const lc_weekday_schedule_t *s = &schedules[i];
-        if ((s->days_mask & 0x7F) == 0 || (s->days_mask & 0x80) || s->start_min >= s->end_min ||
-            s->end_min > 1440) {
+        unsigned days = s->days_mask;
+        if ((days & DAYS_MASK_ALL) == 0 || (days & ~DAYS_MASK_ALL) != 0 || s->start_min >= s->end_min ||
+            s->end_min > MINUTES_PER_DAY) {
             return LC_ERR_INVALID_ARG;
         }
     }
-    lc_user_t *u = &c->users[user_index - 1];
-    if (!u->in_use) {
+    lc_user_t *user = &c->users[user_index - 1];
+    if (!user->in_use) {
         return LC_ERR_NOT_FOUND;
     }
-    memset(u->schedules, 0, sizeof(u->schedules));
+    memset(user->schedules, 0, sizeof(user->schedules));
     if (count) {
-        memcpy(u->schedules, schedules, count * sizeof(*schedules));
+        memcpy(user->schedules, schedules, count * sizeof(*schedules));
     }
-    u->schedule_count = count;
+    user->schedule_count = count;
     return LC_OK;
 }
 
@@ -190,13 +199,13 @@ lc_err_t lc_pin_match(const lc_creds_t *c, const lc_platform_t *plat, const uint
     /* Digest every slot, used or not, so timing is independent of where (or
      * whether) the PIN matches. */
     for (uint16_t i = 0; i < LC_MAX_CREDENTIALS; i++) {
-        const lc_credential_t *cr = &c->creds[i];
-        if (plat->pin_digest(plat->ctx, cr->salt, pin, len, digest) != LC_OK) {
+        const lc_credential_t *cred = &c->creds[i];
+        if (plat->pin_digest(plat->ctx, cred->salt, pin, len, digest) != LC_OK) {
             platform_failed = true;
             continue;
         }
-        uint8_t diff = ct_diff(digest, cr->digest, LC_DIGEST_LEN);
-        if (diff == 0 && cr->in_use && found == LC_INDEX_NONE) {
+        uint8_t diff = ct_diff(digest, cred->digest, LC_DIGEST_LEN);
+        if (diff == 0 && cred->in_use && found == LC_INDEX_NONE) {
             found = i + 1;
         }
     }
@@ -213,24 +222,24 @@ lc_err_t lc_pin_match(const lc_creds_t *c, const lc_platform_t *plat, const uint
 
 static bool in_schedule(const lc_weekday_schedule_t *s, const lc_wall_time_t *t)
 {
-    return (s->days_mask & (1u << t->weekday)) && t->minute_of_day >= s->start_min &&
+    return (s->days_mask & (1U << t->weekday)) && t->minute_of_day >= s->start_min &&
            t->minute_of_day < s->end_min;
 }
 
 lc_err_t lc_user_access_check(const lc_creds_t *c, uint16_t user_index, const lc_wall_time_t *now)
 {
-    const lc_user_t *u = lc_user_get(c, user_index);
-    if (!u || !u->enabled || u->type == LC_USER_NON_ACCESS) {
+    const lc_user_t *user = lc_user_get(c, user_index);
+    if (!user || !user->enabled || user->type == LC_USER_NON_ACCESS) {
         return LC_ERR_DENIED;
     }
-    if (u->type != LC_USER_WEEKDAY_SCHEDULE) {
+    if (user->type != LC_USER_WEEKDAY_SCHEDULE) {
         return LC_OK;
     }
-    if (!now || now->weekday > 6) {
+    if (!now || now->weekday > LAST_WEEKDAY) {
         return LC_ERR_SCHEDULE;
     }
-    for (uint8_t i = 0; i < u->schedule_count; i++) {
-        if (in_schedule(&u->schedules[i], now)) {
+    for (uint8_t i = 0; i < user->schedule_count; i++) {
+        if (in_schedule(&user->schedules[i], now)) {
             return LC_OK;
         }
     }

@@ -2,27 +2,16 @@
 #pragma once
 
 #include <stdbool.h>
-#include <stdio.h>
 
-extern int test_failures;
+/* Record a check result; prints the failure. Use the macros below. */
+void test_check(bool ok, const char *file, int line, const char *expr);
+void test_check_eq(long long actual, long long expected, const char *file, int line,
+                   const char *actual_expr, const char *expected_expr);
+/* Number of failed checks so far. */
+int test_failure_count(void);
 
-#define CHECK(cond)                                                                    \
-    do {                                                                               \
-        if (!(cond)) {                                                                 \
-            fprintf(stderr, "  FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond);          \
-            test_failures++;                                                           \
-        }                                                                              \
-    } while (0)
-
-#define CHECK_EQ(a, b)                                                                 \
-    do {                                                                               \
-        long long _a = (long long)(a), _b = (long long)(b);                            \
-        if (_a != _b) {                                                                \
-            fprintf(stderr, "  FAIL %s:%d: %s == %s (%lld != %lld)\n", __FILE__,       \
-                    __LINE__, #a, #b, _a, _b);                                         \
-            test_failures++;                                                           \
-        }                                                                              \
-    } while (0)
+#define CHECK(cond) test_check((cond), __FILE__, __LINE__, #cond)
+#define CHECK_EQ(a, b) test_check_eq((long long)(a), (long long)(b), __FILE__, __LINE__, #a, #b)
 
 typedef struct {
     const char *name;

@@ -20,6 +20,6 @@ void keypad_task_post_connected(const uint8_t *addr, size_t len);
 void keypad_task_post_disconnected(void);
 void keypad_task_post_frame(const uint8_t *frame, size_t len);
 
-/* Run fn on the keypad task (console use). */
+/* Run func on the keypad task (console use). */
 typedef void (*keypad_task_fn_t)(kp_t *kp, void *arg);
-void keypad_task_call(keypad_task_fn_t fn, void *arg);
+void keypad_task_call(keypad_task_fn_t func, void *arg);

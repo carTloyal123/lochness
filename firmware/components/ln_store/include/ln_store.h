@@ -28,9 +28,9 @@ esp_err_t ln_store_init(void);
 esp_err_t ln_secret_get_or_create(const char *name, uint8_t *out, size_t len);
 
 /* Returns ESP_ERR_NVS_NOT_FOUND if absent, ESP_ERR_INVALID_SIZE on size mismatch. */
-esp_err_t ln_blob_load(const char *ns, const char *key, void *out, size_t len);
-esp_err_t ln_blob_save(const char *ns, const char *key, const void *data, size_t len);
-esp_err_t ln_namespace_erase(const char *ns);
+esp_err_t ln_blob_load(const char *nspace, const char *key, void *out, size_t len);
+esp_err_t ln_blob_save(const char *nspace, const char *key, const void *data, size_t len);
+esp_err_t ln_namespace_erase(const char *nspace);
 
 #ifdef __cplusplus
 }

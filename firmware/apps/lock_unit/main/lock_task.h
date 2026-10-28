@@ -17,8 +17,8 @@ typedef int (*lock_task_fn_t)(lock_ctx_t *ctx, void *arg);
 
 void lock_task_start(void);
 
-/* Run fn(ctx, arg) on the lock task and return its result. Blocks the caller. */
-int lock_task_call(lock_task_fn_t fn, void *arg);
+/* Run func(ctx, arg) on the lock task and return its result. Blocks the caller. */
+int lock_task_call(lock_task_fn_t func, void *arg);
 
 /* Driver events. Safe from tasks and timer callbacks (not ISRs). */
 void lock_task_post_motor_done(bool success);

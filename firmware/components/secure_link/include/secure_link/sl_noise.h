@@ -89,10 +89,10 @@ sl_err_t sl_handshake_split(sl_handshake_t *hs, sl_session_t *out);
 void sl_handshake_wipe(sl_handshake_t *hs);
 
 /* Transport messages: out = ciphertext || tag (len + SL_TAG_LEN). */
-sl_err_t sl_session_encrypt(sl_session_t *s, const uint8_t *pt, size_t len, uint8_t *out,
+sl_err_t sl_session_encrypt(sl_session_t *s, const uint8_t *plaintext, size_t len, uint8_t *out,
                             size_t out_cap, size_t *out_len);
-sl_err_t sl_session_decrypt(sl_session_t *s, const uint8_t *in, size_t in_len, uint8_t *out,
-                            size_t out_cap, size_t *out_len);
+sl_err_t sl_session_decrypt(sl_session_t *s, const uint8_t *ciphertext, size_t ciphertext_len,
+                            uint8_t *out, size_t out_cap, size_t *out_len);
 void sl_session_wipe(sl_session_t *s);
 
 #ifdef __cplusplus

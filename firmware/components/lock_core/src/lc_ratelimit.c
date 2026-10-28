@@ -1,5 +1,6 @@
 #include "lock_core/lc_ratelimit.h"
 
+#include <stdint.h>
 #include <string.h>
 
 void lc_rl_init(lc_ratelimit_t *rl) { memset(rl, 0, sizeof(*rl)); }
@@ -18,7 +19,7 @@ uint32_t lc_rl_lockout_s(const lc_ratelimit_cfg_t *cfg, uint8_t level)
 void lc_rl_on_boot(lc_ratelimit_t *rl, const lc_ratelimit_cfg_t *cfg, uint64_t now_ms)
 {
     if (rl->locked) {
-        rl->locked_until_ms = now_ms + (uint64_t)lc_rl_lockout_s(cfg, rl->lockout_level) * 1000u;
+        rl->locked_until_ms = now_ms + (uint64_t)lc_rl_lockout_s(cfg, rl->lockout_level) * 1000U;
     }
 }
 
@@ -44,7 +45,7 @@ bool lc_rl_on_failure(lc_ratelimit_t *rl, const lc_ratelimit_cfg_t *cfg, uint64_
         rl->lockout_level++;
     }
     rl->locked = true;
-    rl->locked_until_ms = now_ms + (uint64_t)lc_rl_lockout_s(cfg, rl->lockout_level) * 1000u;
+    rl->locked_until_ms = now_ms + (uint64_t)lc_rl_lockout_s(cfg, rl->lockout_level) * 1000U;
     return true;
 }
 

@@ -62,7 +62,7 @@ typedef struct {
     void (*connect)(void *ctx, const kp_pairing_t *pairing);
     void (*disconnect)(void *ctx);
     bool (*send)(void *ctx, const uint8_t *frame, size_t len);
-    void (*feedback)(void *ctx, kp_feedback_t fb, uint16_t detail);
+    void (*feedback)(void *ctx, kp_feedback_t kind, uint16_t detail);
     void (*save_pairing)(void *ctx, const kp_pairing_t *pairing);
     uint16_t (*battery_mv)(void *ctx); /* optional */
 } kp_hooks_t;

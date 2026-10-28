@@ -1,5 +1,9 @@
 #include "keypad_core/kp.h"
+#include "link_proto/lp.h"
+#include "secure_link/sl_crypto.h"
+#include "secure_link/sl_noise.h"
 
+#include <stdint.h>
 #include <string.h>
 
 static uint64_t now_ms(const kp_t *kp) { return kp->hooks.now_ms(kp->hooks.ctx); }
@@ -10,9 +14,9 @@ static bool rng(void *ctx, uint8_t *buf, size_t len)
     return kp->hooks.random(kp->hooks.ctx, buf, len);
 }
 
-static void feedback(kp_t *kp, kp_feedback_t fb, uint16_t detail)
+static void feedback(kp_t *kp, kp_feedback_t kind, uint16_t detail)
 {
-    kp->hooks.feedback(kp->hooks.ctx, fb, detail);
+    kp->hooks.feedback(kp->hooks.ctx, kind, detail);
 }
 
 static void clear_digits(kp_t *kp)
@@ -85,11 +89,13 @@ static void ensure_link(kp_t *kp)
 
 static bool send_msg(kp_t *kp, const lp_msg_t *msg)
 {
-    uint8_t pt[32], frame[LP_MAX_FRAME];
-    size_t pt_len = lp_encode(msg, pt, sizeof(pt)), ct_len;
-    bool ok = pt_len &&
-              sl_session_encrypt(&kp->sess, pt, pt_len, frame + 1, sizeof(frame) - 1, &ct_len) == SL_OK;
-    sl_wipe(pt, sizeof(pt));
+    uint8_t plain[32];
+    uint8_t frame[LP_MAX_FRAME];
+    size_t plain_len = lp_encode(msg, plain, sizeof(plain));
+    size_t ct_len = 0;
+    bool ok = plain_len &&
+              sl_session_encrypt(&kp->sess, plain, plain_len, frame + 1, sizeof(frame) - 1, &ct_len) == SL_OK;
+    sl_wipe(plain, sizeof(plain));
     if (!ok) {
         return false;
     }
@@ -198,9 +204,11 @@ void kp_on_connected(kp_t *kp, const uint8_t *addr, size_t addr_len)
     kp->conn_addr_len = (uint8_t)(addr_len > KP_ADDR_MAX ? KP_ADDR_MAX : addr_len);
     memcpy(kp->conn_addr, addr, kp->conn_addr_len);
 
-    uint8_t pt[32], frame[LP_MAX_FRAME];
-    size_t pt_len = 0, out_len;
-    sl_err_t err;
+    uint8_t plain[32];
+    uint8_t frame[LP_MAX_FRAME];
+    size_t plain_len = 0;
+    size_t out_len = 0;
+    sl_err_t err = SL_OK;
     if (kp->pairing_mode) {
         err = sl_handshake_init(&kp->hs, SL_PATTERN_XX, SL_INITIATOR, (const uint8_t *)LP_PROLOGUE,
                                 LP_PROLOGUE_LEN, &kp->identity, NULL, rng, kp);
@@ -212,13 +220,13 @@ void kp_on_connected(kp_t *kp, const uint8_t *addr, size_t addr_len)
                                     .fw_major = kp->fw_major,
                                     .fw_minor = kp->fw_minor,
                                     .battery_mv = kp->hooks.battery_mv ? kp->hooks.battery_mv(kp->hooks.ctx) : 0}};
-        pt_len = lp_encode(&hello, pt, sizeof(pt));
+        plain_len = lp_encode(&hello, plain, sizeof(plain));
         err = sl_handshake_init(&kp->hs, SL_PATTERN_IK, SL_INITIATOR, (const uint8_t *)LP_PROLOGUE,
                                 LP_PROLOGUE_LEN, &kp->identity, kp->pairing.lock_pub, rng, kp);
         frame[0] = LP_FRAME_IK1;
     }
     if (err != SL_OK ||
-        sl_handshake_write(&kp->hs, pt, pt_len, frame + 1, sizeof(frame) - 1, &out_len) != SL_OK ||
+        sl_handshake_write(&kp->hs, plain, plain_len, frame + 1, sizeof(frame) - 1, &out_len) != SL_OK ||
         !kp->hooks.send(kp->hooks.ctx, frame, out_len + 1)) {
         fail_link(kp);
         return;
@@ -244,11 +252,11 @@ void kp_on_disconnected(kp_t *kp)
 
 static void on_ik2(kp_t *kp, const uint8_t *body, size_t len)
 {
-    uint8_t pt[32];
-    size_t pt_len;
+    uint8_t plain[32];
+    size_t plain_len = 0;
     lp_msg_t ack;
-    if (sl_handshake_read(&kp->hs, body, len, pt, sizeof(pt), &pt_len) != SL_OK ||
-        !lp_decode(pt, pt_len, &ack) || ack.type != LP_MSG_HELLO_ACK ||
+    if (sl_handshake_read(&kp->hs, body, len, plain, sizeof(plain), &plain_len) != SL_OK ||
+        !lp_decode(plain, plain_len, &ack) || ack.type != LP_MSG_HELLO_ACK ||
         sl_handshake_split(&kp->hs, &kp->sess) != SL_OK) {
         fail_link(kp);
         return;
@@ -264,9 +272,11 @@ static void on_ik2(kp_t *kp, const uint8_t *body, size_t len)
 
 static void on_xx2(kp_t *kp, const uint8_t *body, size_t len)
 {
-    uint8_t pt[32], frame[LP_MAX_FRAME];
-    size_t pt_len, out_len;
-    if (sl_handshake_read(&kp->hs, body, len, pt, sizeof(pt), &pt_len) != SL_OK || pt_len != 0) {
+    uint8_t plain[32];
+    uint8_t frame[LP_MAX_FRAME];
+    size_t plain_len = 0;
+    size_t out_len = 0;
+    if (sl_handshake_read(&kp->hs, body, len, plain, sizeof(plain), &plain_len) != SL_OK || plain_len != 0) {
         fail_link(kp);
         return;
     }
@@ -276,9 +286,9 @@ static void on_xx2(kp_t *kp, const uint8_t *body, size_t len)
                                 .role = LP_ROLE_KEYPAD,
                                 .fw_major = kp->fw_major,
                                 .fw_minor = kp->fw_minor}};
-    pt_len = lp_encode(&hello, pt, sizeof(pt));
+    plain_len = lp_encode(&hello, plain, sizeof(plain));
     frame[0] = LP_FRAME_XX3;
-    if (sl_handshake_write(&kp->hs, pt, pt_len, frame + 1, sizeof(frame) - 1, &out_len) != SL_OK ||
+    if (sl_handshake_write(&kp->hs, plain, plain_len, frame + 1, sizeof(frame) - 1, &out_len) != SL_OK ||
         sl_handshake_split(&kp->hs, &kp->sess) != SL_OK ||
         !kp->hooks.send(kp->hooks.ctx, frame, out_len + 1)) {
         fail_link(kp);
@@ -301,15 +311,15 @@ static kp_feedback_t result_feedback(uint8_t result, uint8_t op)
 
 static void on_data(kp_t *kp, const uint8_t *body, size_t len)
 {
-    uint8_t pt[64];
-    size_t pt_len;
+    uint8_t plain[64];
+    size_t plain_len = 0;
     lp_msg_t msg;
-    if (sl_session_decrypt(&kp->sess, body, len, pt, sizeof(pt), &pt_len) != SL_OK) {
+    if (sl_session_decrypt(&kp->sess, body, len, plain, sizeof(plain), &plain_len) != SL_OK) {
         fail_link(kp);
         return;
     }
-    bool ok = lp_decode(pt, pt_len, &msg);
-    sl_wipe(pt, sizeof(pt));
+    bool ok = lp_decode(plain, plain_len, &msg);
+    sl_wipe(plain, sizeof(plain));
     if (!ok) {
         return;
     }

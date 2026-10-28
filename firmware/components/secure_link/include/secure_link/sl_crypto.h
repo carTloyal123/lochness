@@ -48,10 +48,10 @@ bool sl_dh(const uint8_t priv[SL_KEY_LEN], const uint8_t pub[SL_KEY_LEN], uint8_
 
 /* ChaCha20-Poly1305: out = ciphertext || tag (len + SL_TAG_LEN bytes). */
 void sl_aead_encrypt(const uint8_t key[SL_KEY_LEN], uint64_t nonce, const uint8_t *ad, size_t ad_len,
-                     const uint8_t *pt, size_t len, uint8_t *out);
-/* in = ciphertext || tag. Returns false on authentication failure. */
+                     const uint8_t *plaintext, size_t len, uint8_t *out);
+/* ciphertext includes the tag. Returns false on authentication failure. */
 bool sl_aead_decrypt(const uint8_t key[SL_KEY_LEN], uint64_t nonce, const uint8_t *ad, size_t ad_len,
-                     const uint8_t *in, size_t in_len, uint8_t *out);
+                     const uint8_t *ciphertext, size_t ciphertext_len, uint8_t *out);
 
 bool sl_ct_equal(const uint8_t *a, const uint8_t *b, size_t len);
 void sl_wipe(void *p, size_t len);

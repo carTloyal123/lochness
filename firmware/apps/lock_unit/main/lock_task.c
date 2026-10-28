@@ -1,5 +1,6 @@
 #include "lock_task.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -9,15 +10,27 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "link_proto/lp.h"
 #include "ln_store.h"
 #include "lock_bridge.h"
+#include "lock_core/lc_lock.h"
+#include "lock_core/lc_log.h"
+#include "lock_link/ll.h"
 #include "motor_sim.h"
 #include "platform_esp/pe_platform.h"
+#include "secure_link/sl_crypto.h"
 
-static const char *TAG = "lock";
+static const char *const TAG = "lock";
 
-/* The log is not critical-path; batch its flash writes. */
-#define LOG_FLUSH_DELAY_MS 30000
+enum {
+    /* The log is not critical-path; batch its flash writes. */
+    LOG_FLUSH_DELAY_MS = 30000,
+    /* Longest single wait; the loop simply re-arms after it. */
+    MAX_WAIT_MS = 3600000,
+    /* Noise handshakes (X25519) and PIN matching (HMAC per slot) need room. */
+    LOCK_TASK_STACK = 10240,
+    LOCK_TASK_PRIORITY = 5,
+};
 
 typedef enum {
     EV_CALL,
@@ -49,13 +62,16 @@ typedef struct {
     };
 } ev_t;
 
-static lock_ctx_t s_ctx;
-static QueueHandle_t s_queue;
-static bool s_log_dirty;
-static uint64_t s_log_dirty_since_ms;
-static bool s_adv_pairing;
+/* Owned by the lock task; other tasks only touch `queue`. */
+static struct {
+    lock_ctx_t ctx;
+    QueueHandle_t queue;
+    bool log_dirty;
+    uint64_t log_dirty_since_ms;
+    bool adv_pairing;
+} s_lock; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): module state
 
-static uint64_t now_ms(void) { return s_ctx.lc.plat.now_ms(NULL); }
+static uint64_t now_ms(void) { return s_lock.ctx.lc.plat.now_ms(NULL); }
 
 /* ---- lock_core hooks ------------------------------------------------------- */
 
@@ -85,13 +101,13 @@ static void hook_persist(void *ctx, lc_persist_t what)
 {
     (void)ctx;
     if (what == LC_PERSIST_LOG) {
-        if (!s_log_dirty) {
-            s_log_dirty = true;
-            s_log_dirty_since_ms = now_ms();
+        if (!s_lock.log_dirty) {
+            s_lock.log_dirty = true;
+            s_lock.log_dirty_since_ms = now_ms();
         }
         return;
     }
-    pe_store_save(&s_ctx.lc, what);
+    pe_store_save(&s_lock.ctx.lc, what);
 }
 
 void lock_task_save_config(const lc_t *lc) { pe_store_save_config(&lc->cfg); }
@@ -123,19 +139,19 @@ static void link_disconnect(void *ctx, uint16_t conn)
 static void link_peers_changed(void *ctx)
 {
     (void)ctx;
-    lock_task_save_peers(&s_ctx.ll);
+    lock_task_save_peers(&s_lock.ctx.ll);
 }
 
 static ll_access_result_t link_access(void *ctx, lp_role_t role, lp_op_t op, const uint8_t *pin, size_t len)
 {
     (void)ctx;
-    return lock_bridge_access(&s_ctx.lc, role, op, pin, len);
+    return lock_bridge_access(&s_lock.ctx.lc, role, op, pin, len);
 }
 
 static lp_bolt_t link_bolt(void *ctx)
 {
     (void)ctx;
-    return lock_bridge_bolt(&s_ctx.lc);
+    return lock_bridge_bolt(&s_lock.ctx.lc);
 }
 
 static void link_keypad_status(void *ctx, uint8_t peer, uint16_t battery_mv, uint8_t flags)
@@ -164,7 +180,7 @@ static TickType_t ticks_until(uint64_t deadline_ms, uint64_t now)
         return 0;
     }
     uint64_t ms = deadline_ms - now;
-    return ms > 3600000 ? pdMS_TO_TICKS(3600000) : pdMS_TO_TICKS((uint32_t)ms) + 1;
+    return ms > MAX_WAIT_MS ? pdMS_TO_TICKS(MAX_WAIT_MS) : pdMS_TO_TICKS((uint32_t)ms) + 1;
 }
 
 static uint64_t min_u64(uint64_t a, uint64_t b) { return a < b ? a : b; }
@@ -173,26 +189,26 @@ static void handle(const ev_t *ev)
 {
     switch (ev->kind) {
     case EV_CALL:
-        *ev->call.ret = ev->call.fn(&s_ctx, ev->call.arg);
+        *ev->call.ret = ev->call.fn(&s_lock.ctx, ev->call.arg);
         xTaskNotifyGive(ev->call.waiter);
         break;
     case EV_MOTOR_DONE:
-        lc_on_motor_done(&s_ctx.lc, ev->motor_ok);
+        lc_on_motor_done(&s_lock.ctx.lc, ev->motor_ok);
         break;
     case EV_DOOR:
-        lc_on_door(&s_ctx.lc, ev->door);
+        lc_on_door(&s_lock.ctx.lc, ev->door);
         break;
     case EV_BOLT_POSITION:
-        lc_on_bolt_position(&s_ctx.lc, ev->bolt);
+        lc_on_bolt_position(&s_lock.ctx.lc, ev->bolt);
         break;
     case EV_LINK_CONNECT:
-        ll_on_connect(&s_ctx.ll, ev->link.conn);
+        ll_on_connect(&s_lock.ctx.ll, ev->link.conn);
         break;
     case EV_LINK_DISCONNECT:
-        ll_on_disconnect(&s_ctx.ll, ev->link.conn);
+        ll_on_disconnect(&s_lock.ctx.ll, ev->link.conn);
         break;
     case EV_LINK_FRAME:
-        ll_on_frame(&s_ctx.ll, ev->link.conn, ev->link.data, ev->link.len);
+        ll_on_frame(&s_lock.ctx.ll, ev->link.conn, ev->link.data, ev->link.len);
         break;
     }
 }
@@ -203,27 +219,27 @@ static void lock_task(void *arg)
     static ev_t ev; /* large (frame buffer); keep off the stack */
     for (;;) {
         uint64_t now = now_ms();
-        uint64_t deadline = min_u64(lc_next_deadline_ms(&s_ctx.lc), ll_next_deadline_ms(&s_ctx.ll));
-        if (s_log_dirty) {
-            deadline = min_u64(deadline, s_log_dirty_since_ms + LOG_FLUSH_DELAY_MS);
+        uint64_t deadline = min_u64(lc_next_deadline_ms(&s_lock.ctx.lc), ll_next_deadline_ms(&s_lock.ctx.ll));
+        if (s_lock.log_dirty) {
+            deadline = min_u64(deadline, s_lock.log_dirty_since_ms + LOG_FLUSH_DELAY_MS);
         }
 
-        if (xQueueReceive(s_queue, &ev, ticks_until(deadline, now)) == pdTRUE) {
+        if (xQueueReceive(s_lock.queue, &ev, ticks_until(deadline, now)) == pdTRUE) {
             handle(&ev);
         }
 
-        lc_tick(&s_ctx.lc);
-        ll_tick(&s_ctx.ll);
+        lc_tick(&s_lock.ctx.lc);
+        ll_tick(&s_lock.ctx.ll);
 
-        bool pairing = ll_pairing_open(&s_ctx.ll);
-        if (pairing != s_adv_pairing) {
-            s_adv_pairing = pairing;
+        bool pairing = ll_pairing_open(&s_lock.ctx.ll);
+        if (pairing != s_lock.adv_pairing) {
+            s_lock.adv_pairing = pairing;
             ble_server_set_pairing(pairing);
             ESP_LOGI(TAG, "pairing window %s", pairing ? "open" : "closed");
         }
-        if (s_log_dirty && now_ms() >= s_log_dirty_since_ms + LOG_FLUSH_DELAY_MS) {
-            pe_store_save(&s_ctx.lc, LC_PERSIST_LOG);
-            s_log_dirty = false;
+        if (s_lock.log_dirty && now_ms() >= s_lock.log_dirty_since_ms + LOG_FLUSH_DELAY_MS) {
+            pe_store_save(&s_lock.ctx.lc, LC_PERSIST_LOG);
+            s_lock.log_dirty = false;
         }
     }
 }
@@ -240,10 +256,10 @@ void lock_task_start(void)
     lc_config_t cfg = lc_config_default();
     pe_store_load_config(&cfg);
 
-    lc_init(&s_ctx.lc, &plat, &hooks, &cfg);
-    ESP_ERROR_CHECK(pe_store_load(&s_ctx.lc));
+    lc_init(&s_lock.ctx.lc, &plat, &hooks, &cfg);
+    ESP_ERROR_CHECK(pe_store_load(&s_lock.ctx.lc));
     /* TODO(M1): read the real bolt position from the encoder. */
-    lc_boot(&s_ctx.lc, LC_BOLT_LOCKED, LC_DOOR_UNKNOWN);
+    lc_boot(&s_lock.ctx.lc, LC_BOLT_LOCKED, LC_DOOR_UNKNOWN);
 
     /* Long-term link identity. Must be created before the radio starts. */
     sl_keypair_t identity;
@@ -260,28 +276,27 @@ void lock_task_start(void)
         .keypad_status = link_keypad_status,
         .paired = link_paired,
     };
-    ll_init(&s_ctx.ll, &identity, &link_hooks);
+    ll_init(&s_lock.ctx.ll, &identity, &link_hooks);
     sl_wipe(&identity, sizeof(identity));
-    pe_store_load_peers(&s_ctx.ll.peers, sizeof(s_ctx.ll.peers));
-    ESP_LOGI(TAG, "%u paired peer(s); lock state %u bytes", ll_peer_count(&s_ctx.ll), (unsigned)sizeof(s_ctx));
+    pe_store_load_peers(&s_lock.ctx.ll.peers, sizeof(s_lock.ctx.ll.peers));
+    ESP_LOGI(TAG, "%u paired peer(s); lock state %u bytes", ll_peer_count(&s_lock.ctx.ll), (unsigned)sizeof(s_lock.ctx));
 
-    s_queue = xQueueCreate(16, sizeof(ev_t));
-    configASSERT(s_queue);
-    /* Noise handshakes (X25519) and PIN matching (HMAC per slot) need room. */
-    xTaskCreate(lock_task, "lock", 10240, NULL, 5, NULL);
+    s_lock.queue = xQueueCreate(16, sizeof(ev_t));
+    configASSERT(s_lock.queue);
+    xTaskCreate(lock_task, "lock", LOCK_TASK_STACK, NULL, LOCK_TASK_PRIORITY, NULL);
 }
 
-int lock_task_call(lock_task_fn_t fn, void *arg)
+int lock_task_call(lock_task_fn_t func, void *arg)
 {
     int ret = -1;
     ev_t *ev = calloc(1, sizeof(*ev));
     configASSERT(ev);
     ev->kind = EV_CALL;
-    ev->call.fn = fn;
+    ev->call.fn = func;
     ev->call.arg = arg;
     ev->call.ret = &ret;
     ev->call.waiter = xTaskGetCurrentTaskHandle();
-    xQueueSend(s_queue, ev, portMAX_DELAY);
+    xQueueSend(s_lock.queue, ev, portMAX_DELAY);
     free(ev);
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     return ret;
@@ -289,7 +304,7 @@ int lock_task_call(lock_task_fn_t fn, void *arg)
 
 static void post(ev_t *ev)
 {
-    if (xQueueSend(s_queue, ev, pdMS_TO_TICKS(100)) != pdTRUE) {
+    if (xQueueSend(s_lock.queue, ev, pdMS_TO_TICKS(100)) != pdTRUE) {
         ESP_LOGE(TAG, "event queue full; dropped event %d", ev->kind);
     }
 }

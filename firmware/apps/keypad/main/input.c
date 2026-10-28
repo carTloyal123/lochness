@@ -6,18 +6,26 @@
 #include "freertos/task.h"
 #include "keypad_task.h"
 #include "sdkconfig.h"
+#include <stdint.h>
 
-static const char *TAG = "input";
+static const char *const TAG = "input";
 
-#define SCAN_MS 10
-#define DEBOUNCE_SCANS 3 /* 30 ms stable before a press counts */
-#define PAIR_HOLD_MS 3000
+enum {
+    SCAN_MS = 10,
+    DEBOUNCE_SCANS = 3, /* 30 ms stable before a press counts */
+    PAIR_HOLD_MS = 3000,
+    ROW_COUNT = 4,
+    COL_COUNT = 3,
+    ROW_SETTLE_US = 5,
+    INPUT_TASK_STACK = 3072,
+    INPUT_TASK_PRIO = 6,
+};
 
 #if CONFIG_KEYPAD_MATRIX
-static const gpio_num_t ROWS[4] = {CONFIG_KEYPAD_ROW0_GPIO, CONFIG_KEYPAD_ROW1_GPIO, CONFIG_KEYPAD_ROW2_GPIO,
+static const gpio_num_t ROWS[ROW_COUNT] = {CONFIG_KEYPAD_ROW0_GPIO, CONFIG_KEYPAD_ROW1_GPIO, CONFIG_KEYPAD_ROW2_GPIO,
                                    CONFIG_KEYPAD_ROW3_GPIO};
-static const gpio_num_t COLS[3] = {CONFIG_KEYPAD_COL0_GPIO, CONFIG_KEYPAD_COL1_GPIO, CONFIG_KEYPAD_COL2_GPIO};
-static const char LAYOUT[4][3] = {{'1', '2', '3'}, {'4', '5', '6'}, {'7', '8', '9'}, {'*', '0', '#'}};
+static const gpio_num_t COLS[COL_COUNT] = {CONFIG_KEYPAD_COL0_GPIO, CONFIG_KEYPAD_COL1_GPIO, CONFIG_KEYPAD_COL2_GPIO};
+static const char LAYOUT[ROW_COUNT][COL_COUNT] = {{'1', '2', '3'}, {'4', '5', '6'}, {'7', '8', '9'}, {'*', '0', '#'}};
 #endif
 
 typedef struct {
@@ -42,15 +50,16 @@ static bool debounce(debounce_t *d, bool raw)
 
 static void input_pin(gpio_num_t pin)
 {
-    gpio_config_t io = {.pin_bit_mask = 1ULL << pin, .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE};
-    ESP_ERROR_CHECK(gpio_config(&io));
+    gpio_config_t cfg = {
+        .pin_bit_mask = 1ULL << (unsigned)pin, .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE};
+    ESP_ERROR_CHECK(gpio_config(&cfg));
 }
 
 static void input_task(void *arg)
 {
     (void)arg;
 #if CONFIG_KEYPAD_MATRIX
-    static debounce_t keys[4][3];
+    static debounce_t keys[ROW_COUNT][COL_COUNT];
 #endif
 #if CONFIG_KEYPAD_LOCK_BUTTON_GPIO >= 0
     static debounce_t lock_btn;
@@ -63,10 +72,10 @@ static void input_task(void *arg)
     /* TODO(power): replace polling with GPIO wake from light/deep sleep. */
     for (;;) {
 #if CONFIG_KEYPAD_MATRIX
-        for (int r = 0; r < 4; r++) {
+        for (int r = 0; r < ROW_COUNT; r++) {
             gpio_set_level(ROWS[r], 0);
-            esp_rom_delay_us(5);
-            for (int c = 0; c < 3; c++) {
+            esp_rom_delay_us(ROW_SETTLE_US);
+            for (int c = 0; c < COL_COUNT; c++) {
                 if (debounce(&keys[r][c], gpio_get_level(COLS[c]) == 0)) {
                     keypad_task_post_key(LAYOUT[r][c]);
                 }
@@ -101,13 +110,13 @@ void input_start(void)
 {
     bool any = false;
 #if CONFIG_KEYPAD_MATRIX
-    for (int r = 0; r < 4; r++) {
-        gpio_config_t io = {.pin_bit_mask = 1ULL << ROWS[r], .mode = GPIO_MODE_OUTPUT_OD,
-                            .pull_up_en = GPIO_PULLUP_ENABLE};
-        ESP_ERROR_CHECK(gpio_config(&io));
+    for (int r = 0; r < ROW_COUNT; r++) {
+        gpio_config_t cfg = {.pin_bit_mask = 1ULL << (unsigned)ROWS[r], .mode = GPIO_MODE_OUTPUT_OD,
+                             .pull_up_en = GPIO_PULLUP_ENABLE};
+        ESP_ERROR_CHECK(gpio_config(&cfg));
         gpio_set_level(ROWS[r], 1);
     }
-    for (int c = 0; c < 3; c++) {
+    for (int c = 0; c < COL_COUNT; c++) {
         input_pin(COLS[c]);
     }
     any = true;
@@ -125,5 +134,5 @@ void input_start(void)
         return;
     }
     (void)input_pin;
-    xTaskCreate(input_task, "input", 3072, NULL, 6, NULL);
+    xTaskCreate(input_task, "input", INPUT_TASK_STACK, NULL, INPUT_TASK_PRIO, NULL);
 }

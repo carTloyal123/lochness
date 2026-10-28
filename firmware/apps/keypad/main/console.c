@@ -1,9 +1,11 @@
 #include "console.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "esp_console.h"
+#include "keypad_core/kp.h"
 #include "keypad_task.h"
 
 static int cmd_keys(int argc, char **argv)
@@ -29,13 +31,15 @@ static int cmd_pair(int argc, char **argv)
 
 static int cmd_forget(int argc, char **argv)
 {
-    if (argc != 2 || strcmp(argv[1], "confirm")) {
+    if (argc != 2 || strcmp(argv[1], "confirm") != 0) {
         printf("forgets the paired lock. usage: forget confirm\n");
         return 1;
     }
     keypad_task_post_forget();
     return 0;
 }
+
+enum { BLE_ADDR_BYTES = 6 };
 
 static void do_status(kp_t *kp, void *arg)
 {
@@ -44,10 +48,13 @@ static void do_status(kp_t *kp, void *arg)
     printf("key      %02x%02x%02x%02x…\n", kp->identity.pub[0], kp->identity.pub[1], kp->identity.pub[2],
            kp->identity.pub[3]);
     if (kp->pairing.paired) {
-        const uint8_t *a = kp->pairing.lock_addr;
-        printf("lock     %02x%02x%02x%02x… at %02x:%02x:%02x:%02x:%02x:%02x\n", kp->pairing.lock_pub[0],
-               kp->pairing.lock_pub[1], kp->pairing.lock_pub[2], kp->pairing.lock_pub[3], a[6], a[5], a[4], a[3],
-               a[2], a[1]);
+        /* lock_addr is the address type, then the address little-endian. */
+        const uint8_t *addr = kp->pairing.lock_addr + 1;
+        printf("lock     %02x%02x%02x%02x… at ", kp->pairing.lock_pub[0], kp->pairing.lock_pub[1],
+               kp->pairing.lock_pub[2], kp->pairing.lock_pub[3]);
+        for (int i = BLE_ADDR_BYTES - 1; i >= 0; i--) {
+            printf(i > 0 ? "%02x:" : "%02x\n", addr[i]);
+        }
     } else {
         printf("lock     not paired\n");
     }
@@ -63,9 +70,9 @@ static int cmd_status(int argc, char **argv)
     return 0;
 }
 
-static void reg(const char *name, const char *help, esp_console_cmd_func_t fn)
+static void reg(const char *name, const char *help, esp_console_cmd_func_t func)
 {
-    const esp_console_cmd_t cmd = {.command = name, .help = help, .func = fn};
+    const esp_console_cmd_t cmd = {.command = name, .help = help, .func = func};
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
 }
 

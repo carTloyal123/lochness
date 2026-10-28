@@ -18,8 +18,8 @@ typedef struct {
     lc_event_t events[32];
 } fake_t;
 
-void fake_reset(fake_t *f);
-lc_platform_t fake_platform(fake_t *f);
-lc_hooks_t fake_hooks(fake_t *f);
+void fake_reset(fake_t *fake);
+lc_platform_t fake_platform(fake_t *fake);
+lc_hooks_t fake_hooks(fake_t *fake);
 /* Last notified event, or NULL. */
-const lc_event_t *fake_last_event(const fake_t *f);
+const lc_event_t *fake_last_event(const fake_t *fake);

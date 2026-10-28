@@ -1,5 +1,6 @@
 #include "keypad_task.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -11,12 +12,23 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "keypad_core/kp.h"
+#include "link_proto/lp.h"
 #include "ln_store.h"
 #include "sdkconfig.h"
+#include "secure_link/sl_crypto.h"
 
-static const char *TAG = "keypad";
+static const char *const TAG = "keypad";
 
 #define STORE_NS "keypad"
+
+enum {
+    MAX_WAIT_MS = 3600000, /* cap on one queue wait; the loop just re-arms */
+    EVENT_QUEUE_LEN = 12,
+    TASK_STACK = 8192,
+    TASK_PRIO = 5,
+    POST_TIMEOUT_MS = 100,
+};
 
 typedef enum { EV_KEY, EV_PAIR, EV_FORGET, EV_CONNECTED, EV_DISCONNECTED, EV_FRAME, EV_CALL } ev_kind_t;
 
@@ -36,13 +48,16 @@ typedef struct {
     };
 } ev_t;
 
-static kp_t s_kp;
-static QueueHandle_t s_queue;
+/* Owned by the keypad task; the queue handle is set once at start. */
+static struct {
+    kp_t kp;
+    QueueHandle_t queue;
+} s_kt; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): keypad task state
 
 static uint64_t h_now(void *ctx)
 {
     (void)ctx;
-    return (uint64_t)esp_timer_get_time() / 1000u;
+    return (uint64_t)esp_timer_get_time() / 1000U;
 }
 
 static bool h_random(void *ctx, uint8_t *buf, size_t len)
@@ -70,16 +85,16 @@ static bool h_send(void *ctx, const uint8_t *frame, size_t len)
     return ble_central_send(frame, len);
 }
 
-static void h_feedback(void *ctx, kp_feedback_t fb, uint16_t detail)
+static void h_feedback(void *ctx, kp_feedback_t feedback, uint16_t detail)
 {
     (void)ctx;
-    feedback_show(fb, detail);
+    feedback_show(feedback, detail);
 }
 
-static void h_save_pairing(void *ctx, const kp_pairing_t *p)
+static void h_save_pairing(void *ctx, const kp_pairing_t *pairing)
 {
     (void)ctx;
-    esp_err_t err = p->paired ? ln_blob_save(STORE_NS, "pairing", p, sizeof(*p))
+    esp_err_t err = pairing->paired ? ln_blob_save(STORE_NS, "pairing", pairing, sizeof(*pairing))
                               : ln_namespace_erase(STORE_NS);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "saving pairing failed: %s", esp_err_to_name(err));
@@ -96,7 +111,7 @@ static TickType_t ticks_until(uint64_t deadline_ms)
         return 0;
     }
     uint64_t ms = deadline_ms - now;
-    return ms > 3600000 ? pdMS_TO_TICKS(3600000) : pdMS_TO_TICKS((uint32_t)ms) + 1;
+    return ms > MAX_WAIT_MS ? pdMS_TO_TICKS(MAX_WAIT_MS) : pdMS_TO_TICKS((uint32_t)ms) + 1;
 }
 
 static void keypad_task(void *arg)
@@ -104,35 +119,35 @@ static void keypad_task(void *arg)
     (void)arg;
     static ev_t ev;
     for (;;) {
-        if (xQueueReceive(s_queue, &ev, ticks_until(kp_next_deadline_ms(&s_kp))) == pdTRUE) {
+        if (xQueueReceive(s_kt.queue, &ev, ticks_until(kp_next_deadline_ms(&s_kt.kp))) == pdTRUE) {
             switch (ev.kind) {
             case EV_KEY:
-                kp_on_key(&s_kp, ev.key);
+                kp_on_key(&s_kt.kp, ev.key);
                 break;
             case EV_PAIR:
-                kp_start_pairing(&s_kp);
+                kp_start_pairing(&s_kt.kp);
                 break;
             case EV_FORGET:
-                kp_forget_pairing(&s_kp);
+                kp_forget_pairing(&s_kt.kp);
                 ESP_LOGI(TAG, "pairing forgotten");
                 break;
             case EV_CONNECTED:
-                kp_on_connected(&s_kp, ev.frame.data, ev.frame.len);
+                kp_on_connected(&s_kt.kp, ev.frame.data, ev.frame.len);
                 break;
             case EV_DISCONNECTED:
-                kp_on_disconnected(&s_kp);
+                kp_on_disconnected(&s_kt.kp);
                 break;
             case EV_FRAME:
-                kp_on_frame(&s_kp, ev.frame.data, ev.frame.len);
+                kp_on_frame(&s_kt.kp, ev.frame.data, ev.frame.len);
                 break;
             case EV_CALL:
-                ev.call.fn(&s_kp, ev.call.arg);
+                ev.call.fn(&s_kt.kp, ev.call.arg);
                 xTaskNotifyGive(ev.call.waiter);
                 break;
             }
             sl_wipe(&ev, sizeof(ev));
         }
-        kp_tick(&s_kp);
+        kp_tick(&s_kt.kp);
         /* TODO(power): when kp_idle(), stop the radio and deep-sleep until a
          * key wakes us. */
     }
@@ -159,21 +174,21 @@ void keypad_task_start(void)
         .feedback = h_feedback,
         .save_pairing = h_save_pairing,
     };
-    kp_init(&s_kp, &identity, &pairing, &hooks);
-    s_kp.fw_major = CONFIG_KEYPAD_FW_MAJOR;
-    s_kp.fw_minor = CONFIG_KEYPAD_FW_MINOR;
+    kp_init(&s_kt.kp, &identity, &pairing, &hooks);
+    s_kt.kp.fw_major = CONFIG_KEYPAD_FW_MAJOR;
+    s_kt.kp.fw_minor = CONFIG_KEYPAD_FW_MINOR;
     sl_wipe(&identity, sizeof(identity));
-    ESP_LOGI(TAG, "keypad key %02x%02x%02x%02x…, %s", s_kp.identity.pub[0], s_kp.identity.pub[1],
-             s_kp.identity.pub[2], s_kp.identity.pub[3], pairing.paired ? "paired" : "NOT paired");
+    ESP_LOGI(TAG, "keypad key %02x%02x%02x%02x…, %s", s_kt.kp.identity.pub[0], s_kt.kp.identity.pub[1],
+             s_kt.kp.identity.pub[2], s_kt.kp.identity.pub[3], pairing.paired ? "paired" : "NOT paired");
 
-    s_queue = xQueueCreate(12, sizeof(ev_t));
-    configASSERT(s_queue);
-    xTaskCreate(keypad_task, "keypad", 8192, NULL, 5, NULL);
+    s_kt.queue = xQueueCreate(EVENT_QUEUE_LEN, sizeof(ev_t));
+    configASSERT(s_kt.queue);
+    xTaskCreate(keypad_task, "keypad", TASK_STACK, NULL, TASK_PRIO, NULL);
 }
 
 static void post(ev_t *ev)
 {
-    if (xQueueSend(s_queue, ev, pdMS_TO_TICKS(100)) != pdTRUE) {
+    if (xQueueSend(s_kt.queue, ev, pdMS_TO_TICKS(POST_TIMEOUT_MS)) != pdTRUE) {
         ESP_LOGE(TAG, "event queue full; dropped event %d", ev->kind);
     }
 }
@@ -222,15 +237,15 @@ void keypad_task_post_frame(const uint8_t *frame, size_t len)
     post(&ev);
 }
 
-void keypad_task_call(keypad_task_fn_t fn, void *arg)
+void keypad_task_call(keypad_task_fn_t func, void *arg)
 {
     ev_t *ev = calloc(1, sizeof(*ev));
     configASSERT(ev);
     ev->kind = EV_CALL;
-    ev->call.fn = fn;
+    ev->call.fn = func;
     ev->call.arg = arg;
     ev->call.waiter = xTaskGetCurrentTaskHandle();
-    xQueueSend(s_queue, ev, portMAX_DELAY);
+    xQueueSend(s_kt.queue, ev, portMAX_DELAY);
     free(ev);
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 }

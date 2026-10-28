@@ -1,11 +1,12 @@
 #include "secure_link/sl_noise.h"
+#include "secure_link/sl_crypto.h"
 
+#include <stdint.h>
 #include <string.h>
 
 typedef enum { T_END = 0, T_E, T_S, T_EE, T_ES, T_SE, T_SS } token_t;
 
-#define MAX_MSGS 3
-#define MAX_TOKENS 5
+enum { MAX_MSGS = 3, MAX_TOKENS = 5 };
 
 static const uint8_t IK_TOKENS[MAX_MSGS][MAX_TOKENS] = {
     {T_E, T_ES, T_S, T_SS, T_END},
@@ -46,35 +47,36 @@ static void mix_key(sl_handshake_t *hs, const uint8_t *ikm, size_t len)
     sl_wipe(k, sizeof(k));
 }
 
-static sl_err_t encrypt_and_hash(sl_handshake_t *hs, const uint8_t *pt, size_t len, uint8_t *out)
+static sl_err_t encrypt_and_hash(sl_handshake_t *hs, const uint8_t *plaintext, size_t len, uint8_t *out)
 {
     size_t out_len = len;
     if (hs->cs.has_key) {
         if (hs->cs.n == UINT64_MAX) {
             return SL_ERR_NONCE;
         }
-        sl_aead_encrypt(hs->cs.k, hs->cs.n++, hs->h, SL_HASH_LEN, pt, len, out);
+        sl_aead_encrypt(hs->cs.k, hs->cs.n++, hs->h, SL_HASH_LEN, plaintext, len, out);
         out_len += SL_TAG_LEN;
     } else {
-        memmove(out, pt, len);
+        memmove(out, plaintext, len);
     }
     mix_hash(hs, out, out_len);
     return SL_OK;
 }
 
-static sl_err_t decrypt_and_hash(sl_handshake_t *hs, const uint8_t *in, size_t in_len, uint8_t *out)
+static sl_err_t decrypt_and_hash(sl_handshake_t *hs, const uint8_t *ciphertext, size_t ciphertext_len,
+                                 uint8_t *out)
 {
     uint8_t h_before[SL_HASH_LEN];
     memcpy(h_before, hs->h, SL_HASH_LEN);
-    mix_hash(hs, in, in_len); /* hash the ciphertext; decrypt with the previous h as AD */
+    mix_hash(hs, ciphertext, ciphertext_len); /* hash the ciphertext; decrypt with the previous h as AD */
     if (!hs->cs.has_key) {
-        memmove(out, in, in_len);
+        memmove(out, ciphertext, ciphertext_len);
         return SL_OK;
     }
     if (hs->cs.n == UINT64_MAX) {
         return SL_ERR_NONCE;
     }
-    if (!sl_aead_decrypt(hs->cs.k, hs->cs.n, h_before, SL_HASH_LEN, in, in_len, out)) {
+    if (!sl_aead_decrypt(hs->cs.k, hs->cs.n, h_before, SL_HASH_LEN, ciphertext, ciphertext_len, out)) {
         return SL_ERR_DECRYPT;
     }
     hs->cs.n++;
@@ -144,10 +146,10 @@ size_t sl_handshake_msg_len(const sl_handshake_t *hs, size_t payload_len)
     }
     size_t len = 0;
     bool has_key = hs->cs.has_key;
-    for (const uint8_t *t = tokens(hs); *t != T_END; t++) {
-        if (*t == T_E) {
+    for (const uint8_t *tok = tokens(hs); *tok != T_END; tok++) {
+        if (*tok == T_E) {
             len += SL_KEY_LEN;
-        } else if (*t == T_S) {
+        } else if (*tok == T_S) {
             len += SL_KEY_LEN + (has_key ? SL_TAG_LEN : 0);
         } else {
             has_key = true; /* every DH token mixes a key */
@@ -159,10 +161,10 @@ size_t sl_handshake_msg_len(const sl_handshake_t *hs, size_t payload_len)
 /* Perform the DH for a token from this side's point of view. */
 static sl_err_t dh_token(sl_handshake_t *hs, token_t t)
 {
-    const sl_keypair_t *local;
-    const uint8_t *remote;
+    const sl_keypair_t *local = NULL;
+    const uint8_t *remote = NULL;
     bool init = hs->role == SL_INITIATOR;
-    bool ok_keys;
+    bool ok_keys = false;
     switch (t) {
     case T_EE:
         local = &hs->e, remote = hs->re, ok_keys = hs->has_e && hs->has_re;
@@ -211,9 +213,9 @@ sl_err_t sl_handshake_write(sl_handshake_t *hs, const uint8_t *payload, size_t p
         return SL_ERR_BUF;
     }
     size_t pos = 0;
-    sl_err_t err;
-    for (const uint8_t *t = tokens(hs); *t != T_END; t++) {
-        switch (*t) {
+    sl_err_t err = SL_OK;
+    for (const uint8_t *tok = tokens(hs); *tok != T_END; tok++) {
+        switch (*tok) {
         case T_E:
             if (!hs->has_e) {
                 if (!hs->rng || !hs->rng(hs->rng_ctx, hs->e.priv, SL_KEY_LEN)) {
@@ -234,7 +236,7 @@ sl_err_t sl_handshake_write(sl_handshake_t *hs, const uint8_t *payload, size_t p
             pos += SL_KEY_LEN + (hs->cs.has_key ? SL_TAG_LEN : 0);
             break;
         default:
-            err = dh_token(hs, (token_t)*t);
+            err = dh_token(hs, (token_t)*tok);
             if (err != SL_OK) {
                 return fail(hs, err);
             }
@@ -261,9 +263,9 @@ sl_err_t sl_handshake_read(sl_handshake_t *hs, const uint8_t *msg, size_t msg_le
         return fail(hs, SL_ERR_BUF);
     }
     size_t pos = 0;
-    sl_err_t err;
-    for (const uint8_t *t = tokens(hs); *t != T_END; t++) {
-        switch (*t) {
+    sl_err_t err = SL_OK;
+    for (const uint8_t *tok = tokens(hs); *tok != T_END; tok++) {
+        switch (*tok) {
         case T_E:
             memcpy(hs->re, msg + pos, SL_KEY_LEN);
             hs->has_re = true;
@@ -281,7 +283,7 @@ sl_err_t sl_handshake_read(sl_handshake_t *hs, const uint8_t *msg, size_t msg_le
             break;
         }
         default:
-            err = dh_token(hs, (token_t)*t);
+            err = dh_token(hs, (token_t)*tok);
             if (err != SL_OK) {
                 return fail(hs, err);
             }
@@ -301,23 +303,25 @@ sl_err_t sl_handshake_split(sl_handshake_t *hs, sl_session_t *out)
     if (!sl_handshake_done(hs)) {
         return SL_ERR_STATE;
     }
-    uint8_t k1[SL_HASH_LEN], k2[SL_HASH_LEN];
-    sl_hkdf(hs->ck, NULL, 0, k1, k2, NULL);
+    /* Noise Split(): the first key encrypts initiator -> responder. */
+    uint8_t key_i2r[SL_HASH_LEN];
+    uint8_t key_r2i[SL_HASH_LEN];
+    sl_hkdf(hs->ck, NULL, 0, key_i2r, key_r2i, NULL);
     memset(out, 0, sizeof(*out));
     bool init = hs->role == SL_INITIATOR;
-    memcpy(out->tx.k, init ? k1 : k2, SL_KEY_LEN);
-    memcpy(out->rx.k, init ? k2 : k1, SL_KEY_LEN);
+    memcpy(out->tx.k, init ? key_i2r : key_r2i, SL_KEY_LEN);
+    memcpy(out->rx.k, init ? key_r2i : key_i2r, SL_KEY_LEN);
     out->tx.has_key = out->rx.has_key = true;
     memcpy(out->handshake_hash, hs->h, SL_HASH_LEN);
-    sl_wipe(k1, sizeof(k1));
-    sl_wipe(k2, sizeof(k2));
+    sl_wipe(key_i2r, sizeof(key_i2r));
+    sl_wipe(key_r2i, sizeof(key_r2i));
     sl_handshake_wipe(hs);
     return SL_OK;
 }
 
 void sl_handshake_wipe(sl_handshake_t *hs) { sl_wipe(hs, sizeof(*hs)); }
 
-sl_err_t sl_session_encrypt(sl_session_t *s, const uint8_t *pt, size_t len, uint8_t *out,
+sl_err_t sl_session_encrypt(sl_session_t *s, const uint8_t *plaintext, size_t len, uint8_t *out,
                             size_t out_cap, size_t *out_len)
 {
     if (!s->tx.has_key) {
@@ -329,18 +333,18 @@ sl_err_t sl_session_encrypt(sl_session_t *s, const uint8_t *pt, size_t len, uint
     if (s->tx.n == UINT64_MAX) {
         return SL_ERR_NONCE;
     }
-    sl_aead_encrypt(s->tx.k, s->tx.n++, NULL, 0, pt, len, out);
+    sl_aead_encrypt(s->tx.k, s->tx.n++, NULL, 0, plaintext, len, out);
     *out_len = len + SL_TAG_LEN;
     return SL_OK;
 }
 
-sl_err_t sl_session_decrypt(sl_session_t *s, const uint8_t *in, size_t in_len, uint8_t *out,
-                            size_t out_cap, size_t *out_len)
+sl_err_t sl_session_decrypt(sl_session_t *s, const uint8_t *ciphertext, size_t ciphertext_len,
+                            uint8_t *out, size_t out_cap, size_t *out_len)
 {
     if (!s->rx.has_key) {
         return SL_ERR_STATE;
     }
-    if (in_len < SL_TAG_LEN || in_len - SL_TAG_LEN > out_cap) {
+    if (ciphertext_len < SL_TAG_LEN || ciphertext_len - SL_TAG_LEN > out_cap) {
         return SL_ERR_BUF;
     }
     if (s->rx.n == UINT64_MAX) {
@@ -348,11 +352,11 @@ sl_err_t sl_session_decrypt(sl_session_t *s, const uint8_t *in, size_t in_len, u
     }
     /* Implicit nonces: the link is reliable and ordered, so any replayed,
      * dropped or reordered message fails authentication. */
-    if (!sl_aead_decrypt(s->rx.k, s->rx.n, NULL, 0, in, in_len, out)) {
+    if (!sl_aead_decrypt(s->rx.k, s->rx.n, NULL, 0, ciphertext, ciphertext_len, out)) {
         return SL_ERR_DECRYPT;
     }
     s->rx.n++;
-    *out_len = in_len - SL_TAG_LEN;
+    *out_len = ciphertext_len - SL_TAG_LEN;
     return SL_OK;
 }
 

@@ -6,7 +6,7 @@
 #include "keypad_task.h"
 #include "ln_store.h"
 
-static const char *TAG = "main";
+static const char *const TAG = "main";
 
 void app_main(void)
 {

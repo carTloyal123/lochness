@@ -1,5 +1,10 @@
 #include "lock_core/lc_lock.h"
+#include "lock_core/lc_creds.h"
+#include "lock_core/lc_log.h"
+#include "lock_core/lc_ratelimit.h"
+#include "lock_core/lc_types.h"
 
+#include <stdint.h>
 #include <string.h>
 
 static uint64_t now_ms(const lc_t *lc) { return lc->plat.now_ms(lc->plat.ctx); }
@@ -23,16 +28,16 @@ static bool is_moving(const lc_t *lc)
 
 static void emit(lc_t *lc, lc_event_type_t type, lc_source_t source, uint16_t user_index)
 {
-    lc_wall_time_t wt = {0};
-    bool known = wall_time(lc, &wt);
+    lc_wall_time_t wall = {0};
+    bool known = wall_time(lc, &wall);
 
     if (lc->cfg.log.enabled) {
         if (known) {
-            lc_log_prune(&lc->log, &lc->cfg.log, wt.unix_s);
+            lc_log_prune(&lc->log, &lc->cfg.log, wall.unix_s);
         }
         lc_log_entry_t e = {
-            .unix_s = known ? wt.unix_s : 0,
-            .uptime_s = (uint32_t)(now_ms(lc) / 1000u),
+            .unix_s = known ? wall.unix_s : 0,
+            .uptime_s = (uint32_t)(now_ms(lc) / 1000U),
             .type = (uint8_t)type,
             .source = (uint8_t)source,
             .user_index = user_index,
@@ -51,6 +56,15 @@ static void emit(lc_t *lc, lc_event_type_t type, lc_source_t source, uint16_t us
     }
 }
 
+/* Residential defaults; see lc_config_default(). */
+enum {
+    DEFAULT_MOTOR_TIMEOUT_MS = 5000,
+    DEFAULT_WRONG_CODE_LIMIT = 5,  /* wrong codes before a lockout */
+    DEFAULT_BASE_LOCKOUT_S = 60,   /* first lockout; doubles each time */
+    DEFAULT_MAX_LOCKOUT_S = 3600,
+    DEFAULT_LOG_MAX_AGE_DAYS = 30,
+};
+
 lc_config_t lc_config_default(void)
 {
     return (lc_config_t){
@@ -59,9 +73,11 @@ lc_config_t lc_config_default(void)
         .remote_unlock_allowed = true,
         .require_pin_for_remote = false,
         .private_events = true, /* privacy by default; users opt in to attribution */
-        .motor_timeout_ms = 5000,
-        .ratelimit = {.limit = 5, .base_lockout_s = 60, .max_lockout_s = 3600},
-        .log = {.enabled = true, .max_age_days = 30},
+        .motor_timeout_ms = DEFAULT_MOTOR_TIMEOUT_MS,
+        .ratelimit = {.limit = DEFAULT_WRONG_CODE_LIMIT,
+                      .base_lockout_s = DEFAULT_BASE_LOCKOUT_S,
+                      .max_lockout_s = DEFAULT_MAX_LOCKOUT_S},
+        .log = {.enabled = true, .max_age_days = DEFAULT_LOG_MAX_AGE_DAYS},
     };
 }
 
@@ -144,9 +160,9 @@ static lc_err_t authenticate(lc_t *lc, lc_source_t source, const uint8_t *pin, s
     }
 
     uint16_t user = lc->creds.creds[cred - 1].user_index;
-    lc_wall_time_t wt;
-    bool known = wall_time(lc, &wt);
-    err = lc_user_access_check(&lc->creds, user, known ? &wt : NULL);
+    lc_wall_time_t wall;
+    bool known = wall_time(lc, &wall);
+    err = lc_user_access_check(&lc->creds, user, known ? &wall : NULL);
     if (err != LC_OK) {
         emit(lc, LC_EVENT_ACCESS_DENIED, source, user);
         return err;
@@ -293,7 +309,7 @@ static bool relock_armed(const lc_t *lc)
 
 static uint64_t relock_deadline(const lc_t *lc)
 {
-    return lc->relock_ref_ms + (uint64_t)lc->cfg.auto_relock_s * 1000u;
+    return lc->relock_ref_ms + ((uint64_t)lc->cfg.auto_relock_s * 1000U);
 }
 
 void lc_tick(lc_t *lc)

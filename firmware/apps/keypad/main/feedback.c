@@ -6,31 +6,57 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "keypad_core/kp.h"
 #include "sdkconfig.h"
+#include <stddef.h>
+#include <stdint.h>
 
-static const char *TAG = "feedback";
+static const char *const TAG = "feedback";
 
-#define BUZZER_HZ 2700
+enum {
+    BUZZER_HZ = 2700,
+    BUZZER_DUTY_HALF = 512, /* 50% of the 10-bit duty range */
+    QUEUE_LEN = 4,
+    TASK_STACK = 2560,
+    TASK_PRIO = 4,
+};
 
 typedef enum { OFF, GREEN, RED, BOTH } color_t;
 
 typedef struct {
     color_t color;
-    uint16_t on_ms, off_ms;
+    uint16_t on_ms;
+    uint16_t off_ms;
     uint8_t repeats;
     bool beep;
 } pattern_t;
+
+/* Indexed by kp_feedback_t. Missing entries are all-zero: no light, no sound. */
+static const pattern_t PATTERNS[] = {
+    [KP_FB_KEY] = {.color = BOTH, .on_ms = 30, .repeats = 1, .beep = true},
+    [KP_FB_CLEARED] = {.color = OFF},
+    [KP_FB_UNLOCKED] = {.color = GREEN, .on_ms = 1500, .repeats = 1, .beep = true},
+    [KP_FB_LOCKED] = {.color = GREEN, .on_ms = 300, .off_ms = 200, .repeats = 2, .beep = true},
+    [KP_FB_DENIED] = {.color = RED, .on_ms = 600, .repeats = 1, .beep = true},
+    [KP_FB_LOCKED_OUT] = {.color = RED, .on_ms = 150, .off_ms = 150, .repeats = 6, .beep = true},
+    [KP_FB_REFUSED] = {.color = RED, .on_ms = 300, .off_ms = 200, .repeats = 2, .beep = true},
+    [KP_FB_NO_LINK] = {.color = RED, .on_ms = 100, .off_ms = 100, .repeats = 3},
+    [KP_FB_NOT_PAIRED] = {.color = BOTH, .on_ms = 100, .off_ms = 100, .repeats = 3},
+    [KP_FB_PAIRING] = {.color = BOTH, .on_ms = 200, .off_ms = 200, .repeats = 3},
+    [KP_FB_PAIRED] = {.color = GREEN, .on_ms = 100, .off_ms = 100, .repeats = 5, .beep = true},
+    [KP_FB_PAIR_FAILED] = {.color = RED, .on_ms = 100, .off_ms = 100, .repeats = 5, .beep = true},
+};
 
 typedef struct {
     kp_feedback_t fb;
     uint16_t detail;
 } item_t;
 
-static QueueHandle_t s_queue;
+static QueueHandle_t s_queue; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): set once in feedback_start
 
-static const char *fb_name(kp_feedback_t fb)
+static const char *fb_name(kp_feedback_t feedback)
 {
-    switch (fb) {
+    switch (feedback) {
     case KP_FB_KEY: return "key";
     case KP_FB_CLEARED: return "cleared";
     case KP_FB_UNLOCKED: return "UNLOCKED";
@@ -47,43 +73,32 @@ static const char *fb_name(kp_feedback_t fb)
     return "?";
 }
 
-static pattern_t pattern_for(kp_feedback_t fb)
+static pattern_t pattern_for(kp_feedback_t feedback)
 {
-    switch (fb) {
-    case KP_FB_KEY: return (pattern_t){BOTH, 30, 0, 1, true};
-    case KP_FB_CLEARED: return (pattern_t){OFF, 0, 0, 0, false};
-    case KP_FB_UNLOCKED: return (pattern_t){GREEN, 1500, 0, 1, true};
-    case KP_FB_LOCKED: return (pattern_t){GREEN, 300, 200, 2, true};
-    case KP_FB_DENIED: return (pattern_t){RED, 600, 0, 1, true};
-    case KP_FB_LOCKED_OUT: return (pattern_t){RED, 150, 150, 6, true};
-    case KP_FB_REFUSED: return (pattern_t){RED, 300, 200, 2, true};
-    case KP_FB_NO_LINK: return (pattern_t){RED, 100, 100, 3, false};
-    case KP_FB_NOT_PAIRED: return (pattern_t){BOTH, 100, 100, 3, false};
-    case KP_FB_PAIRING: return (pattern_t){BOTH, 200, 200, 3, false};
-    case KP_FB_PAIRED: return (pattern_t){GREEN, 100, 100, 5, true};
-    case KP_FB_PAIR_FAILED: return (pattern_t){RED, 100, 100, 5, true};
+    if ((size_t)feedback >= sizeof(PATTERNS) / sizeof(PATTERNS[0])) {
+        return (pattern_t){0};
     }
-    return (pattern_t){0};
+    return PATTERNS[feedback];
 }
 
-static void set_leds(color_t c)
+static void set_leds(color_t color)
 {
 #if CONFIG_KEYPAD_LED_GREEN_GPIO >= 0
-    gpio_set_level(CONFIG_KEYPAD_LED_GREEN_GPIO, c == GREEN || c == BOTH);
+    gpio_set_level(CONFIG_KEYPAD_LED_GREEN_GPIO, color == GREEN || color == BOTH);
 #endif
 #if CONFIG_KEYPAD_LED_RED_GPIO >= 0
-    gpio_set_level(CONFIG_KEYPAD_LED_RED_GPIO, c == RED || c == BOTH);
+    gpio_set_level(CONFIG_KEYPAD_LED_RED_GPIO, color == RED || color == BOTH);
 #endif
-    (void)c;
+    (void)color;
 }
 
-static void set_buzzer(bool on)
+static void set_buzzer(bool sounding)
 {
 #if CONFIG_KEYPAD_BUZZER_GPIO >= 0
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, on ? 512 : 0); /* 50% of 10-bit */
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, sounding ? BUZZER_DUTY_HALF : 0);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
 #endif
-    (void)on;
+    (void)sounding;
 }
 
 static void feedback_task(void *arg)
@@ -97,15 +112,15 @@ static void feedback_task(void *arg)
         } else if (item.fb != KP_FB_KEY) {
             ESP_LOGI(TAG, "%s", fb_name(item.fb));
         }
-        pattern_t p = pattern_for(item.fb);
-        for (int i = 0; i < p.repeats; i++) {
-            set_leds(p.color);
-            set_buzzer(p.beep && (i == 0 || item.fb == KP_FB_LOCKED_OUT));
-            vTaskDelay(pdMS_TO_TICKS(p.on_ms));
+        pattern_t pat = pattern_for(item.fb);
+        for (int i = 0; i < pat.repeats; i++) {
+            set_leds(pat.color);
+            set_buzzer(pat.beep && (i == 0 || item.fb == KP_FB_LOCKED_OUT));
+            vTaskDelay(pdMS_TO_TICKS(pat.on_ms));
             set_leds(OFF);
             set_buzzer(false);
-            if (p.off_ms) {
-                vTaskDelay(pdMS_TO_TICKS(p.off_ms));
+            if (pat.off_ms) {
+                vTaskDelay(pdMS_TO_TICKS(pat.off_ms));
             }
             if (uxQueueMessagesWaiting(s_queue)) {
                 break; /* newer feedback wins */
@@ -124,24 +139,24 @@ void feedback_start(void)
 #if CONFIG_KEYPAD_LED_RED_GPIO >= 0
     mask |= 1ULL << CONFIG_KEYPAD_LED_RED_GPIO;
 #endif
-    gpio_config_t io = {.pin_bit_mask = mask, .mode = GPIO_MODE_OUTPUT};
-    ESP_ERROR_CHECK(gpio_config(&io));
+    gpio_config_t cfg = {.pin_bit_mask = mask, .mode = GPIO_MODE_OUTPUT};
+    ESP_ERROR_CHECK(gpio_config(&cfg));
 #endif
 #if CONFIG_KEYPAD_BUZZER_GPIO >= 0
     ledc_timer_config_t timer = {.speed_mode = LEDC_LOW_SPEED_MODE, .duty_resolution = LEDC_TIMER_10_BIT,
                                  .timer_num = LEDC_TIMER_0, .freq_hz = BUZZER_HZ, .clk_cfg = LEDC_AUTO_CLK};
     ESP_ERROR_CHECK(ledc_timer_config(&timer));
-    ledc_channel_config_t ch = {.gpio_num = CONFIG_KEYPAD_BUZZER_GPIO, .speed_mode = LEDC_LOW_SPEED_MODE,
-                                .channel = LEDC_CHANNEL_0, .timer_sel = LEDC_TIMER_0, .duty = 0};
-    ESP_ERROR_CHECK(ledc_channel_config(&ch));
+    ledc_channel_config_t channel = {.gpio_num = CONFIG_KEYPAD_BUZZER_GPIO, .speed_mode = LEDC_LOW_SPEED_MODE,
+                                     .channel = LEDC_CHANNEL_0, .timer_sel = LEDC_TIMER_0, .duty = 0};
+    ESP_ERROR_CHECK(ledc_channel_config(&channel));
 #endif
-    s_queue = xQueueCreate(4, sizeof(item_t));
+    s_queue = xQueueCreate(QUEUE_LEN, sizeof(item_t));
     configASSERT(s_queue);
-    xTaskCreate(feedback_task, "feedback", 2560, NULL, 4, NULL);
+    xTaskCreate(feedback_task, "feedback", TASK_STACK, NULL, TASK_PRIO, NULL);
 }
 
-void feedback_show(kp_feedback_t fb, uint16_t detail)
+void feedback_show(kp_feedback_t feedback, uint16_t detail)
 {
-    item_t item = {fb, detail};
+    item_t item = {feedback, detail};
     xQueueSend(s_queue, &item, 0);
 }
