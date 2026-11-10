@@ -1,6 +1,7 @@
 ---
 # Vendored upstream code: kept byte-identical to the release, so not linted.
-# (clang-tidy needs at least one check; this one cannot fire on C.)
+# clangd reads this too, so the editor doesn't flag it either; tools/lint.sh
+# skips any directory whose config enables no checks.
 InheritParentConfig: false
-Checks: '-*,modernize-use-nullptr'
+Checks: '-*'
 ...

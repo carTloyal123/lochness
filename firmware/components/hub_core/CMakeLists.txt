@@ -1,0 +1,7 @@
+if(ESP_PLATFORM)
+    idf_component_register(SRCS src/hub.c INCLUDE_DIRS include REQUIRES link_proto secure_link)
+else()
+    add_library(hub_core STATIC src/hub.c)
+    target_include_directories(hub_core PUBLIC include)
+    target_link_libraries(hub_core PUBLIC link_proto secure_link)
+endif()

@@ -19,12 +19,15 @@
 #include "motor_sim.h"
 #include "platform_esp/pe_platform.h"
 #include "secure_link/sl_crypto.h"
+#include "status_led.h"
 
 static const char *const TAG = "lock";
 
 enum {
     /* The log is not critical-path; batch its flash writes. */
     LOG_FLUSH_DELAY_MS = 30000,
+    /* Events raised while a frame is being handled, sent once it is done. */
+    STATE_QUEUE_LEN = 8,
     /* Longest single wait; the loop simply re-arms after it. */
     MAX_WAIT_MS = 3600000,
     /* Noise handshakes (X25519) and PIN matching (HMAC per slot) need room. */
@@ -69,6 +72,13 @@ static struct {
     bool log_dirty;
     uint64_t log_dirty_since_ms;
     bool adv_pairing;
+    /* LOCK_STATE messages waiting for the current handler to return, so
+     * lock_link is never re-entered from inside its own callbacks. */
+    lp_msg_t state_q[STATE_QUEUE_LEN];
+    uint8_t state_q_len;
+    /* Last state pushed to hubs, to detect changes without an event. */
+    uint8_t sent_bolt;
+    uint8_t sent_door;
 } s_lock; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): module state
 
 static uint64_t now_ms(void) { return s_lock.ctx.lc.plat.now_ms(NULL); }
@@ -90,11 +100,37 @@ static const char *event_name(lc_event_type_t t)
     return "?";
 }
 
+static void queue_state(const lc_event_t *ev)
+{
+    if (s_lock.state_q_len == STATE_QUEUE_LEN) {
+        ESP_LOGW(TAG, "state queue full; hub misses an event");
+        return;
+    }
+    lock_bridge_state(&s_lock.ctx.lc, ev, &s_lock.state_q[s_lock.state_q_len++]);
+}
+
+static void flush_state(void)
+{
+    const lc_t *lc = &s_lock.ctx.lc;
+    lp_msg_t now;
+    lock_bridge_state(lc, NULL, &now);
+    if (s_lock.state_q_len == 0 &&
+        (now.lock_state.bolt != s_lock.sent_bolt || now.lock_state.door != s_lock.sent_door)) {
+        s_lock.state_q[s_lock.state_q_len++] = now; /* e.g. motor started: no event, new state */
+    }
+    for (uint8_t i = 0; i < s_lock.state_q_len; i++) {
+        ll_broadcast_state(&s_lock.ctx.ll, &s_lock.state_q[i]);
+    }
+    s_lock.state_q_len = 0;
+    s_lock.sent_bolt = now.lock_state.bolt;
+    s_lock.sent_door = now.lock_state.door;
+}
+
 static void hook_notify(void *ctx, const lc_event_t *ev)
 {
     (void)ctx;
-    /* TODO(M3): forward to the hub and connected phones over the link. */
     ESP_LOGI(TAG, "event: %s (source %d, user %u)", event_name(ev->type), ev->source, ev->user_index);
+    queue_state(ev);
 }
 
 static void hook_persist(void *ctx, lc_persist_t what)
@@ -157,8 +193,42 @@ static lp_bolt_t link_bolt(void *ctx)
 static void link_keypad_status(void *ctx, uint8_t peer, uint16_t battery_mv, uint8_t flags)
 {
     (void)ctx;
-    /* TODO: surface low battery / tamper as lock events. */
-    ESP_LOGI(TAG, "keypad %u: battery %u mV, flags 0x%02x", peer, battery_mv, flags);
+    if (peer >= LL_MAX_PEERS) {
+        return;
+    }
+    lock_peer_status_t *status = &s_lock.ctx.peer_status[peer];
+    bool changed = !status->seen || status->battery_mv != battery_mv || status->flags != flags;
+    status->seen = true;
+    status->battery_mv = battery_mv;
+    status->flags = flags;
+    status->boot = s_lock.ctx.lc.boot_count;
+    status->uptime_s = (uint32_t)(now_ms() / 1000U);
+    /* TODO: surface low battery / tamper as lock events for the hub. */
+    if (!changed) {
+        return;
+    }
+    if (battery_mv == 0) {
+        ESP_LOGI(TAG, "keypad %u: battery unknown (no sense circuit), flags 0x%02x", peer, flags);
+    } else {
+        ESP_LOGI(TAG, "keypad %u: battery %u mV%s, flags 0x%02x", peer, battery_mv,
+                 (flags & LP_STATUS_LOW_BATTERY) ? " LOW" : "", flags);
+    }
+}
+
+static void link_time_set(void *ctx, uint32_t unix_s, int16_t utc_offset_min)
+{
+    (void)ctx;
+    bool first = !pe_time_known();
+    pe_time_set(unix_s, utc_offset_min);
+    if (first) {
+        ESP_LOGI(TAG, "clock set by hub: %lu, UTC%+d min", (unsigned long)unix_s, utc_offset_min);
+    }
+}
+
+static void link_snapshot(void *ctx, lp_msg_t *state)
+{
+    (void)ctx;
+    lock_bridge_state(&s_lock.ctx.lc, NULL, state);
 }
 
 static void link_paired(void *ctx, uint8_t peer, lp_role_t role, const uint8_t hash[SL_HASH_LEN])
@@ -231,12 +301,15 @@ static void lock_task(void *arg)
         lc_tick(&s_lock.ctx.lc);
         ll_tick(&s_lock.ctx.ll);
 
+        flush_state();
+
         bool pairing = ll_pairing_open(&s_lock.ctx.ll);
         if (pairing != s_lock.adv_pairing) {
             s_lock.adv_pairing = pairing;
             ble_server_set_pairing(pairing);
             ESP_LOGI(TAG, "pairing window %s", pairing ? "open" : "closed");
         }
+        status_led_show(lock_bridge_bolt(&s_lock.ctx.lc), pairing);
         if (s_lock.log_dirty && now_ms() >= s_lock.log_dirty_since_ms + LOG_FLUSH_DELAY_MS) {
             pe_store_save(&s_lock.ctx.lc, LC_PERSIST_LOG);
             s_lock.log_dirty = false;
@@ -257,6 +330,7 @@ void lock_task_start(void)
     pe_store_load_config(&cfg);
 
     lc_init(&s_lock.ctx.lc, &plat, &hooks, &cfg);
+    s_lock.ctx.lc.boot_count = pe_boot_count();
     ESP_ERROR_CHECK(pe_store_load(&s_lock.ctx.lc));
     /* TODO(M1): read the real bolt position from the encoder. */
     lc_boot(&s_lock.ctx.lc, LC_BOLT_LOCKED, LC_DOOR_UNKNOWN);
@@ -275,11 +349,18 @@ void lock_task_start(void)
         .bolt = link_bolt,
         .keypad_status = link_keypad_status,
         .paired = link_paired,
+        .time_set = link_time_set,
+        .snapshot = link_snapshot,
     };
     ll_init(&s_lock.ctx.ll, &identity, &link_hooks);
     sl_wipe(&identity, sizeof(identity));
     pe_store_load_peers(&s_lock.ctx.ll.peers, sizeof(s_lock.ctx.ll.peers));
-    ESP_LOGI(TAG, "%u paired peer(s); lock state %u bytes", ll_peer_count(&s_lock.ctx.ll), (unsigned)sizeof(s_lock.ctx));
+    ESP_LOGI(TAG, "boot %u, %u paired peer(s); lock state %u bytes", s_lock.ctx.lc.boot_count,
+             ll_peer_count(&s_lock.ctx.ll), (unsigned)sizeof(s_lock.ctx));
+    lp_msg_t initial;
+    lock_bridge_state(&s_lock.ctx.lc, NULL, &initial);
+    s_lock.sent_bolt = initial.lock_state.bolt;
+    s_lock.sent_door = initial.lock_state.door;
 
     s_lock.queue = xQueueCreate(16, sizeof(ev_t));
     configASSERT(s_lock.queue);

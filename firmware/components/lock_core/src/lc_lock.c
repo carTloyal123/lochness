@@ -41,6 +41,7 @@ static void emit(lc_t *lc, lc_event_type_t type, lc_source_t source, uint16_t us
             .type = (uint8_t)type,
             .source = (uint8_t)source,
             .user_index = user_index,
+            .boot = lc->boot_count,
         };
         lc_log_append(&lc->log, &lc->cfg.log, &e);
         persist(lc, LC_PERSIST_LOG);

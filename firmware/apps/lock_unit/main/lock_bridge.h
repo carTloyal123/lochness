@@ -12,3 +12,7 @@
 ll_access_result_t lock_bridge_access(lc_t *lc, lp_role_t role, lp_op_t op, const uint8_t *pin,
                                       size_t pin_len);
 lp_bolt_t lock_bridge_bolt(const lc_t *lc);
+
+/* LOCK_STATE message for the hub: current bolt and door, plus the event that
+ * caused it (ev == NULL for a plain snapshot). */
+void lock_bridge_state(const lc_t *lc, const lc_event_t *ev, lp_msg_t *out);

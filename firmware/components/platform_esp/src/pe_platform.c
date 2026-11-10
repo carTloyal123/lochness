@@ -21,6 +21,8 @@
 static const char *const TAG = "pe";
 
 #define KEY_NAME "pin_hmac"
+/* Own namespace so a factory reset keeps counting up. */
+#define BOOT_NS "lochness_boot"
 enum { KEY_LEN = 32 };
 
 enum {
@@ -36,6 +38,7 @@ static struct {
     uint32_t time_unix_at_set;
     uint64_t time_ms_at_set;
     int16_t tz_offset_min;
+    uint16_t boot_count;
 #if CONFIG_LOCHNESS_PIN_KEY_DEV_NVS
     psa_key_id_t pin_key;
 #endif
@@ -60,12 +63,28 @@ static esp_err_t dev_key_init(void)
 }
 #endif
 
+static void count_boot(void)
+{
+    uint32_t count = 0;
+    if (ln_blob_load(BOOT_NS, "count", &count, sizeof(count)) != ESP_OK) {
+        count = 0;
+    }
+    count++;
+    if (ln_blob_save(BOOT_NS, "count", &count, sizeof(count)) != ESP_OK) {
+        ESP_LOGW(TAG, "boot counter not saved");
+    }
+    s_pe.boot_count = (uint16_t)count; /* wraps after 65535 boots; only orders nearby entries */
+}
+
+uint16_t pe_boot_count(void) { return s_pe.boot_count; }
+
 esp_err_t pe_init(void)
 {
     esp_err_t err = ln_store_init();
     if (err != ESP_OK) {
         return err;
     }
+    count_boot();
     if (psa_crypto_init() != PSA_SUCCESS) {
         return ESP_FAIL;
     }
@@ -92,6 +111,8 @@ void pe_time_set(uint32_t unix_s, int16_t tz_offset_min)
 }
 
 bool pe_time_known(void) { return s_pe.time_known; }
+
+int16_t pe_time_offset_min(void) { return s_pe.tz_offset_min; }
 
 static bool p_wall_time(void *ctx, lc_wall_time_t *out)
 {

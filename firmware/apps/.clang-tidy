@@ -1,8 +1,27 @@
 ---
-# ESP-IDF glue. ESP_LOGx expands to `(level) | ESP_LOG_CONFIGS_DEFAULT` on
-# signed enums, so hicpp-signed-bitwise fires on every log call (and on the
-# NimBLE flag macros) with no call-site fix. The check stays on for the
-# portable components and tests.
+# ESP-IDF and Matter glue: the code here talks to C APIs, so a few checks
+# have no call-site fix. They stay on for the portable components and tests.
+#
+#   hicpp-signed-bitwise
+#       ESP_LOGx expands to `(level) | ESP_LOG_CONFIGS_DEFAULT` on signed
+#       enums, so it fires on every log call (and on the NimBLE flag macros).
+# C++ only (the hub's Matter shim; C files never trigger these):
+#   cppcoreguidelines-pro-type-vararg, hicpp-vararg
+#       ESP_LOGx and printf are the platform's logging and console output.
+#   cppcoreguidelines-pro-type-union-access
+#       The interface types are C tagged unions (lp_msg_t, ChipDeviceEvent,
+#       esp_matter_attr_val_t), and ESP_LOGx expands to a union access.
+#   cppcoreguidelines-pro-bounds-pointer-arithmetic,
+#   cppcoreguidelines-pro-bounds-array-to-pointer-decay, hicpp-no-array-decay
+#       Console handlers get argv as char **, and the C APIs take char * plus
+#       a size; there is no std::span on this side of the boundary.
 InheritParentConfig: true
-Checks: '-hicpp-signed-bitwise'
+Checks: >
+  -hicpp-signed-bitwise,
+  -cppcoreguidelines-pro-type-vararg,
+  -hicpp-vararg,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -hicpp-no-array-decay,
 ...

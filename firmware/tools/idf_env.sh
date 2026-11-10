@@ -1,8 +1,11 @@
 # Sourced by the scripts in this repo: loads ESP-IDF (idf.py and toolchains)
 # into the current shell, quietly unless it fails.
-# Set IDF_PATH to use an ESP-IDF other than ~/esp/esp-idf-v6.0.2.
+# Set IDF_PATH to use an ESP-IDF other than ~/esp/esp-idf-v6.0.2, and
+# ESP_MATTER_PATH for an esp-matter other than ~/esp/esp-matter-v1.6.1 (only
+# the hub needs it; it is loaded when present).
 
 IDF_PATH="${IDF_PATH:-$HOME/esp/esp-idf-v6.0.2}"
+ESP_MATTER_PATH="${ESP_MATTER_PATH:-$HOME/esp/esp-matter-v1.6.1}"
 
 idf_env_load() {
     if [[ ! -f "$IDF_PATH/export.sh" ]]; then
@@ -17,6 +20,11 @@ idf_env_load() {
     trap 'exec 1>&3 2>&4; cat "$log" >&2; rm -f "$log"' EXIT
     # shellcheck disable=SC1091
     . "$IDF_PATH/export.sh"
+    if [[ -f "$ESP_MATTER_PATH/export.sh" ]]; then
+        export ESP_MATTER_PATH
+        # shellcheck disable=SC1091
+        . "$ESP_MATTER_PATH/export.sh"
+    fi
     trap - EXIT
     exec 1>&3 2>&4 3>&- 4>&-
     rm -f "$log"

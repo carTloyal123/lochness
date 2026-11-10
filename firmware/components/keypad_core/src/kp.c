@@ -111,8 +111,7 @@ static void send_pending(kp_t *kp)
     kp->last_op = kp->pending_op;
     bool ok = send_msg(kp, &req);
     lp_msg_wipe(&req);
-    sl_wipe(kp->pending_pin, sizeof(kp->pending_pin));
-    kp->pending = false;
+    kp->pending = false; /* pending_pin is kept for one resend; wiped with the result */
     if (!ok) {
         kp->awaiting_result = true; /* so fail_link reports NO_LINK */
         fail_link(kp);
@@ -140,6 +139,7 @@ static void submit(kp_t *kp, lp_op_t op)
         return;
     }
     kp->pending = true;
+    kp->retried = false;
     kp->pending_op = (uint8_t)op;
     kp->pending_len = kp->ndigits;
     memcpy(kp->pending_pin, kp->digits, kp->ndigits);
@@ -241,6 +241,15 @@ void kp_on_disconnected(kp_t *kp)
         return;
     }
     reset_link(kp); /* transport is already gone; don't call disconnect */
+    if (kp->awaiting_result && !kp->retried && !kp->pairing_mode) {
+        /* Sent, but the link died before the answer: resend once. */
+        kp->retried = true;
+        kp->awaiting_result = false;
+        kp->result_deadline = 0;
+        kp->pending = true;
+        ensure_link(kp);
+        return;
+    }
     if (kp->pairing_mode) {
         feedback(kp, KP_FB_PAIR_FAILED, 0);
         kp->pairing_mode = false;
@@ -263,6 +272,16 @@ static void on_ik2(kp_t *kp, const uint8_t *body, size_t len)
     }
     kp->link = KP_LINK_READY;
     kp->link_deadline = 0;
+    uint8_t flags = kp->hooks.status_flags ? kp->hooks.status_flags(kp->hooks.ctx) : 0;
+    if (flags) {
+        lp_msg_t status = {.type = LP_MSG_KEYPAD_STATUS,
+                           .keypad_status = {.battery_mv = kp->hooks.battery_mv ? kp->hooks.battery_mv(kp->hooks.ctx) : 0,
+                                             .flags = flags}};
+        if (!send_msg(kp, &status)) {
+            fail_link(kp);
+            return;
+        }
+    }
     if (kp->pending) {
         send_pending(kp);
     } else if (!kp->ndigits) {
@@ -342,6 +361,8 @@ static void on_data(kp_t *kp, const uint8_t *body, size_t len)
                msg.access_result.seq == kp->seq) {
         kp->awaiting_result = false;
         kp->result_deadline = 0;
+        sl_wipe(kp->pending_pin, sizeof(kp->pending_pin));
+        kp->pending_len = 0;
         feedback(kp, result_feedback(msg.access_result.result, kp->last_op), msg.access_result.lockout_s);
         kp->linger_deadline = now_ms(kp) + KP_LINGER_MS;
     }

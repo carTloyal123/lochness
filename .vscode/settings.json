@@ -1,0 +1,19 @@
+{
+    // clangd through the repo wrapper: the same LLVM build as tools/lint.sh,
+    // so the editor reports exactly what the linter does. Rules live in the
+    // .clang-tidy files, editor behaviour in firmware/.clangd.
+    "clangd.path": "${workspaceFolder}/firmware/tools/clangd",
+    "clangd.arguments": [
+        "--background-index",
+        "--clang-tidy",
+        "--header-insertion=never"
+    ],
+    "clangd.checkUpdates": false,
+    // Microsoft's C/C++ IntelliSense would add a second, different set of
+    // diagnostics; clangd is the only one.
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "files.associations": {
+        ".clangd": "yaml",
+        ".clang-tidy": "yaml"
+    }
+}

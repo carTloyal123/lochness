@@ -53,6 +53,9 @@ typedef enum {
     LP_MSG_ACCESS_RESULT = 0x11, /* lock -> peer */
     LP_MSG_KEYPAD_STATUS = 0x20, /* keypad -> lock */
     LP_MSG_PAIR_RESULT = 0x30,   /* lock -> peer, first DATA after XX */
+    LP_MSG_TIME_SET = 0x40,      /* hub -> lock: wall clock; doubles as keepalive */
+    LP_MSG_PING = 0x41,          /* hub -> lock: keepalive while the hub has no clock */
+    LP_MSG_LOCK_STATE = 0x50,    /* lock -> hub: state change or event */
 } lp_msg_type_t;
 
 typedef enum { LP_OP_LOCK = 0, LP_OP_UNLOCK = 1 } lp_op_t;
@@ -78,8 +81,51 @@ typedef enum {
     LP_BOLT_JAMMED = 4,
 } lp_bolt_t;
 
+/* Door states in LOCK_STATE. */
+typedef enum {
+    LP_DOOR_UNKNOWN = 0,
+    LP_DOOR_CLOSED = 1,
+    LP_DOOR_OPEN = 2,
+} lp_door_t;
+
+/* Event codes in LOCK_STATE. Stable on the wire. */
+typedef enum {
+    LP_EVENT_LOCKED = 0,
+    LP_EVENT_UNLOCKED = 1,
+    LP_EVENT_WRONG_CODE = 2,
+    LP_EVENT_LOCKOUT = 3,
+    LP_EVENT_ACCESS_DENIED = 4,
+    LP_EVENT_JAMMED = 5,
+    LP_EVENT_DOOR_OPENED = 6,
+    LP_EVENT_DOOR_CLOSED = 7,
+    LP_EVENT_NONE = 0xFF, /* state snapshot only */
+} lp_event_t;
+
+/* Event sources in LOCK_STATE. Stable on the wire. */
+typedef enum {
+    LP_SOURCE_KEYPAD = 0,
+    LP_SOURCE_REMOTE = 1,
+    LP_SOURCE_APP = 2,
+    LP_SOURCE_MANUAL = 3,
+    LP_SOURCE_AUTO = 4,
+    LP_SOURCE_NONE = 0xFF,
+} lp_source_t;
+
+/* TIME_SET.utc_offset_min range (UTC-12:00 .. UTC+14:00). */
+#define LP_UTC_OFFSET_MIN (-720)
+#define LP_UTC_OFFSET_MAX 840
+
 #define LP_STATUS_TAMPER 0x01
 #define LP_STATUS_LOW_BATTERY 0x02
+
+/* LP_MSG_LOCK_STATE body; named so code outside the union can pass it. */
+typedef struct {
+    uint8_t bolt;        /* lp_bolt_t */
+    uint8_t door;        /* lp_door_t */
+    uint8_t event;       /* lp_event_t */
+    uint8_t source;      /* lp_source_t */
+    uint16_t user_index; /* 0 = none or private */
+} lp_lock_state_t;
 
 typedef struct {
     uint8_t type; /* lp_msg_type_t */
@@ -113,6 +159,11 @@ typedef struct {
         struct {
             uint8_t accepted;
         } pair_result;
+        struct {
+            uint32_t unix_s;
+            int16_t utc_offset_min; /* current local offset, DST included */
+        } time_set;
+        lp_lock_state_t lock_state;
     };
 } lp_msg_t;
 

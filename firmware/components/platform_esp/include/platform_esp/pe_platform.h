@@ -14,10 +14,14 @@ extern "C" {
 /* Initialize NVS, crypto and the PIN key. Call once before anything else. */
 esp_err_t pe_init(void);
 lc_platform_t pe_platform(void);
+/* Number of boots so far, counted in pe_init. Survives factory reset. */
+uint16_t pe_boot_count(void);
 
 /* Wall time arrives from the hub (Matter Time Sync); until then it is unknown. */
 void pe_time_set(uint32_t unix_s, int16_t tz_offset_min);
 bool pe_time_known(void);
+/* Local offset last given to pe_time_set, in minutes. */
+int16_t pe_time_offset_min(void);
 
 /* Load persisted creds / rate limit / log into lc. Missing or incompatible
  * blobs leave the corresponding state as lc_init() set it. */

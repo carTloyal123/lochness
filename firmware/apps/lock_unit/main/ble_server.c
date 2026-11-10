@@ -134,9 +134,10 @@ static void advertise(void)
     struct ble_gap_adv_params params = {
         .conn_mode = BLE_GAP_CONN_MODE_UND,
         .disc_mode = BLE_GAP_DISC_MODE_GEN,
-        /* ~1 s interval: keypad connects while the user is still typing. */
-        .itvl_min = BLE_GAP_ADV_ITVL_MS(900),
-        .itvl_max = BLE_GAP_ADV_ITVL_MS(1000),
+        /* The keypad starts connecting on the first key press, so most of
+         * this wait hides behind typing; one-touch lock sees all of it. */
+        .itvl_min = BLE_GAP_ADV_ITVL_MS(CONFIG_LOCHNESS_ADV_INTERVAL_MS),
+        .itvl_max = BLE_GAP_ADV_ITVL_MS(CONFIG_LOCHNESS_ADV_INTERVAL_MS + CONFIG_LOCHNESS_ADV_INTERVAL_MS / 10),
     };
     if (s_ble.pairing) {
         params.itvl_min = BLE_GAP_ADV_ITVL_MS(100);

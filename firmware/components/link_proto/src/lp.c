@@ -11,6 +11,8 @@ enum {
     ACCESS_RESULT_BODY_LEN = 5, /* seq, result, bolt, lockout_s(2) */
     KEYPAD_STATUS_BODY_LEN = 3, /* battery_mv(2), flags */
     PAIR_RESULT_BODY_LEN = 1,   /* accepted */
+    TIME_SET_BODY_LEN = 6,      /* unix_s(4), utc_offset_min(2, signed) */
+    LOCK_STATE_BODY_LEN = 6,    /* bolt, door, event, source, user_index(2) */
 };
 
 static int body_len(uint8_t type)
@@ -22,6 +24,9 @@ static int body_len(uint8_t type)
     case LP_MSG_ACCESS_RESULT: return ACCESS_RESULT_BODY_LEN;
     case LP_MSG_KEYPAD_STATUS: return KEYPAD_STATUS_BODY_LEN;
     case LP_MSG_PAIR_RESULT: return PAIR_RESULT_BODY_LEN;
+    case LP_MSG_TIME_SET: return TIME_SET_BODY_LEN;
+    case LP_MSG_PING: return 0;
+    case LP_MSG_LOCK_STATE: return LOCK_STATE_BODY_LEN;
     default: return -1;
     }
 }
@@ -34,6 +39,23 @@ static void put16(uint8_t *dst, uint16_t value)
 }
 
 static uint16_t get16(const uint8_t *src) { return (uint16_t)((unsigned)src[0] | ((unsigned)src[1] << 8U)); }
+
+static void put32(uint8_t *dst, uint32_t value)
+{
+    put16(dst, (uint16_t)value);
+    put16(dst + 2, (uint16_t)(value >> 16U));
+}
+
+static uint32_t get32(const uint8_t *src) { return (uint32_t)get16(src) | ((uint32_t)get16(src + 2) << 16U); }
+
+static bool offset_ok(int16_t offset) { return offset >= LP_UTC_OFFSET_MIN && offset <= LP_UTC_OFFSET_MAX; }
+
+static bool lock_state_ok(uint8_t bolt, uint8_t door, uint8_t event, uint8_t source)
+{
+    return bolt <= LP_BOLT_JAMMED && door <= LP_DOOR_OPEN &&
+           (event <= LP_EVENT_DOOR_CLOSED || event == LP_EVENT_NONE) &&
+           (source <= LP_SOURCE_AUTO || source == LP_SOURCE_NONE);
+}
 
 static bool pin_ok(uint8_t len, const uint8_t *pin)
 {
@@ -90,6 +112,26 @@ size_t lp_encode(const lp_msg_t *msg, uint8_t *buf, size_t cap)
     case LP_MSG_PAIR_RESULT:
         body[0] = msg->pair_result.accepted;
         break;
+    case LP_MSG_TIME_SET:
+        if (!offset_ok(msg->time_set.utc_offset_min)) {
+            return 0;
+        }
+        put32(body, msg->time_set.unix_s);
+        put16(body + 4, (uint16_t)msg->time_set.utc_offset_min);
+        break;
+    case LP_MSG_PING:
+        break;
+    case LP_MSG_LOCK_STATE:
+        if (!lock_state_ok(msg->lock_state.bolt, msg->lock_state.door, msg->lock_state.event,
+                           msg->lock_state.source)) {
+            return 0;
+        }
+        body[0] = msg->lock_state.bolt;
+        body[1] = msg->lock_state.door;
+        body[2] = msg->lock_state.event;
+        body[3] = msg->lock_state.source;
+        put16(body + 4, msg->lock_state.user_index);
+        break;
     default:
         return 0; /* unreachable: body_len() rejected unknown types */
     }
@@ -143,6 +185,19 @@ bool lp_decode(const uint8_t *buf, size_t len, lp_msg_t *msg)
     case LP_MSG_PAIR_RESULT:
         msg->pair_result.accepted = body[0];
         return body[0] <= 1;
+    case LP_MSG_TIME_SET:
+        msg->time_set.unix_s = get32(body);
+        msg->time_set.utc_offset_min = (int16_t)get16(body + 4);
+        return offset_ok(msg->time_set.utc_offset_min);
+    case LP_MSG_PING:
+        return true;
+    case LP_MSG_LOCK_STATE:
+        msg->lock_state.bolt = body[0];
+        msg->lock_state.door = body[1];
+        msg->lock_state.event = body[2];
+        msg->lock_state.source = body[3];
+        msg->lock_state.user_index = get16(body + 4);
+        return lock_state_ok(body[0], body[1], body[2], body[3]);
     default:
         return false; /* unreachable: body_len() rejected unknown types */
     }

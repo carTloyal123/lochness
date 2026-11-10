@@ -1,0 +1,9 @@
+---
+# The hub build (esp-matter) defines
+# CHIP_ADDRESS_RESOLVE_IMPL_INCLUDE_HEADER=<lib/address_resolve/...> on the
+# command line for every file. bugprone-macro-parentheses flags it with no
+# source location (so no NOLINT is possible), and an include target cannot be
+# parenthesised. Only the hub loses the check; its one macro is a string.
+InheritParentConfig: true
+Checks: '-bugprone-macro-parentheses'
+...

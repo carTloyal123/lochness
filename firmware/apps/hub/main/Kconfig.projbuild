@@ -1,0 +1,35 @@
+menu "Lochness hub"
+
+    config HUB_VENDOR_NAME
+        string "Vendor name (Matter Basic Information, max 32)"
+        default "Lochness"
+
+    config HUB_PRODUCT_NAME
+        string "Product name (Matter Basic Information, max 32)"
+        default "Lochness Hub"
+        help
+            Controllers name the accessory after this; Apple Home shows it
+            as the default accessory name.
+
+    config HUB_PRODUCT_URL
+        string "Product URL (empty = none)"
+        default ""
+
+    config HUB_TZ
+        string "Local time zone (POSIX TZ string)"
+        default "UTC0"
+        help
+            Sent to the lock with the time so weekday schedules use local
+            time. Examples: "UTC0", "EST5EDT,M3.2.0,M11.1.0",
+            "PST8PDT,M3.2.0,M11.1.0", "CET-1CEST,M3.5.0,M10.5.0/3".
+
+    config HUB_SNTP_SERVER
+        string "SNTP server (empty = off)"
+        default "pool.ntp.org"
+        help
+            Where the hub gets UTC. This is the hub's only traffic beyond the
+            local network. Point it at your router if it serves NTP, or
+            leave it empty to rely on the Matter controller (not yet
+            implemented), in which case schedules deny until time is known.
+
+endmenu

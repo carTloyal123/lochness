@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# clangd for editors: point your editor's clangd path here (VS Code: see
+# .vscode/settings.json). Same LLVM build as tools/lint.sh, see esp_clang.sh.
+set -euo pipefail
+. "$(dirname "$0")/esp_clang.sh"
+bin="$(esp_clang_bin)"
+exec "$bin/clangd" "$@"

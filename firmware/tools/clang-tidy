@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# clang-tidy from the same LLVM build as tools/clangd, see esp_clang.sh.
+set -euo pipefail
+. "$(dirname "$0")/esp_clang.sh"
+bin="$(esp_clang_bin)"
+exec "$bin/clang-tidy" "$@"

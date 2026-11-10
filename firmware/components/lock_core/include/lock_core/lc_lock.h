@@ -99,6 +99,8 @@ typedef struct {
     lc_bolt_t bolt;
     lc_door_t door;
     lc_mode_t mode;
+    /* Set by the platform after lc_init; stamped on log entries. */
+    uint16_t boot_count;
 
     /* Internal. */
     lc_op_t pending_op;

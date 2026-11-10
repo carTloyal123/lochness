@@ -8,9 +8,19 @@
 #include "lock_link/ll.h"
 
 /* Everything the lock task owns. */
+/* What the lock last heard from each paired keypad (RAM only). */
+typedef struct {
+    bool seen;
+    uint16_t battery_mv; /* 0 = keypad has no battery sense */
+    uint8_t flags;       /* LP_STATUS_* */
+    uint16_t boot;       /* lock boot and uptime when last heard */
+    uint32_t uptime_s;
+} lock_peer_status_t;
+
 typedef struct {
     lc_t lc;
     ll_t ll;
+    lock_peer_status_t peer_status[LL_MAX_PEERS];
 } lock_ctx_t;
 
 typedef int (*lock_task_fn_t)(lock_ctx_t *ctx, void *arg);

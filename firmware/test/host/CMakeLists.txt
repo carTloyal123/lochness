@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(lochness_host_tests C)
 
+# For clangd and clang-tidy (merged by tools/compile_db.py).
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 add_compile_options(-Wall -Wextra -Werror -Wshadow -Wconversion -Wno-sign-conversion)
@@ -20,6 +22,7 @@ add_subdirectory(../../components/secure_link secure_link)
 add_subdirectory(../../components/link_proto link_proto)
 add_subdirectory(../../components/lock_link lock_link)
 add_subdirectory(../../components/keypad_core keypad_core)
+add_subdirectory(../../components/hub_core hub_core)
 
 add_executable(test_lock_core
     test_main.c
@@ -31,9 +34,11 @@ add_executable(test_lock_core
     test_secure_link.c
     test_link_proto.c
     test_link.c
+    test_hub.c
+    test_hub_core.c
     ../../apps/lock_unit/main/lock_bridge.c
 )
-target_link_libraries(test_lock_core PRIVATE lock_core lock_link keypad_core)
+target_link_libraries(test_lock_core PRIVATE lock_core lock_link keypad_core hub_core)
 target_include_directories(test_lock_core PRIVATE ../../apps/lock_unit/main)
 
 enable_testing()

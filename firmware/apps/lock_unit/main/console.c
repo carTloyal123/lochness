@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "esp_console.h"
 #include "esp_system.h"
@@ -25,6 +26,7 @@
 
 enum {
     MINUTES_PER_HOUR = 60,
+    SECONDS_PER_MINUTE = 60,
     HOURS_PER_DAY = 24,
     MINUTES_PER_DAY = MINUTES_PER_HOUR * HOURS_PER_DAY,
     SECONDS_PER_DAY = 86400,
@@ -578,6 +580,7 @@ static int do_status(lock_ctx_t *ctx, void *arg)
         printf("time     unknown (schedules deny until set)\n");
     }
     printf("log      %u entries\n", lc->log.count);
+    printf("boot     %u, up %llu s\n", lc->boot_count, (unsigned long long)(lc->plat.now_ms(NULL) / 1000U));
     return LC_OK;
 }
 
@@ -588,6 +591,20 @@ static int cmd_status(int argc, char **argv)
     return lock_task_call(do_status, NULL);
 }
 
+/* "2026-11-07 19:56" in the clock's current local offset, or "boot 4 +11s". */
+static void format_when(const lc_log_entry_t *e, char *out, size_t cap)
+{
+    if (e->unix_s == 0) {
+        (void)snprintf(out, cap, "boot %-4u +%lus", e->boot, (unsigned long)e->uptime_s);
+        return;
+    }
+    time_t local = (time_t)e->unix_s + ((time_t)pe_time_offset_min() * SECONDS_PER_MINUTE);
+    struct tm fields;
+    if (gmtime_r(&local, &fields) == NULL || strftime(out, cap, "%Y-%m-%d %H:%M:%S", &fields) == 0) {
+        (void)snprintf(out, cap, "?");
+    }
+}
+
 static int do_log(lock_ctx_t *ctx, void *arg)
 {
     lc_t *lc = &ctx->lc;
@@ -595,8 +612,10 @@ static int do_log(lock_ctx_t *ctx, void *arg)
     int start = lc->log.count > n ? lc->log.count - n : 0;
     for (int i = start; i < lc->log.count; i++) {
         const lc_log_entry_t *e = lc_log_get(&lc->log, (uint16_t)i);
-        printf("%10lu  up+%-7lu  %-13s  %-7s  user %u\n", (unsigned long)e->unix_s,
-               (unsigned long)e->uptime_s, e->type < COUNT_OF(EVENT_NAMES) ? EVENT_NAMES[e->type] : "?",
+        char when[sizeof("2026-11-07 19:56:00")];
+        format_when(e, when, sizeof(when));
+        printf("%-19s  %-13s  %-7s  user %u\n", when,
+               e->type < COUNT_OF(EVENT_NAMES) ? EVENT_NAMES[e->type] : "?",
                e->source < COUNT_OF(SOURCE_NAMES) ? SOURCE_NAMES[e->source] : "?", e->user_index);
     }
     return LC_OK;
@@ -660,6 +679,30 @@ static int cmd_pair(int argc, char **argv)
     return 0;
 }
 
+static bool peer_online(const lock_ctx_t *ctx, int peer)
+{
+    for (int conn = 0; conn < LL_MAX_CONNS; conn++) {
+        if (ctx->ll.conns[conn].state == LL_CONN_ESTABLISHED && ctx->ll.conns[conn].peer == peer) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* What the keypad last reported: "battery 2950mV, heard boot 4 +11s". */
+static void format_keypad_status(const lock_peer_status_t *status, char *out, size_t cap)
+{
+    char battery[sizeof("65535mV LOW")];
+    if (status->battery_mv) {
+        (void)snprintf(battery, sizeof(battery), "%umV%s", status->battery_mv,
+                       (status->flags & LP_STATUS_LOW_BATTERY) ? " LOW" : "");
+    } else {
+        (void)snprintf(battery, sizeof(battery), "unknown");
+    }
+    (void)snprintf(out, cap, "battery %s, heard boot %u +%lus", battery, status->boot,
+                   (unsigned long)status->uptime_s);
+}
+
 static int do_peers(lock_ctx_t *ctx, void *arg)
 {
     int del = *(int *)arg;
@@ -674,15 +717,13 @@ static int do_peers(lock_ctx_t *ctx, void *arg)
         if (!p->in_use) {
             continue;
         }
-        bool online = false;
-        for (int conn = 0; conn < LL_MAX_CONNS; conn++) {
-            if (ctx->ll.conns[conn].state == LL_CONN_ESTABLISHED && ctx->ll.conns[conn].peer == i) {
-                online = true;
-            }
+        char heard[sizeof("battery 65535mV LOW, heard boot 65535 +4294967295s")] = "";
+        if (p->role == LP_ROLE_KEYPAD && ctx->peer_status[i].seen) {
+            format_keypad_status(&ctx->peer_status[i], heard, sizeof(heard));
         }
-        printf("%d  %-7s  key %02x%02x%02x%02x…  %s\n", i,
+        printf("%d  %-7s  key %02x%02x%02x%02x…  %-9s  %s\n", i,
                p->role < COUNT_OF(ROLE_NAMES) ? ROLE_NAMES[p->role] : "?", p->static_pub[0],
-               p->static_pub[1], p->static_pub[2], p->static_pub[3], online ? "connected" : "");
+               p->static_pub[1], p->static_pub[2], p->static_pub[3], peer_online(ctx, i) ? "connected" : "", heard);
     }
     printf("lock key %02x%02x%02x%02x…  pairing %s\n", ctx->ll.identity.pub[0], ctx->ll.identity.pub[1],
            ctx->ll.identity.pub[2], ctx->ll.identity.pub[3], ll_pairing_open(&ctx->ll) ? "OPEN" : "closed");

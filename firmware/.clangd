@@ -1,25 +1,22 @@
-# clangd config for the firmware. Generate the database it points at with:
-#   firmware/tools/compile_db.py --configure
+# clangd (editor) settings. Editor behaviour only: every lint rule lives in
+# the .clang-tidy files, which clangd and tools/lint.sh both read, so the
+# editor and the linter report the same findings. Don't add diagnostics or
+# check settings here.
+#
+# Run clangd through tools/clangd so it is the same LLVM build as the linter.
+# The database comes from tools/compile_db.py (tools/lint.sh refreshes it).
 CompileFlags:
   # Pin the merged database; otherwise clangd would pick up each app's raw
   # ESP-IDF database (GCC flags clang cannot parse) from apps/*/build.
   CompilationDatabase: .
 Diagnostics:
-  # clang-tidy checks come from .clang-tidy; run them as you type.
   ClangTidy:
+    # Run every configured check as you type, not just the fast ones.
     FastCheckFilter: None
-  UnusedIncludes: Strict
-  MissingIncludes: Strict
-  Includes:
-    # ESP-IDF and NimBLE headers must be reached through their umbrella
-    # headers; don't suggest the internal ones.
-    IgnoreHeader:
-      - 'freertos/.*'
-      - 'esp_.*\.h'
-      - 'sdkconfig\.h'
-      - 'host/.*'
-      - 'nimble/.*'
-      - 'services/.*'
+  # clangd's own include checker would be a second rule set with its own
+  # ignore list; misc-include-cleaner in .clang-tidy covers it instead.
+  UnusedIncludes: None
+  MissingIncludes: None
 Index:
   StandardLibrary: Yes
 InlayHints:
@@ -28,12 +25,3 @@ InlayHints:
   DeducedTypes: Yes
 Hover:
   ShowAKA: Yes
----
-# Vendored upstream code: no lint, no include suggestions.
-If:
-  PathMatch: components/monocypher/.*
-Diagnostics:
-  ClangTidy:
-    Remove: '*'
-  UnusedIncludes: None
-  MissingIncludes: None

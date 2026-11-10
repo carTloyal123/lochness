@@ -73,6 +73,33 @@ menu "Lochness keypad"
         range -1 30
         default -1
 
+    menu "Battery sense"
+        config KEYPAD_BATTERY_ADC_GPIO
+            int "Battery divider ADC GPIO (-1 = none)"
+            range -1 6
+            default -1
+            help
+                ADC1 pin wired to the midpoint of a divider across the
+                battery (ESP32-C6: GPIO 0-6). With -1 the keypad reports
+                its battery as unknown (0 mV), as the DevKit has no
+                divider. Use high-value resistors (for example 2 x 1 MOhm
+                with 100 nF to GND) so the divider barely drains the cells.
+        config KEYPAD_BATTERY_DIVIDER_PCT
+            int "Battery voltage as a percentage of the ADC pin voltage"
+            depends on KEYPAD_BATTERY_ADC_GPIO >= 0
+            range 100 1000
+            default 200
+            help
+                200 for a divider of two equal resistors.
+        config KEYPAD_BATTERY_LOW_MV
+            int "Low-battery threshold (mV)"
+            depends on KEYPAD_BATTERY_ADC_GPIO >= 0
+            default 2400
+            help
+                Below this the keypad sets the low-battery flag. 2400 mV
+                suits 2 x AA lithium cells.
+    endmenu
+
     comment "Capacitive touch keys: backend pending touch-controller selection"
 
 endmenu

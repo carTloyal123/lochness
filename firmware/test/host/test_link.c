@@ -56,6 +56,11 @@ static struct {
     frame_t capture[16];
     int ncapture;
     bool capturing;
+    bool blackhole; /* keypad->lock frames vanish (lock gone, link not yet timed out) */
+    uint8_t kp_flags;    /* what the keypad's status_flags hook reports */
+    int status_reports;  /* lock's keypad_status hook calls */
+    uint16_t status_mv;
+    uint8_t status_flags;
 } world; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): test fixture state; hooks get no ctx
 
 static void push(fq_t *q, const uint8_t *d, size_t len)
@@ -109,6 +114,15 @@ static ll_access_result_t l_access(void *ctx, lp_role_t role, lp_op_t op, const 
     return lock_bridge_access(&world.lc, role, op, pin, n);
 }
 static lp_bolt_t l_bolt(void *ctx) { (void)ctx; return lock_bridge_bolt(&world.lc); }
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): mirrors ll_hooks_t.keypad_status
+static void l_keypad_status(void *ctx, uint8_t peer, uint16_t battery_mv, uint8_t flags)
+{
+    (void)ctx;
+    (void)peer;
+    world.status_reports++;
+    world.status_mv = battery_mv;
+    world.status_flags = flags;
+}
 
 /* keypad hooks */
 static void k_connect(void *ctx, const kp_pairing_t *p) { (void)ctx; (void)p; world.connect_requested = true; }
@@ -120,7 +134,9 @@ static bool k_send(void *ctx, const uint8_t *frame, size_t len)
         memcpy(world.capture[world.ncapture].data, frame, len);
         world.capture[world.ncapture++].len = len;
     }
-    push(&world.to_lock, frame, len);
+    if (!world.blackhole) {
+        push(&world.to_lock, frame, len);
+    }
     return true;
 }
 static void k_feedback(void *ctx, kp_feedback_t feedback, uint16_t detail)
@@ -132,6 +148,9 @@ static void k_feedback(void *ctx, kp_feedback_t feedback, uint16_t detail)
     }
 }
 static void k_save(void *ctx, const kp_pairing_t *p) { (void)ctx; world.saved = *p; world.saves++; }
+enum { LOW_MV = 2250 };
+static uint16_t k_battery(void *ctx) { (void)ctx; return world.kp_flags ? LOW_MV : 0; }
+static uint8_t k_flags(void *ctx) { (void)ctx; return world.kp_flags; }
 
 /* Deliver everything until quiet, emulating the BLE connection lifecycle. */
 static void pump(void)
@@ -213,10 +232,11 @@ static void world_init(void)
     sl_keypair_from_private(&world.kp_id);
 
     ll_hooks_t lock_hooks = {.now_ms = t_now, .random = t_rng, .send = l_send, .disconnect = l_disconnect,
-                     .access = l_access, .bolt = l_bolt};
+                     .access = l_access, .bolt = l_bolt, .keypad_status = l_keypad_status};
     ll_init(&world.ll, &world.lock_id, &lock_hooks);
     kp_hooks_t keypad_hooks = {.now_ms = t_now, .random = t_rng, .connect = k_connect, .disconnect = k_disconnect,
-                     .send = k_send, .feedback = k_feedback, .save_pairing = k_save};
+                     .send = k_send, .feedback = k_feedback, .save_pairing = k_save,
+                     .battery_mv = k_battery, .status_flags = k_flags};
     kp_init(&world.kp, &world.kp_id, NULL, &keypad_hooks);
 }
 
@@ -425,5 +445,62 @@ TEST(test_link_too_long_pin_rejected_locally)
     CHECK_EQ(last_fb(), KP_FB_DENIED);
     /* Only the handshake went out; no access request. */
     CHECK_EQ(world.ncapture - sends, 1);
+    CHECK_EQ(world.fake.motor_starts, 0);
+}
+
+TEST(test_link_low_battery_status_sent)
+{
+    world_init();
+    pair();
+    keys("1234#"); /* healthy battery: HELLO only, battery unknown */
+    CHECK_EQ(world.status_reports, 1);
+    CHECK_EQ(world.status_mv, 0);
+    lc_on_motor_done(&world.lc, true);
+    advance(KP_LINGER_MS);
+
+    world.kp_flags = LP_STATUS_LOW_BATTERY;
+    keys("1234#");
+    CHECK_EQ(last_fb(), KP_FB_UNLOCKED);
+    CHECK_EQ(world.status_reports, 3); /* HELLO, then KEYPAD_STATUS */
+    CHECK_EQ(world.status_mv, LOW_MV);
+    CHECK_EQ(world.status_flags, LP_STATUS_LOW_BATTERY);
+}
+
+TEST(test_link_resend_after_link_drop)
+{
+    world_init();
+    pair();
+    keys("1234");
+    CHECK(world.connected);
+    world.blackhole = true; /* lock reboots: the request is lost */
+    keys("#");
+    CHECK(world.kp.awaiting_result);
+    world.blackhole = false;
+    world.lock_dropped = true; /* supervision timeout reports the dead link */
+    ll_on_disconnect(&world.ll, CONN);
+    pump();
+    CHECK_EQ(last_fb(), KP_FB_UNLOCKED);
+    CHECK_EQ(world.fake.motor_starts, 1);
+    /* The PIN is gone once answered. */
+    CHECK_EQ(world.kp.pending_pin[0], 0);
+}
+
+TEST(test_link_resend_only_once)
+{
+    world_init();
+    pair();
+    keys("1234");
+    world.blackhole = true;
+    keys("#");
+    world.lock_dropped = true;
+    ll_on_disconnect(&world.ll, CONN);
+    pump(); /* reconnects, but the handshake vanishes too */
+    CHECK(world.kp.pending);
+    world.lock_dropped = true;
+    ll_on_disconnect(&world.ll, CONN);
+    pump();
+    CHECK_EQ(last_fb(), KP_FB_NO_LINK);
+    CHECK(kp_idle(&world.kp));
+    CHECK_EQ(world.kp.pending_pin[0], 0);
     CHECK_EQ(world.fake.motor_starts, 0);
 }

@@ -1,4 +1,4 @@
-#include "ble_central.h"
+#include "ln_central.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -8,8 +8,6 @@
 #include "freertos/semphr.h"
 #include "host/ble_hs.h"
 #include "host/util/util.h"
-#include "keypad_core/kp.h"
-#include "keypad_task.h"
 #include "link_proto/lp.h"
 #include "link_proto/lp_ble.h"
 #include "nimble/nimble_port.h"
@@ -17,13 +15,25 @@
 #include "os/os_mbuf.h"
 #include "sdkconfig.h"
 
-static const char *const TAG = "ble";
+static const char *const TAG = "central";
+
+/* Links last a few seconds, so ask for the fastest interval: each GATT
+ * round trip during setup costs one or two intervals. Units of 1.25 ms. */
+static const struct ble_gap_conn_params CONN_PARAMS = {
+    .scan_itvl = 0x0010, /* 10 ms window every 10 ms: continuous scan */
+    .scan_window = 0x0010,
+    .itvl_min = 6,  /* 7.5 ms */
+    .itvl_max = 12, /* 15 ms */
+    .latency = 0,
+    .supervision_timeout = 100, /* 1 s, units of 10 ms */
+    .min_ce_len = 0,
+    .max_ce_len = 0,
+};
 
 enum {
     CONNECT_TIMEOUT_MS = 5000,
-    SCAN_TIMEOUT_MS = KP_PAIR_TIMEOUT_MS,
-    /* Lock address as stored in kp_pairing_t: type byte, then the address. */
-    LOCK_ADDR_LEN = 1 + BLE_DEV_ADDR_LEN,
+    SCAN_TIMEOUT_MS = 30000, /* matches KP_PAIR_TIMEOUT_MS / HUB_PAIR_TIMEOUT_MS */
+    LOCK_ADDR_LEN = LN_CENTRAL_ADDR_LEN,
     /* Advertised service data: 128-bit service UUID, then one flags byte. */
     ADV_UUID_LEN = 16,
     ADV_FLAGS_OFFSET = ADV_UUID_LEN,
@@ -63,6 +73,7 @@ static struct {
     request_t pending;
     uint8_t own_addr_type;
     bool synced;
+    ln_central_cbs_t cbs;
 } s_bc; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): guarded by s_bc.mutex
 
 static int gap_event(struct ble_gap_event *event, void *arg);
@@ -81,12 +92,12 @@ static void start(const request_t *req)
         s_bc.state = rc == 0 ? BC_SCANNING : BC_IDLE;
     } else {
         s_bc.peer = req->addr;
-        rc = ble_gap_connect(s_bc.own_addr_type, &req->addr, CONNECT_TIMEOUT_MS, NULL, gap_event, NULL);
+        rc = ble_gap_connect(s_bc.own_addr_type, &req->addr, CONNECT_TIMEOUT_MS, &CONN_PARAMS, gap_event, NULL);
         s_bc.state = rc == 0 ? BC_CONNECTING : BC_IDLE;
     }
     if (rc != 0) {
         ESP_LOGW(TAG, "%s failed: %d", req->scan ? "scan" : "connect", rc);
-        keypad_task_post_disconnected();
+        s_bc.cbs.disconnected();
     }
 }
 
@@ -96,7 +107,7 @@ static void become_idle(bool report)
     s_bc.state = BC_IDLE;
     s_bc.conn = BLE_HS_CONN_HANDLE_NONE;
     if (report) {
-        keypad_task_post_disconnected();
+        s_bc.cbs.disconnected();
     }
     if (s_bc.pending.valid) {
         request_t req = s_bc.pending;
@@ -105,21 +116,38 @@ static void become_idle(bool report)
     }
 }
 
-void ble_central_connect(const kp_pairing_t *pairing)
+/* Shared host: the owner's sync callback is not ours, so learn it lazily. */
+static bool ensure_synced(void)
 {
-    request_t req = {.valid = true, .scan = pairing == NULL};
-    if (pairing) {
-        if (pairing->lock_addr_len != LOCK_ADDR_LEN) {
-            keypad_task_post_disconnected();
+    if (s_bc.synced) {
+        return true;
+    }
+    if (!ble_hs_synced() || ble_hs_id_infer_auto(0, &s_bc.own_addr_type) != 0) {
+        return false;
+    }
+    /* The lock needs a large MTU; the host's owner may have set less. */
+    if (ble_att_preferred_mtu() < CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU) {
+        ble_att_set_preferred_mtu(CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU);
+    }
+    s_bc.synced = true;
+    return true;
+}
+
+void ln_central_connect(const uint8_t *addr, size_t addr_len)
+{
+    request_t req = {.valid = true, .scan = addr == NULL};
+    if (addr) {
+        if (addr_len != LOCK_ADDR_LEN) {
+            s_bc.cbs.disconnected();
             return;
         }
-        req.addr.type = pairing->lock_addr[0];
-        memcpy(req.addr.val, pairing->lock_addr + 1, BLE_DEV_ADDR_LEN);
+        req.addr.type = addr[0];
+        memcpy(req.addr.val, addr + 1, BLE_DEV_ADDR_LEN);
     }
     lock();
-    if (!s_bc.synced) {
+    if (!ensure_synced()) {
         unlock();
-        keypad_task_post_disconnected();
+        s_bc.cbs.disconnected();
         return;
     }
     if (s_bc.state == BC_IDLE) {
@@ -130,7 +158,7 @@ void ble_central_connect(const kp_pairing_t *pairing)
     unlock();
 }
 
-void ble_central_disconnect(void)
+void ln_central_disconnect(void)
 {
     lock();
     s_bc.pending.valid = false;
@@ -157,7 +185,7 @@ void ble_central_disconnect(void)
     unlock();
 }
 
-bool ble_central_send(const uint8_t *frame, size_t len)
+bool ln_central_send(const uint8_t *frame, size_t len)
 {
     lock();
     bool ok = s_bc.state == BC_READY &&
@@ -187,7 +215,7 @@ static int on_subscribed(uint16_t conn, const struct ble_gatt_error *err, struct
         s_bc.state = BC_READY;
         uint8_t addr[LOCK_ADDR_LEN] = {s_bc.peer.type};
         memcpy(addr + 1, s_bc.peer.val, BLE_DEV_ADDR_LEN);
-        keypad_task_post_connected(addr, sizeof(addr));
+        s_bc.cbs.connected(addr, sizeof(addr));
     }
     unlock();
     return 0;
@@ -294,7 +322,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         if (s_bc.state == BC_SCANNING && is_pairing_lock(&event->disc)) {
             ble_gap_disc_cancel();
             s_bc.peer = event->disc.addr;
-            int rc = ble_gap_connect(s_bc.own_addr_type, &s_bc.peer, CONNECT_TIMEOUT_MS, NULL, gap_event, NULL);
+            int rc = ble_gap_connect(s_bc.own_addr_type, &s_bc.peer, CONNECT_TIMEOUT_MS, &CONN_PARAMS, gap_event, NULL);
             if (rc == 0) {
                 s_bc.state = BC_CONNECTING;
             } else {
@@ -330,7 +358,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
             // NOLINTNEXTLINE(bugprone-casting-through-void): OS_MBUF_PKTLEN casts through void * in os_mbuf.h
             uint16_t len = OS_MBUF_PKTLEN(event->notify_rx.om);
             if (len <= sizeof(frame) && ble_hs_mbuf_to_flat(event->notify_rx.om, frame, sizeof(frame), &len) == 0) {
-                keypad_task_post_frame(frame, len);
+                s_bc.cbs.frame(frame, len);
             }
         }
         break;
@@ -364,11 +392,15 @@ static void host_task(void *param)
     nimble_port_freertos_deinit();
 }
 
-esp_err_t ble_central_start(void)
+esp_err_t ln_central_start(const ln_central_cbs_t *cbs, bool own_stack)
 {
     s_bc.mutex = xSemaphoreCreateRecursiveMutex();
     configASSERT(s_bc.mutex);
     s_bc.conn = BLE_HS_CONN_HANDLE_NONE;
+    s_bc.cbs = *cbs;
+    if (!own_stack) {
+        return ESP_OK;
+    }
     esp_err_t err = nimble_port_init();
     if (err != ESP_OK) {
         return err;

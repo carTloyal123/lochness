@@ -101,6 +101,14 @@ static void set_buzzer(bool sounding)
     (void)sounding;
 }
 
+/* Sleep for ms, returning early (true) as soon as newer feedback is queued:
+ * the newest feedback always wins, and a long pattern must not delay it. */
+static bool wait_or_newer(uint16_t ms)
+{
+    item_t next;
+    return xQueuePeek(s_queue, &next, pdMS_TO_TICKS(ms)) == pdTRUE;
+}
+
 static void feedback_task(void *arg)
 {
     (void)arg;
@@ -113,17 +121,15 @@ static void feedback_task(void *arg)
             ESP_LOGI(TAG, "%s", fb_name(item.fb));
         }
         pattern_t pat = pattern_for(item.fb);
-        for (int i = 0; i < pat.repeats; i++) {
+        bool preempted = false;
+        for (int i = 0; i < pat.repeats && !preempted; i++) {
             set_leds(pat.color);
             set_buzzer(pat.beep && (i == 0 || item.fb == KP_FB_LOCKED_OUT));
-            vTaskDelay(pdMS_TO_TICKS(pat.on_ms));
+            preempted = wait_or_newer(pat.on_ms);
             set_leds(OFF);
             set_buzzer(false);
-            if (pat.off_ms) {
-                vTaskDelay(pdMS_TO_TICKS(pat.off_ms));
-            }
-            if (uxQueueMessagesWaiting(s_queue)) {
-                break; /* newer feedback wins */
+            if (!preempted && pat.off_ms) {
+                preempted = wait_or_newer(pat.off_ms);
             }
         }
     }
@@ -158,5 +164,11 @@ void feedback_start(void)
 void feedback_show(kp_feedback_t feedback, uint16_t detail)
 {
     item_t item = {feedback, detail};
+    if (xQueueSend(s_queue, &item, 0) == pdTRUE || feedback == KP_FB_KEY) {
+        return; /* a dropped key click is fine */
+    }
+    /* Queue full of clicks or stale results: a result must never be lost,
+     * so drop the backlog and show this one. */
+    xQueueReset(s_queue);
     xQueueSend(s_queue, &item, 0);
 }

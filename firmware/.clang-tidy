@@ -1,10 +1,17 @@
 ---
-# Every check is on. The only removals are checks that cannot apply to this
-# code base (they target another project or language), and their reasons are
-# listed below. Prefer fixing or NOLINT(check) with a reason over adding here.
+# The single source of lint rules: clangd (editor) and tools/lint.sh (CLI/CI)
+# both read this file and the nested ones (components/monocypher opts out).
+# Keep editor-only settings in .clangd and rules here.
+#
+# Every check is on and every finding is an error. The only removals are
+# checks that cannot apply to this code base (they target another project or
+# language) and alias checks that would report the same finding twice; reasons
+# below. Prefer fixing or NOLINT(check) with a reason over adding here.
 #
 #   altera-*      Intel FPGA OpenCL kernels.
 #   llvmlibc-*    LLVM's own libc implementation (namespaces, entrypoint macros).
+#   fuchsia-*     Google Fuchsia's house rules (no default arguments, no static
+#                 objects, ...), which the Matter SDK's C++ API requires.
 #   clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
 #                 Wants C11 Annex K memcpy_s/memset_s; picolibc and glibc lack
 #                 it. Secret wiping is handled by sl_wipe / volatile loops.
@@ -15,16 +22,26 @@
 #                 Written for C++. In C, ==, < and && yield int, so every
 #                 `bool ok = a == b` and `return x && y` is flagged and the
 #                 fixes add (int) casts and `!= 0` to correct code.
+#   modernize-use-trailing-return-type
+#                 A C++ style rewrite (`auto f() -> T`) at odds with the C
+#                 conventions the rest of the code base follows.
+#   cppcoreguidelines-avoid-magic-numbers
+#                 Alias of readability-magic-numbers (same finding twice and
+#                 a second copy of its options to keep in step).
 Checks: >
   *,
   -altera-*,
   -llvmlibc-*,
+  -fuchsia-*,
   -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
   -modernize-use-nullptr,
   -hicpp-use-nullptr,
   -readability-implicit-bool-conversion,
-WarningsAsErrors: ''
-# Lint our headers, not ESP-IDF's or the vendored Monocypher.
+  -modernize-use-trailing-return-type,
+  -cppcoreguidelines-avoid-magic-numbers,
+WarningsAsErrors: '*'
+# Lint our headers, not ESP-IDF's or the vendored Monocypher. (Header
+# filtering is clang-tidy's; clangd only reports on the open file.)
 HeaderFilterRegex: '.*/firmware/(apps|components|test)/.*'
 ExcludeHeaderFilterRegex: '.*/components/monocypher/.*'
 FormatStyle: none
@@ -49,13 +66,13 @@ CheckOptions:
   # Powers of two (masks, sizes), 255 and 1000 (ms per s) read fine as literals.
   readability-magic-numbers.IgnoredIntegerValues: '0;1;2;3;255;1000'
   readability-magic-numbers.IgnorePowersOf2IntegerValues: true
-  # Aliases keep their own options; keep the two in step.
-  cppcoreguidelines-avoid-magic-numbers.IgnoredIntegerValues: '0;1;2;3;255;1000'
-  cppcoreguidelines-avoid-magic-numbers.IgnorePowersOf2IntegerValues: true
   readability-function-cognitive-complexity.IgnoreMacros: true
+  # ESP_LOGx and the CHIP macros are do { } while (0) inside; only flag ours.
+  cppcoreguidelines-avoid-do-while.IgnoreMacros: true
   readability-function-size.LineThreshold: 120
-  # Known cycles inside ESP-IDF (FreeRTOS.h <-> idf_additions.h, NimBLE os/).
-  misc-header-include-cycle.IgnoredFilesList: 'FreeRTOS\.h;ble_hs\.h;os_mbuf\.h'
+  # Known cycles inside ESP-IDF (FreeRTOS.h <-> idf_additions.h, NimBLE os/)
+  # and esp-matter (esp_matter.h <-> its command implementation header).
+  misc-header-include-cycle.IgnoredFilesList: 'FreeRTOS\.h;ble_hs\.h;os_mbuf\.h;esp_matter\.h'
   bugprone-easily-swappable-parameters.MinimumLength: 3
-  misc-include-cleaner.IgnoreHeaders: 'sdkconfig\.h;freertos/.*;esp_.*\.h;host/.*;nimble/.*;services/.*'
+  misc-include-cleaner.IgnoreHeaders: 'sys/_.*;machine/.*;sdkconfig\.h;freertos/.*;esp_.*\.h;host/.*;nimble/.*;services/.*'
 ...

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "ble_central.h"
+#include "battery.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -14,6 +14,7 @@
 #include "freertos/task.h"
 #include "keypad_core/kp.h"
 #include "link_proto/lp.h"
+#include "ln_central.h"
 #include "ln_store.h"
 #include "sdkconfig.h"
 #include "secure_link/sl_crypto.h"
@@ -52,6 +53,8 @@ typedef struct {
 static struct {
     kp_t kp;
     QueueHandle_t queue;
+    /* Bench timing for the current link, in ms since boot (0 = not yet). */
+    uint64_t t_connect, t_ready;
 } s_kt; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): keypad task state
 
 static uint64_t h_now(void *ctx)
@@ -70,24 +73,38 @@ static bool h_random(void *ctx, uint8_t *buf, size_t len)
 static void h_connect(void *ctx, const kp_pairing_t *pairing)
 {
     (void)ctx;
-    ble_central_connect(pairing);
+    s_kt.t_connect = h_now(NULL);
+    s_kt.t_ready = 0;
+    if (pairing) {
+        ln_central_connect(pairing->lock_addr, pairing->lock_addr_len);
+    } else {
+        ln_central_connect(NULL, 0);
+    }
 }
 
 static void h_disconnect(void *ctx)
 {
     (void)ctx;
-    ble_central_disconnect();
+    ln_central_disconnect();
 }
 
 static bool h_send(void *ctx, const uint8_t *frame, size_t len)
 {
     (void)ctx;
-    return ble_central_send(frame, len);
+    return ln_central_send(frame, len);
 }
 
 static void h_feedback(void *ctx, kp_feedback_t feedback, uint16_t detail)
 {
     (void)ctx;
+    if (feedback != KP_FB_KEY && feedback != KP_FB_CLEARED && s_kt.t_connect) {
+        /* Parsed by tools/bench/bench.py. */
+        uint64_t now = h_now(NULL);
+        ESP_LOGI(TAG, "timing: link %lld ms, result %lld ms after connect",
+                 s_kt.t_ready ? (long long)(s_kt.t_ready - s_kt.t_connect) : -1LL,
+                 (long long)(now - s_kt.t_connect));
+        s_kt.t_connect = 0; /* later requests on this link reuse it: no connect to time */
+    }
     feedback_show(feedback, detail);
 }
 
@@ -99,6 +116,18 @@ static void h_save_pairing(void *ctx, const kp_pairing_t *pairing)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "saving pairing failed: %s", esp_err_to_name(err));
     }
+}
+
+static uint16_t h_battery_mv(void *ctx)
+{
+    (void)ctx;
+    return battery_mv();
+}
+
+static uint8_t h_status_flags(void *ctx)
+{
+    (void)ctx;
+    return battery_flags();
 }
 
 static TickType_t ticks_until(uint64_t deadline_ms)
@@ -132,6 +161,7 @@ static void keypad_task(void *arg)
                 ESP_LOGI(TAG, "pairing forgotten");
                 break;
             case EV_CONNECTED:
+                s_kt.t_ready = h_now(NULL);
                 kp_on_connected(&s_kt.kp, ev.frame.data, ev.frame.len);
                 break;
             case EV_DISCONNECTED:
@@ -155,6 +185,8 @@ static void keypad_task(void *arg)
 
 void keypad_task_start(void)
 {
+    battery_init();
+
     /* Long-term identity. Must be created before the radio starts. */
     sl_keypair_t identity;
     ESP_ERROR_CHECK(ln_secret_get_or_create("link_id", identity.priv, sizeof(identity.priv)));
@@ -173,6 +205,8 @@ void keypad_task_start(void)
         .send = h_send,
         .feedback = h_feedback,
         .save_pairing = h_save_pairing,
+        .battery_mv = h_battery_mv,
+        .status_flags = h_status_flags,
     };
     kp_init(&s_kt.kp, &identity, &pairing, &hooks);
     s_kt.kp.fw_major = CONFIG_KEYPAD_FW_MAJOR;

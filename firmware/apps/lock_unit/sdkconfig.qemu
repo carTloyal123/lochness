@@ -1,2 +1,4 @@
 # Overlay for QEMU smoke tests (tools/qemu_console.sh): QEMU has no BT controller.
 CONFIG_BT_ENABLED=n
+# QEMU's ESP32-C3 has no WS2812 on the board.
+CONFIG_LOCHNESS_STATUS_LED_GPIO=-1

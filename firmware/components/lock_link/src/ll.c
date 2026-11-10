@@ -95,12 +95,34 @@ static bool send_msg(ll_t *ll, ll_conn_t *c, const lp_msg_t *msg)
     return ll->hooks.send(ll->hooks.ctx, c->handle, frame, ct_len + 1);
 }
 
+static bool gets_state(uint8_t role) { return role == LP_ROLE_HUB || role == LP_ROLE_PHONE; }
+
+static uint64_t idle_timeout_ms(uint8_t role)
+{
+    return role == LP_ROLE_HUB ? LL_HUB_IDLE_TIMEOUT_MS : LL_IDLE_TIMEOUT_MS;
+}
+
 static void establish(ll_t *ll, ll_conn_t *c, uint8_t peer)
 {
     c->peer = peer;
     c->role = ll->peers.peers[peer].role;
     c->state = LL_CONN_ESTABLISHED;
-    c->deadline_ms = now_ms(ll) + LL_IDLE_TIMEOUT_MS;
+    c->deadline_ms = now_ms(ll) + idle_timeout_ms(c->role);
+}
+
+/* Push the current state to a freshly established hub/phone session. */
+static bool send_snapshot(ll_t *ll, ll_conn_t *c)
+{
+    if (!gets_state(c->role) || !ll->hooks.snapshot) {
+        return true;
+    }
+    lp_msg_t state = {.type = LP_MSG_LOCK_STATE};
+    ll->hooks.snapshot(ll->hooks.ctx, &state);
+    state.type = LP_MSG_LOCK_STATE;
+    state.lock_state.event = LP_EVENT_NONE;
+    state.lock_state.source = LP_SOURCE_NONE;
+    state.lock_state.user_index = 0;
+    return send_msg(ll, c, &state);
 }
 
 static void handle_ik1(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
@@ -135,6 +157,9 @@ static void handle_ik1(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
     establish(ll, c, peer);
     if (hello.hello.role == LP_ROLE_KEYPAD && ll->hooks.keypad_status) {
         ll->hooks.keypad_status(ll->hooks.ctx, peer, hello.hello.battery_mv, 0);
+    }
+    if (!send_snapshot(ll, c)) {
+        drop(ll, c);
     }
 }
 
@@ -200,7 +225,7 @@ static void handle_xx3(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
         ll->hooks.paired(ll->hooks.ctx, slot, (lp_role_t)p->role, c->sess.handshake_hash);
     }
     establish(ll, c, slot);
-    if (!send_msg(ll, c, &result)) {
+    if (!send_msg(ll, c, &result) || !send_snapshot(ll, c)) {
         drop(ll, c);
     }
 }
@@ -214,7 +239,7 @@ static void handle_data(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
         drop(ll, c);
         return;
     }
-    c->deadline_ms = now_ms(ll) + LL_IDLE_TIMEOUT_MS;
+    c->deadline_ms = now_ms(ll) + idle_timeout_ms(c->role);
     bool ok = lp_decode(plain, plain_len, &msg);
     sl_wipe(plain, sizeof(plain));
     if (!ok) {
@@ -241,6 +266,13 @@ static void handle_data(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
         if (c->role == LP_ROLE_KEYPAD && ll->hooks.keypad_status) {
             ll->hooks.keypad_status(ll->hooks.ctx, c->peer, msg.keypad_status.battery_mv,
                                     msg.keypad_status.flags);
+        }
+        break;
+    case LP_MSG_TIME_SET:
+        /* Keypads sit outside the door: they must not be able to move the
+         * clock, which schedules depend on. */
+        if (gets_state(c->role) && ll->hooks.time_set) {
+            ll->hooks.time_set(ll->hooks.ctx, msg.time_set.unix_s, msg.time_set.utc_offset_min);
         }
         break;
     default:
@@ -319,6 +351,16 @@ uint64_t ll_next_deadline_ms(const ll_t *ll)
         }
     }
     return d;
+}
+
+void ll_broadcast_state(ll_t *ll, const lp_msg_t *state)
+{
+    for (int i = 0; i < LL_MAX_CONNS; i++) {
+        ll_conn_t *c = &ll->conns[i];
+        if (c->state == LL_CONN_ESTABLISHED && gets_state(c->role) && !send_msg(ll, c, state)) {
+            drop(ll, c);
+        }
+    }
 }
 
 bool ll_peer_remove(ll_t *ll, uint8_t index)

@@ -11,6 +11,8 @@
  *    physical action on the lock, is open, and only for the window's role.
  *    One pairing per window.
  *  - Any authentication failure drops the connection.
+ *  - Only hub (and later phone) sessions may set the clock, and only they
+ *    receive LOCK_STATE pushes. Keypads get neither.
  */
 #pragma once
 
@@ -25,6 +27,8 @@ extern "C" {
 #define LL_MAX_CONNS 3
 #define LL_HANDSHAKE_TIMEOUT_MS 5000
 #define LL_IDLE_TIMEOUT_MS 30000
+/* The hub keeps its session open and sends TIME_SET at least this often. */
+#define LL_HUB_IDLE_TIMEOUT_MS 300000
 #define LL_NO_PEER 0xFF
 
 typedef struct {
@@ -60,6 +64,11 @@ typedef struct {
     /* Optional. */
     void (*keypad_status)(void *ctx, uint8_t peer, uint16_t battery_mv, uint8_t flags);
     void (*paired)(void *ctx, uint8_t peer, lp_role_t role, const uint8_t handshake_hash[SL_HASH_LEN]);
+    /* Wall clock from a hub or phone session. */
+    void (*time_set)(void *ctx, uint32_t unix_s, int16_t utc_offset_min);
+    /* Current state as a LOCK_STATE message (event LP_EVENT_NONE); sent to
+     * hub/phone sessions as soon as they are established. */
+    void (*snapshot)(void *ctx, lp_msg_t *state);
 } ll_hooks_t;
 
 typedef enum {
@@ -101,6 +110,9 @@ void ll_on_frame(ll_t *ll, uint16_t handle, const uint8_t *frame, size_t len);
 
 void ll_tick(ll_t *ll);
 uint64_t ll_next_deadline_ms(const ll_t *ll);
+
+/* Send a LOCK_STATE message to every established hub/phone session. */
+void ll_broadcast_state(ll_t *ll, const lp_msg_t *state);
 
 /* Remove a peer and drop any of its live connections. */
 bool ll_peer_remove(ll_t *ll, uint8_t index);

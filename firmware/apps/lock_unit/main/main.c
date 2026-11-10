@@ -6,6 +6,7 @@
 #include "lock_task.h"
 #include "motor_sim.h"
 #include "platform_esp/pe_platform.h"
+#include "status_led.h"
 
 static const char *const TAG = "main";
 
@@ -13,6 +14,7 @@ void app_main(void)
 {
     ESP_ERROR_CHECK(pe_init());
     motor_sim_init();
+    status_led_init();
     lock_task_start(); /* creates device keys: must precede the radio */
     ESP_ERROR_CHECK(ble_server_start());
 

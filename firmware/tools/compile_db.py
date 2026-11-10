@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Merge the firmware's compile databases into firmware/compile_commands.json.
 
-clangd and clang-tidy need one database covering the lock app, the keypad
-app and the host tests. ESP-IDF's databases name riscv32-esp-elf-gcc, pass
+clangd and clang-tidy need one database covering the lock, keypad and hub
+apps and the host tests. ESP-IDF's databases name riscv32-esp-elf-gcc, pass
 GCC-only flags and get libc headers from a GCC specs file, none of which clang
 understands. This script rewrites each entry so any recent clang can parse it:
 
@@ -13,7 +13,11 @@ understands. This script rewrites each entry so any recent clang can parse it:
 
 Only files in this repo are kept (not ESP-IDF's own sources), so clangd indexes
 our code and reads IDF through its headers. When a file appears in several
-builds, the first build listed wins: lock_unit, then keypad, then host tests.
+builds, the first build listed wins: lock_unit, keypad, hub, then host tests.
+
+Every C/C++ source in the repo must appear in the database, or the editor
+can't parse it and the linter silently skips it; missing ones are listed and
+the exit status is 2.
 
   firmware/tools/compile_db.py              # merge existing build dirs
   firmware/tools/compile_db.py --configure  # (re)configure the builds first
@@ -31,7 +35,7 @@ FIRMWARE = Path(__file__).resolve().parent.parent
 IDF_PATH = Path(os.environ.get("IDF_PATH", Path.home() / "esp/esp-idf-v6.0.2"))
 
 # Priority order: the first build that compiles a file supplies its command.
-ESP_APPS = ["apps/lock_unit", "apps/keypad"]
+ESP_APPS = ["apps/lock_unit", "apps/keypad", "apps/hub"]
 HOST_BUILD = "test/host/build"
 
 # GCC flags clang rejects or warns about. Matched exactly or, when ending in
@@ -78,11 +82,11 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 
 def configure() -> None:
-    env_sh = IDF_PATH / "export.sh"
+    env_sh = FIRMWARE / "tools/idf_env.sh"
     for app in ESP_APPS:
-        # export.sh sets up PATH and the Python env; reconfigure is enough to
-        # emit compile_commands.json without compiling anything.
-        script = f'. "{env_sh}" >/dev/null 2>&1 && idf.py reconfigure >/dev/null'
+        # idf_env.sh loads ESP-IDF (and esp-matter, for the hub); reconfigure
+        # is enough to emit compile_commands.json without compiling anything.
+        script = f'. "{env_sh}" && idf_env_load && idf.py reconfigure >/dev/null'
         print(f"+ idf.py reconfigure ({app})", file=sys.stderr)
         subprocess.run(["bash", "-c", script], cwd=FIRMWARE / app, check=True)
     run(["cmake", "-S", ".", "-B", "build", "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"], FIRMWARE / "test/host")
@@ -94,9 +98,11 @@ _gcc_includes: dict[tuple[str, ...], list[str]] = {}
 def gcc_system_includes(driver: str, probe_flags: list[str]) -> list[str]:
     """Ask the GCC driver which system include dirs it would use."""
     key = (driver, *probe_flags)
+    # g++ adds the libstdc++ dirs only when preprocessing C++.
+    lang = "c++" if driver.endswith("g++") else "c"
     if key not in _gcc_includes:
         out = subprocess.run(
-            [driver, *probe_flags, "-E", "-x", "c", "-", "-v"],
+            [driver, *probe_flags, "-E", "-x", lang, "-", "-v"],
             input="", capture_output=True, text=True, check=True,
         ).stderr
         dirs, inside = [], False
@@ -156,7 +162,20 @@ def in_repo(path: Path) -> bool:
         rel = path.relative_to(FIRMWARE)
     except ValueError:
         return False
-    return not any(p == "build" or p.startswith("build-") for p in rel.parts)
+    # Build outputs and components the IDF component manager downloads
+    # (third-party, regenerated from dependencies.lock).
+    return not any(p in ("build", "managed_components") or p.startswith("build-") for p in rel.parts)
+
+
+SOURCE_SUFFIXES = {".c", ".cc", ".cpp"}
+
+
+def repo_sources() -> set[str]:
+    """C/C++ sources tracked or addable in the repo (build outputs excluded)."""
+    return {
+        str(p.resolve()) for p in FIRMWARE.rglob("*")
+        if p.suffix in SOURCE_SUFFIXES and p.is_file() and in_repo(p.resolve())
+    }
 
 
 def load(db: Path, rewrite) -> list[dict]:
@@ -197,6 +216,14 @@ def main() -> int:
     out = FIRMWARE / "compile_commands.json"
     out.write_text(json.dumps(sorted(merged.values(), key=lambda e: e["file"]), indent=1) + "\n")
     print(f"wrote {out.relative_to(FIRMWARE.parent)} ({len(merged)} files)", file=sys.stderr)
+
+    missing = sorted(repo_sources() - merged.keys())
+    if missing:
+        print("error: not in any build, so neither clangd nor lint covers them\n"
+              "(add them to a CMakeLists.txt, or run with --configure if they are):", file=sys.stderr)
+        for f in missing:
+            print(f"  {Path(f).relative_to(FIRMWARE)}", file=sys.stderr)
+        return 2
     return 0
 
 

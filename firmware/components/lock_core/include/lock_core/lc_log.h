@@ -28,6 +28,9 @@ typedef struct {
     uint8_t type;      /* lc_event_type_t */
     uint8_t source;    /* lc_source_t */
     uint16_t user_index;
+    /* Boot counter: with uptime_s, orders entries that have no wall time. */
+    uint16_t boot;
+    uint16_t reserved;
 } lc_log_entry_t;
 
 typedef struct {

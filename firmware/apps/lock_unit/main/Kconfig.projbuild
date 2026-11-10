@@ -15,4 +15,30 @@ menu "Lochness lock unit"
             Until the H-bridge/encoder driver lands, the motor is simulated
             and reports success after this delay.
 
+    config LOCHNESS_STATUS_LED_GPIO
+        int "Status RGB LED (WS2812) GPIO (-1 = none)"
+        range -1 30
+        default 8
+        help
+            Shows the bolt state on the DevKitC-1's onboard RGB LED
+            (GPIO 8): red locked, green unlocked, amber moving, blinking red
+            jammed, blinking blue while a pairing window is open.
+
+    config LOCHNESS_STATUS_LED_BRIGHTNESS
+        int "Status LED brightness (1-255)"
+        range 1 255
+        default 24
+        depends on LOCHNESS_STATUS_LED_GPIO >= 0
+
+    config LOCHNESS_ADV_INTERVAL_MS
+        int "Advertising interval when idle (ms)"
+        range 100 2000
+        default 300
+        help
+            How often the lock advertises to its keypad and hub. A keypad
+            or hub waits on average about half of this to connect. Each
+            advertising event costs a fixed amount of energy, so the
+            radio's average current scales roughly with 1 / interval.
+            Measure on the real board before choosing a production value.
+
 endmenu

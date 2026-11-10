@@ -8,6 +8,10 @@
  * Flow: the first key press starts connecting, so the link is usually up by
  * the time the user presses enter. Results arrive as feedback events.
  *
+ * If the link drops after a request was sent but before its result arrived,
+ * the keypad resends it once on a fresh session. Lock/unlock are idempotent;
+ * a wrong PIN whose reply was lost may count twice toward the lockout.
+ *
  * Transport-agnostic and not thread-safe; drive it from one task.
  */
 #pragma once
@@ -64,7 +68,10 @@ typedef struct {
     bool (*send)(void *ctx, const uint8_t *frame, size_t len);
     void (*feedback)(void *ctx, kp_feedback_t kind, uint16_t detail);
     void (*save_pairing)(void *ctx, const kp_pairing_t *pairing);
-    uint16_t (*battery_mv)(void *ctx); /* optional */
+    uint16_t (*battery_mv)(void *ctx); /* optional; 0 = unknown */
+    /* Optional LP_STATUS_* flags. When nonzero, a KEYPAD_STATUS goes to the
+     * lock at the start of each session. */
+    uint8_t (*status_flags)(void *ctx);
 } kp_hooks_t;
 
 typedef enum {
@@ -97,6 +104,9 @@ typedef struct {
     uint8_t pending_pin[LP_PIN_FIELD_LEN];
     uint8_t pending_len;
     bool awaiting_result;
+    /* The request is kept until its result arrives, so it can be resent once
+     * if the link drops first (e.g. the lock rebooted). */
+    bool retried;
     uint8_t last_op;
     uint8_t seq;
 
