@@ -42,12 +42,14 @@ idf_env_load
 if [[ "${1:-}" == all ]]; then
     shift
     for app in "$APPS"/*/; do
+        # apps/components holds shared ESP-only components, not an app.
+        [[ -f "$app/CMakeLists.txt" ]] || continue
         echo "==> $(basename "$app")"
         idf.py -C "$app" "$@"
     done
     exit 0
 fi
-if [[ $# -gt 0 && -d "$APPS/$1" ]]; then
+if [[ $# -gt 0 && -f "$APPS/$1/CMakeLists.txt" ]]; then
     app="$1"
     shift
     exec idf.py -C "$APPS/$app" "$@"

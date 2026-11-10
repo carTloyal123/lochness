@@ -7,6 +7,7 @@ endif()
 set(ESP_MATTER_PATH $ENV{ESP_MATTER_PATH})
 set(MATTER_SDK_PATH ${ESP_MATTER_PATH}/connectedhomeip/connectedhomeip)
 set(LOCHNESS_COMPONENTS ${CMAKE_CURRENT_LIST_DIR}/../../components)
+set(LOCHNESS_ESP_COMPONENTS ${CMAKE_CURRENT_LIST_DIR}/../components)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
@@ -18,8 +19,8 @@ set(EXTRA_COMPONENT_DIRS
     "${LOCHNESS_COMPONENTS}/secure_link"
     "${LOCHNESS_COMPONENTS}/link_proto"
     "${LOCHNESS_COMPONENTS}/hub_core"
-    "${LOCHNESS_COMPONENTS}/ln_central"
-    "${LOCHNESS_COMPONENTS}/ln_store")
+    "${LOCHNESS_ESP_COMPONENTS}/ln_central"
+    "${LOCHNESS_ESP_COMPONENTS}/ln_store")
 
 # Matter SoftwareVersionString comes from the app version; without this it is
 # the git describe of the checkout.

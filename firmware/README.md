@@ -8,10 +8,10 @@
 | `components/lock_link` | Lock-side link server: paired peers, handshakes, request dispatch. Portable. |
 | `components/keypad_core` | Keypad state machine: key entry, link, pairing, feedback. Portable. |
 | `components/hub_core` | Hub side of the link: pairing, a persistent session with reconnect backoff, remote lock/unlock, clock and keepalive, LOCK_STATE updates. Portable. |
-| `components/ln_central` | ESP-IDF BLE central shared by the keypad and hub (scan, connect, GATT setup). On the hub it attaches to Matter's NimBLE host. |
 | `components/monocypher` | Vendored Monocypher 4.0.2. |
-| `components/platform_esp` | ESP-IDF adapters for lock_core: NVS persistence, HMAC PIN digests, time, RNG. |
-| `components/ln_store` | ESP-IDF NVS helpers and device-secret generation (shared by both apps). |
+| `apps/components/ln_central` | ESP-IDF BLE central shared by the keypad and hub (scan, connect, GATT setup). On the hub it attaches to Matter's NimBLE host. |
+| `apps/components/platform_esp` | ESP-IDF adapters for lock_core: NVS persistence, HMAC PIN digests, time, RNG. |
+| `apps/components/ln_store` | ESP-IDF NVS helpers and device-secret generation (shared by both apps). |
 | `apps/lock_unit` | Lock unit firmware (ESP32-C6): lock task, BLE GATT server, console. Motor is simulated until the driver lands. |
 | `apps/hub` | Hub firmware (ESP32-C6): Matter Door Lock over Wi-Fi (esp-matter), linked to the lock over BLE. |
 | `apps/keypad` | Wireless keypad firmware (ESP32-C6 for now, H2 later): BLE central, button matrix, LEDs and buzzer, console. |
@@ -63,7 +63,7 @@ The editor and the linter cannot disagree, because each input has exactly one so
 
 | What | Single source | Used by |
 |---|---|---|
-| Rules | `.clang-tidy` files: `firmware/.clang-tidy`, plus nested ones that narrow it for a directory (`apps/` for ESP-IDF/Matter glue, `apps/hub/`, `components/ln_store/`, `components/platform_esp/`, `components/ln_central/`; `components/monocypher/` turns everything off) | clangd and `lint.sh` |
+| Rules | Three `.clang-tidy` files, each with one job and no overlap: `firmware/.clang-tidy` (all rules), `apps/.clang-tidy` (the ESP-IDF/Matter glue: the apps and the ESP-only components in `apps/components`), `components/monocypher/.clang-tidy` (vendored: all off) | clangd and `lint.sh` |
 | Tool | `tools/esp_clang.sh` picks the LLVM build; `tools/clangd` and `tools/clang-tidy` wrap it | the editor and `lint.sh` |
 | Compile flags | `firmware/compile_commands.json` from `tools/compile_db.py` | clangd and `lint.sh` |
 

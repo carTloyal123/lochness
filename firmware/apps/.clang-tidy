@@ -1,10 +1,17 @@
 ---
-# ESP-IDF and Matter glue: the code here talks to C APIs, so a few checks
-# have no call-site fix. They stay on for the portable components and tests.
+# ESP-IDF and Matter glue: the apps and the ESP-only components under
+# apps/components. The code here talks to C APIs and ESP-IDF/esp-matter
+# macros, so a few checks have no call-site fix. They stay on for the
+# portable components (firmware/components) and the host tests.
 #
 #   hicpp-signed-bitwise
 #       ESP_LOGx expands to `(level) | ESP_LOG_CONFIGS_DEFAULT` on signed
 #       enums, so it fires on every log call (and on the NimBLE flag macros).
+#   bugprone-macro-parentheses
+#       esp-matter builds define CHIP_ADDRESS_RESOLVE_IMPL_INCLUDE_HEADER=<...>
+#       on the command line; the finding has no source location (so no
+#       NOLINT) and an include target cannot be parenthesised. The glue's own
+#       few macros are simple (COUNT_OF, PIN_ARG).
 # C++ only (the hub's Matter shim; C files never trigger these):
 #   cppcoreguidelines-pro-type-vararg, hicpp-vararg
 #       ESP_LOGx and printf are the platform's logging and console output.
@@ -18,6 +25,7 @@
 InheritParentConfig: true
 Checks: >
   -hicpp-signed-bitwise,
+  -bugprone-macro-parentheses,
   -cppcoreguidelines-pro-type-vararg,
   -hicpp-vararg,
   -cppcoreguidelines-pro-type-union-access,

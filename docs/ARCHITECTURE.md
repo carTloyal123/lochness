@@ -162,8 +162,9 @@ firmware/
                       #   access log, lock state machine and policy. Host unit-tested.
     secure_link/      # Noise IK/XX channel (hub/keypad/app)
     link_proto/       # Versioned message definitions + test vectors
-    platform_esp/     # NVS/eFuse-HMAC/BLE/GPIO/motor adapters for lock_core
   apps/
+    components/       # ESP-only: platform_esp (NVS/eFuse-HMAC/time adapters for
+                      #   lock_core), ln_store (NVS, secrets), ln_central (BLE central)
     lock_unit/        # ESP-IDF: lock_core + motor/encoder + BLE peripheral
     keypad/           # ESP-IDF: touch → PIN attempt → secure_link client
     hub/              # esp-matter: Door Lock endpoint → link_proto client
