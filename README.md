@@ -16,3 +16,7 @@ cmake -S firmware/test/host -B firmware/test/host/build -G Ninja
 cmake --build firmware/test/host/build
 ctest --test-dir firmware/test/host/build --output-on-failure
 ```
+
+## License
+
+MIT (see [LICENSE](LICENSE)): use, copy, modify and distribute freely, keeping the copyright notice. Vendored third-party code keeps its own license: Monocypher (`firmware/components/monocypher`) is BSD-2-Clause or CC0, see its `LICENCE.md`.
