@@ -11,7 +11,7 @@
 | `apps/components/ln_central` | ESP-IDF BLE central for the keypad (scan, connect, GATT setup). |
 | `apps/components/platform_esp` | ESP-IDF adapters for lock_core: NVS persistence, HMAC PIN digests, time, RNG. |
 | `apps/components/ln_store` | ESP-IDF NVS helpers and device-secret generation (shared by both apps). |
-| `apps/lock_unit` | Lock unit firmware (ESP32-C6): lock task, BLE GATT server, console. Motor is simulated until the driver lands. |
+| `apps/lock_unit` | Lock unit firmware (ESP32-C6): lock task, BLE GATT server, console, and the Matter-over-Thread Door Lock endpoint (`main/matter_lock.cpp`). Motor is simulated until the driver lands. |
 | `apps/keypad` | Wireless keypad firmware (ESP32-C6 for now, H2 later): BLE central, button matrix, LEDs and buzzer, console. |
 | `test/host` | Host tests: lock_core, Noise test vectors, protocol, and end-to-end keypad ↔ lock over an in-memory transport. |
 | `../esp.sh` | Run any `idf.py` command without sourcing ESP-IDF: one app, `all` apps, `host` tests, or `qemu`. Also `boards` (list plugged-in boards and their app) and `send` (type console commands). |
@@ -61,7 +61,7 @@ The editor and the linter cannot disagree, because each input has exactly one so
 
 | What | Single source | Used by |
 |---|---|---|
-| Rules | Three `.clang-tidy` files, each with one job and no overlap: `firmware/.clang-tidy` (all rules), `apps/.clang-tidy` (the ESP-IDF glue: the apps and the ESP-only components in `apps/components`), `components/monocypher/.clang-tidy` (vendored: all off) | clangd and `lint.sh` |
+| Rules | `firmware/.clang-tidy`: every check on, every finding an error, minus a short documented list of checks that can't apply here. The same rules for all of our code (apps, components, tests). The only other one is `components/monocypher/.clang-tidy`, which turns vendored code off | clangd and `lint.sh` |
 | Tool | `tools/esp_clang.sh` picks the LLVM build; `tools/clangd` and `tools/clang-tidy` wrap it | the editor and `lint.sh` |
 | Compile flags | `firmware/compile_commands.json` from `tools/compile_db.py` | clangd and `lint.sh` |
 
@@ -93,8 +93,32 @@ user add Alice                 code add 1 1234          pin 1234       lock
 user add Walker schedule       sched 2 12345 12:00 13:00                time 1800000000 -300
 remote unlock [pin]            app unlock               config         config relock 30
 sim door open|closed           sim turn locked|unlocked sim jam        status   log
-factory-reset confirm
+matter [status]                matter commission [3..15] matter reset confirm
+matter radio [reset]           matter radio link on|off
+factory-reset confirm          # everything, Matter included
 ```
+
+`remote` runs a lock/unlock as if from Matter (same policy), without a controller.
+
+## Matter over Thread (Apple Home)
+
+The lock itself is the Matter device: a Door Lock endpoint over Thread, no hub. It needs a Thread border router on your network (HomePod mini, Apple TV 4K, Nest Hub, many routers) and esp-matter installed (see Toolchain setup). `apps/lock_unit/sdkconfig.matter` holds the Matter and Thread settings, layered on `sdkconfig.defaults`.
+
+The commissioning window opens at boot for 15 minutes while the lock has no controller. `matter commission` reopens it (also for adding a second controller), and prints the codes. In the Home app: Add Accessory, then scan the QR code (open the `https://project-chip.github.io/...` link it prints) or enter the manual code `3497-011-2332`. Home warns that it is uncertified: it is a development device with test certificates, test vendor/product IDs (0xFFF1/0x8000) and the shared test passcode. Home gives the lock the Thread network's credentials during commissioning.
+
+- Lock and unlock from Home are remote operations: the lock's remote policy (`config remote-unlock`, `config remote-pin`) and operating modes apply.
+- Keypad, knob (`sim turn`), console and auto-relock operations show up in Home through the lock task's state updates.
+- `matter status` shows the names Home uses (menuconfig: Lochness lock unit, then Matter), the controller count, the window and the Thread state.
+- `matter reset confirm` forgets every controller and the Thread network but keeps users, PINs, the log and keypads; `factory-reset confirm` erases all of it.
+- Home's auto-lock setting is the lock's own `config relock`: a change on either side shows on the other. The lock does the relocking (it knows the door and the mode); the Door Lock server's own relock timer is kept off.
+- A repeated lock or unlock while the bolt is already moving that way succeeds (Home sometimes sends commands twice); the opposite direction is refused as busy.
+- `matter radio` shows the Thread channel and the radio's transmit counters (frames, retries, "channel busy" CCA failures); `matter radio reset` zeroes them, and `matter radio link off|on` pauses the keypad link's advertising, for comparing the two.
+
+The lock joins Thread as an end device (a child of one of your border routers), not as a router: as a router, every boot set up links with all neighbor routers at once and spent the first seconds waiting for a free channel (hundreds of failed attempts, all eventually delivered). As an end device the same window shows a steady 10 to 20.
+
+BLE is shared: Matter commissioning advertises on extended advertising set 0 and the keypad link on set 1 (legacy PDUs from the lock's public address, which keypads store when they pair). Both run at once, and BLE stays up after commissioning for the keypad.
+
+Not yet: users and PINs through Matter, Matter time sync (the console's `time` stands in), sleepy end device / Matter ICD (rx stays on for now), OTA, and per-device setup codes.
 
 ## Pairing a keypad (two dev boards)
 
@@ -142,9 +166,9 @@ It factory-resets the lock, re-pairs the keypad, then measures cold, typed and w
 ./esp.sh qemu "user list" status     # second run = reboot; state persists
 ```
 
-The lock_unit app runs as an ESP32-C3, the closest chip QEMU emulates. Flash is kept in `apps/lock_unit/build-qemu/flash.bin` across runs, whether interactive or scripted, so each run is a reboot. Pass `--fresh` to start from a blank flash.
+The lock_unit app runs as an ESP32-C3, the closest chip QEMU emulates, built by its own small project in `apps/lock_unit/qemu/` (so its downloaded components don't clash with the Matter build's). Flash is kept in `apps/lock_unit/qemu/build/flash.bin` across runs, whether interactive or scripted, so each run is a reboot. Pass `--fresh` to start from a blank flash.
 
-QEMU has no Bluetooth controller, so QEMU builds use `apps/lock_unit/sdkconfig.qemu` to compile the link out. The link is covered by the host tests.
+QEMU has no Bluetooth controller and the C3 has no Thread radio, so the QEMU project adds `apps/lock_unit/sdkconfig.qemu` and leaves Matter out. The link is covered by the host tests.
 
 ## Security notes for dev boards
 

@@ -18,6 +18,7 @@
 #include "ln_store.h"
 #include "sdkconfig.h"
 #include "secure_link/sl_crypto.h"
+#include "status_led.h"
 
 static const char *const TAG = "keypad";
 
@@ -148,6 +149,8 @@ static void keypad_task(void *arg)
     (void)arg;
     static ev_t ev;
     for (;;) {
+        /* Before waiting: the task can sit idle for hours. */
+        status_led_show(s_kt.kp.pairing.paired, s_kt.kp.pairing_mode);
         if (xQueueReceive(s_kt.queue, &ev, ticks_until(kp_next_deadline_ms(&s_kt.kp))) == pdTRUE) {
             switch (ev.kind) {
             case EV_KEY:

@@ -19,6 +19,11 @@ CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
 CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
 CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=3
+# The link advertises on its own extended advertising set (legacy PDUs), so
+# Matter's commissioning set can run alongside it (main/ble_server.c).
+CONFIG_BT_NIMBLE_50_FEATURE_SUPPORT=y
+CONFIG_BT_NIMBLE_EXT_ADV=y
+CONFIG_BT_NIMBLE_MAX_EXT_ADV_INSTANCES=2
 CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=247
 # No BLE-layer bonding: links are secured by Noise at the app layer.
 CONFIG_BT_NIMBLE_NVS_PERSIST=n

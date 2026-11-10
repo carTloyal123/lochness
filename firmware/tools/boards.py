@@ -17,7 +17,7 @@ import serial
 from serial.tools import list_ports
 
 # A console command only that app registers -> app name.
-SIGNATURES = (("matter", "hub"), ("keys", "keypad"), ("remote", "lock_unit"))
+SIGNATURES = (("keys", "keypad"), ("remote", "lock_unit"))
 COMMAND = re.compile(r"^([a-z_]+)\b", re.MULTILINE)
 
 

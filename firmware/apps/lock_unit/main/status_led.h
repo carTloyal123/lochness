@@ -6,6 +6,7 @@
  *   red      locked              green    unlocked
  *   amber    bolt moving         white    unknown
  *   red, fast blink: jammed      blue blink: pairing window open
+ *   three green blinks: booted and ready (Matter and the keypad link up)
  */
 #pragma once
 
@@ -16,3 +17,5 @@
 void status_led_init(void);
 /* Cheap; call whenever state may have changed. Applied within ~100 ms. */
 void status_led_show(lp_bolt_t bolt, bool pairing);
+/* Blink green three times, then go back to the bolt colors. */
+void status_led_ready(void);

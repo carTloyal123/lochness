@@ -48,6 +48,7 @@ int test_failure_count(void) { return g_failures; }
     X(test_log_prune_by_age)                                                                       \
     X(test_keypad_unlock_happy_path)                                                               \
     X(test_keypad_unlock_requires_pin)                                                             \
+    X(test_repeat_while_moving)                                                                    \
     X(test_one_touch_lock)                                                                         \
     X(test_wrong_codes_lock_out_and_persist)                                                       \
     X(test_lockout_applies_to_remote_pin)                                                          \

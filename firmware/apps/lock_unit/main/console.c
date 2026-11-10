@@ -18,6 +18,10 @@
 #include "lock_core/lc_types.h"
 #include "lock_link/ll.h"
 #include "lock_task.h"
+#if LOCHNESS_MATTER
+#include "ble_server.h"
+#include "matter_lock.h"
+#endif
 #include "motor_sim.h"
 #include "platform_esp/pe_platform.h"
 
@@ -780,14 +784,60 @@ static int cmd_sim(int argc, char **argv)
 static int cmd_factory_reset(int argc, char **argv)
 {
     if (argc != 2 || strcmp(argv[1], "confirm") != 0) {
-        printf("erases all users, codes, log, settings and paired peers. usage: factory-reset confirm\n");
+        printf("erases all users, codes, log, settings, paired peers%s. usage: factory-reset confirm\n",
+               LOCHNESS_MATTER ? " and Matter (controllers, Thread network)" : "");
         return 1;
     }
     ESP_ERROR_CHECK(pe_store_erase());
     printf("erased; restarting\n");
+#if LOCHNESS_MATTER
+    matter_lock_factory_reset(); /* erases Matter's state, then restarts */
+#endif
     esp_restart();
     return 0;
 }
+
+#if LOCHNESS_MATTER
+static int cmd_matter(int argc, char **argv)
+{
+    enum { DEFAULT_WINDOW_MIN = 15, MAX_WINDOW_MIN = 15 };
+    const char *sub = argc > 1 ? argv[1] : "status";
+    if (strcmp(sub, "status") == 0) {
+        matter_lock_print_status();
+        return 0;
+    }
+    if (strcmp(sub, "commission") == 0) {
+        long long minutes = DEFAULT_WINDOW_MIN;
+        if (argc > 2 && !parse_arg("minutes", argv[2], 1, MAX_WINDOW_MIN, &minutes)) {
+            return 1;
+        }
+        return matter_lock_open_window((int)minutes) == ESP_OK ? 0 : 1;
+    }
+    if (strcmp(sub, "reset") == 0) {
+        if (argc != 3 || strcmp(argv[2], "confirm") != 0) {
+            printf("forgets every Matter controller and the Thread network (lock users, PINs, log and\n"
+                   "keypads stay), then restarts. usage: matter reset confirm\n");
+            return 1;
+        }
+        matter_lock_factory_reset();
+        return 0;
+    }
+    if (strcmp(sub, "radio") == 0) {
+        const char *what = argc > 2 ? argv[2] : "";
+        if (strcmp(what, "link") == 0 && argc == 4 && (strcmp(argv[3], "on") == 0 || strcmp(argv[3], "off") == 0)) {
+            ble_server_set_paused(strcmp(argv[3], "off") == 0);
+        } else if (argc > 2 && strcmp(what, "reset") != 0) {
+            printf("usage: matter radio [reset] | matter radio link on|off\n");
+            return 1;
+        }
+        matter_lock_print_radio(strcmp(what, "reset") == 0);
+        return 0;
+    }
+    printf("usage: matter [status] | matter commission [3..15 min] | matter radio [reset | link on|off]\n"
+           "       matter reset confirm\n");
+    return 1;
+}
+#endif
 
 /* ---- registration ---------------------------------------------------------- */
 
@@ -820,6 +870,9 @@ void console_start(void)
     reg("peers", "List or remove paired keypads/phones", cmd_peers);
     reg("sim", "Simulate door sensor, manual turns, jams", cmd_sim);
     reg("factory-reset", "Erase all lock state", cmd_factory_reset);
+#if LOCHNESS_MATTER
+    reg("matter", "Matter: status | commission [min] | radio [reset | link on|off] | reset confirm", cmd_matter);
+#endif
 
 #if defined(CONFIG_ESP_CONSOLE_UART_DEFAULT) || defined(CONFIG_ESP_CONSOLE_UART_CUSTOM)
     esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();

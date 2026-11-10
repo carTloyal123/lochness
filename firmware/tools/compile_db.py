@@ -7,7 +7,11 @@ GCC-only flags and get libc headers from a GCC specs file, none of which clang
 understands. This script rewrites each entry so any recent clang can parse it:
 
   ESP entries:  --target=riscv32-esp-elf, -nostdlibinc plus the libc include
-                dirs GCC reports, GCC-only flags dropped.
+                dirs GCC reports, GCC-only flags dropped, and include-target
+                macros (-DX=<a/b.h>, from esp-matter) written as -DX="a/b.h":
+                the same #include, but a single token, so clang-tidy's
+                bugprone-macro-parentheses has nothing to flag on a line
+                that is not in our code (and has no line for a NOLINT).
   Host entries: -arch X becomes --target=X-apple-macosx with the SDK sysroot,
                 so a cross clang (esp-clang) still parses them as host code.
 
@@ -26,6 +30,7 @@ the exit status is 2.
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -54,6 +59,14 @@ GCC_ONLY = {
 }
 # Builds enforce -Werror; in the editor warnings should stay warnings.
 DROP = {"-Werror"}
+
+
+INCLUDE_MACRO = re.compile(r"^-D(\w+)=<([^<>]+)>$")
+
+
+def quote_include_macro(arg: str) -> str:
+    m = INCLUDE_MACRO.match(arg)
+    return f'-D{m[1]}="{m[2]}"' if m else arg
 
 
 def drop_flag(arg: str) -> bool:
@@ -131,7 +144,7 @@ def rewrite_esp(argv: list[str]) -> list[str]:
     out = ["clang", f"--target={target}", "-nostdlibinc"]
     for d in sysdirs:
         out += ["-isystem", d]
-    out += [a for a in argv[1:] if not drop_flag(a)]
+    out += [quote_include_macro(a) for a in argv[1:] if not drop_flag(a)]
     return out
 
 

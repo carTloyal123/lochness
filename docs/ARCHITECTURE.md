@@ -64,7 +64,7 @@ Fewer boxes and less custom protocol matter more for a product people build or b
 
 ### Open risks of the Thread design
 
-- **BLE coexistence:** Matter commissioning advertises over BLE while the lock also advertises to its keypad. Both have to share one NimBLE host and advertising set (or take turns).
+- **BLE coexistence:** *solved on the C6:* Matter's BLE manager owns the NimBLE host and registers the link's GATT service with its own; commissioning advertises on extended advertising set 0 and the keypad link on set 1 (legacy PDUs, public address). Re-check on the H2.
 - **Time:** schedules need wall-clock time. Candidates: Matter Time Synchronization from the controller, or SNTP through the border router. Until then the console `time` command stands in.
 - **Setup codes:** every unit needs its own passcode, discriminator and QR label (and production DACs), generated at manufacturing.
 - **Certification:** selling kits raises CSA certification and vendor ID costs (see §3).
@@ -191,7 +191,7 @@ docs/
 1. **M0 – Core logic on host:** `lock_core` (users, PINs, schedules, rate limiter, access log, lock state machine, operating modes, auto-relock) with host tests. ✅
 2. **M1 – Standalone lock:** lock unit on a C6 devkit. ← *in progress: app, NVS persistence, PIN digest, door sensor and console done; motor/encoder driver pending hardware.* Motor + encoder + door sensor, NVS persistence, a serial console standing in for the keypad.
 3. **M2 – Secure link + wireless keypad:** `secure_link` + `link_proto`, keypad firmware on a second devkit, pairing flow. ← *first pass done: Noise IK/XX verified against test vectors, lock-side server, keypad state machine, end-to-end host tests, BLE glue for both apps (built, not yet run on hardware).*
-4. **M3 – Matter over Thread on the lock:** esp-matter Door Lock endpoint in the lock unit itself, commissioned into Apple Home / Home Assistant through a Thread border router. ← *next. A Wi-Fi hub prototype of this milestone (a third devkit bridging Matter to the lock over BLE) was commissioned into Apple Home, then retired for the hubless design.*
+4. **M3 – Matter over Thread on the lock:** esp-matter Door Lock endpoint in the lock unit itself, commissioned into Apple Home / Home Assistant through a Thread border router. ← *in progress: Door Lock endpoint (lock/unlock, LockState, operation and alarm events) running on the C6 next to the keypad link; Apple Home commissioning next. Then users/PINs, time sync and low-power Thread. A Wi-Fi hub prototype of this milestone (a third devkit bridging Matter to the lock over BLE) was commissioned into Apple Home, then retired for the hubless design.*
 5. **M4 – iOS app:** enrollment, calibration, local log, offline lock/unlock.
 6. **M5 – Hardening + power:** secure boot, flash/NVS encryption, HMAC-bound PINs, power profiling of the lock and keypad.
 7. **M6 – Production path:** mechanical design + adapter plates, custom PCBs, re-evaluate silicon, CSA certification.

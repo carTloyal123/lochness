@@ -60,6 +60,20 @@ menu "Lochness keypad"
             Hold for 3 seconds to enter pairing mode. On the production
             keypad this sits behind the mounting plate.
 
+    config KEYPAD_STATUS_LED_GPIO
+        int "Status RGB LED (WS2812) GPIO (-1 = none)"
+        range -1 30
+        default 8
+        help
+            The DevKitC-1's onboard RGB LED (GPIO 8): white while starting,
+            blinking blue while pairing, amber when not paired, green when
+            paired and ready. Bench aid; off on a battery keypad.
+
+    config KEYPAD_STATUS_LED_BRIGHTNESS
+        int "Status LED brightness (1-255)"
+        range 1 255
+        default 24
+
     config KEYPAD_LED_GREEN_GPIO
         int "Green LED GPIO (-1 = none)"
         range -1 30

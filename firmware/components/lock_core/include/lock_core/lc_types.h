@@ -44,7 +44,7 @@ typedef enum {
     LC_ERR_LOCKED_OUT, /* too many wrong codes; PIN was not evaluated */
     LC_ERR_SCHEDULE,   /* valid credential outside its schedule (or time unknown) */
     LC_ERR_MODE,       /* operating mode or lock-side policy forbids this */
-    LC_ERR_BUSY,       /* bolt already moving */
+    LC_ERR_BUSY,       /* bolt moving the other way */
     LC_ERR_DOOR_OPEN,  /* refusing to throw the bolt into an open door */
     LC_ERR_PLATFORM,   /* platform hook failed */
 } lc_err_t;

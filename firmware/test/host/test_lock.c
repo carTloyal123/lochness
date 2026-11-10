@@ -67,6 +67,32 @@ TEST(test_keypad_unlock_happy_path)
     CHECK_EQ(fixture.lc.log.count, 1);
 }
 
+TEST(test_repeat_while_moving)
+{
+    setup(cfg_attributed());
+    CHECK_EQ(lc_request(&fixture.lc, LC_OP_UNLOCK, LC_SOURCE_KEYPAD, PIN("1234"), NULL), LC_OK);
+    CHECK_EQ(fixture.lc.bolt, LC_BOLT_UNLOCKING);
+
+    /* Same direction: still authenticated, then OK without a second start. */
+    CHECK_EQ(lc_request(&fixture.lc, LC_OP_UNLOCK, LC_SOURCE_KEYPAD, PIN("9999"), NULL), LC_ERR_DENIED);
+    CHECK_EQ(lc_request(&fixture.lc, LC_OP_UNLOCK, LC_SOURCE_KEYPAD, PIN("1234"), NULL), LC_OK);
+    CHECK_EQ(lc_request(&fixture.lc, LC_OP_UNLOCK, LC_SOURCE_REMOTE, NULL, 0, NULL), LC_OK);
+    CHECK_EQ(fixture.fake.motor_starts, 1);
+    /* The other direction: busy. */
+    CHECK_EQ(lc_request(&fixture.lc, LC_OP_LOCK, LC_SOURCE_REMOTE, NULL, 0, NULL), LC_ERR_BUSY);
+
+    int notified = fixture.fake.notify_count;
+    lc_on_motor_done(&fixture.lc, true);
+    CHECK_EQ(fixture.lc.bolt, LC_BOLT_UNLOCKED);
+    CHECK_EQ(fixture.fake.notify_count, notified + 1); /* one UNLOCKED event */
+    const lc_event_t *ev = fake_last_event(&fixture.fake);
+    CHECK(ev != NULL);
+    if (ev == NULL) {
+        return;
+    }
+    CHECK_EQ(ev->source, LC_SOURCE_KEYPAD); /* the first requester */
+}
+
 TEST(test_keypad_unlock_requires_pin)
 {
     setup(cfg_attributed());

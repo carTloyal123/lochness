@@ -15,6 +15,7 @@
 #include "lock_bridge.h"
 #include "lock_core/lc_lock.h"
 #include "lock_core/lc_log.h"
+#include "lock_core/lc_types.h"
 #include "lock_link/ll.h"
 #include "motor_sim.h"
 #include "platform_esp/pe_platform.h"
@@ -79,6 +80,8 @@ static struct {
     /* Last state pushed to phones, to detect changes without an event. */
     uint8_t sent_bolt;
     uint8_t sent_door;
+    lock_state_observer_t observer;
+    lock_config_observer_t config_observer;
 } s_lock; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): module state
 
 static uint64_t now_ms(void) { return s_lock.ctx.lc.plat.now_ms(NULL); }
@@ -120,6 +123,9 @@ static void flush_state(void)
     }
     for (uint8_t i = 0; i < s_lock.state_q_len; i++) {
         ll_broadcast_state(&s_lock.ctx.ll, &s_lock.state_q[i]);
+        if (s_lock.observer) {
+            s_lock.observer(&s_lock.state_q[i]);
+        }
     }
     s_lock.state_q_len = 0;
     s_lock.sent_bolt = now.lock_state.bolt;
@@ -146,7 +152,13 @@ static void hook_persist(void *ctx, lc_persist_t what)
     pe_store_save(&s_lock.ctx.lc, what);
 }
 
-void lock_task_save_config(const lc_t *lc) { pe_store_save_config(&lc->cfg); }
+void lock_task_save_config(const lc_t *lc)
+{
+    pe_store_save_config(&lc->cfg);
+    if (s_lock.config_observer) {
+        s_lock.config_observer(&lc->cfg);
+    }
+}
 void lock_task_save_peers(const ll_t *ll) { pe_store_save_peers(&ll->peers, sizeof(ll->peers)); }
 
 /* ---- lock_link hooks ------------------------------------------------------- */
@@ -382,6 +394,67 @@ int lock_task_call(lock_task_fn_t func, void *arg)
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     return ret;
 }
+
+typedef struct {
+    lc_op_t op;
+    lc_source_t source;
+    const uint8_t *pin;
+    size_t pin_len;
+} request_args_t;
+
+static int do_request(lock_ctx_t *ctx, void *arg)
+{
+    const request_args_t *args = arg;
+    return (int)lc_request(&ctx->lc, args->op, args->source, args->pin_len ? args->pin : NULL, args->pin_len, NULL);
+}
+
+lc_err_t lock_task_request(lc_op_t op, lc_source_t source, const uint8_t *pin, size_t pin_len)
+{
+    request_args_t args = {.op = op, .source = source, .pin = pin, .pin_len = pin_len};
+    return (lc_err_t)lock_task_call(do_request, &args);
+}
+
+static int do_set_observer(lock_ctx_t *ctx, void *arg)
+{
+    s_lock.observer = *(const lock_state_observer_t *)arg;
+    if (s_lock.observer) {
+        lp_msg_t snapshot;
+        lock_bridge_state(&ctx->lc, NULL, &snapshot);
+        s_lock.observer(&snapshot);
+    }
+    return 0;
+}
+
+void lock_task_set_state_observer(lock_state_observer_t observer)
+{
+    lock_task_call(do_set_observer, (void *)&observer);
+}
+
+static int do_set_config_observer(lock_ctx_t *ctx, void *arg)
+{
+    s_lock.config_observer = *(const lock_config_observer_t *)arg;
+    if (s_lock.config_observer) {
+        s_lock.config_observer(&ctx->lc.cfg);
+    }
+    return 0;
+}
+
+void lock_task_set_config_observer(lock_config_observer_t observer)
+{
+    lock_task_call(do_set_config_observer, (void *)&observer);
+}
+
+static int do_set_auto_relock(lock_ctx_t *ctx, void *arg)
+{
+    const uint32_t seconds = *(const uint32_t *)arg;
+    if (ctx->lc.cfg.auto_relock_s != seconds) {
+        ctx->lc.cfg.auto_relock_s = seconds;
+        lock_task_save_config(&ctx->lc);
+    }
+    return 0;
+}
+
+void lock_task_set_auto_relock(uint32_t seconds) { lock_task_call(do_set_auto_relock, &seconds); }
 
 static void post(ev_t *ev)
 {

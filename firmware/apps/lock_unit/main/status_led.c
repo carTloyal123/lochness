@@ -9,45 +9,35 @@
 #if CONFIG_LOCHNESS_STATUS_LED_GPIO >= 0
 
 #include "esp_err.h"
-#include "esp_log.h"
 #include "esp_timer.h"
-#include "led_strip.h"
-#include "led_strip_rmt.h"
-#include "led_strip_types.h"
-
-static const char *const TAG = "led";
+#include "ln_rgb.h"
 
 enum {
     TICK_US = 100000, /* blink phase: 100 ms */
-    RMT_RESOLUTION_HZ = 10000000,
     LEVEL = CONFIG_LOCHNESS_STATUS_LED_BRIGHTNESS,
-    PAIR_BLINK_TICKS = 5, /* blue for 500 ms of every second */
+    PAIR_BLINK_TICKS = 5,  /* blue for 500 ms of every second */
+    READY_BLINK_TICKS = 2, /* green 200 ms on, 200 ms off */
+    READY_BLINKS = 3,
 };
 
-typedef struct {
-    uint8_t r, g, b;
-} rgb_t;
-
-/* `bolt` and `pairing` are written by the lock task, everything else only
- * by the timer callback. */
+/* `bolt`, `pairing` and `ready_ticks` are written by other tasks; the rest
+ * only by the timer callback. */
 static struct {
-    led_strip_handle_t strip;
     esp_timer_handle_t timer;
     volatile uint8_t bolt;
     volatile bool pairing;
+    volatile uint32_t ready_ticks; /* left in the ready flash */
     uint32_t tick;
-    rgb_t shown;
-    bool shown_valid;
 } s_led; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): module state
 
-static rgb_t bolt_color(uint8_t bolt, uint32_t tick)
+static ln_rgb_t bolt_color(uint8_t bolt, uint32_t tick)
 {
     switch (bolt) {
-    case LP_BOLT_LOCKED: return (rgb_t){LEVEL, 0, 0};
-    case LP_BOLT_UNLOCKED: return (rgb_t){0, LEVEL, 0};
-    case LP_BOLT_MOVING: return (rgb_t){LEVEL, LEVEL / 3, 0};
-    case LP_BOLT_JAMMED: return (tick % 2U) ? (rgb_t){LEVEL, 0, 0} : (rgb_t){0, 0, 0};
-    default: return (rgb_t){LEVEL / 3, LEVEL / 3, LEVEL / 3};
+    case LP_BOLT_LOCKED: return (ln_rgb_t){LEVEL, 0, 0};
+    case LP_BOLT_UNLOCKED: return (ln_rgb_t){0, LEVEL, 0};
+    case LP_BOLT_MOVING: return (ln_rgb_t){LEVEL, LEVEL / 3, 0};
+    case LP_BOLT_JAMMED: return (tick % 2U) ? (ln_rgb_t){LEVEL, 0, 0} : (ln_rgb_t){0, 0, 0};
+    default: return (ln_rgb_t){LEVEL / 3, LEVEL / 3, LEVEL / 3};
     }
 }
 
@@ -55,30 +45,20 @@ static void on_tick(void *arg)
 {
     (void)arg;
     s_led.tick++;
-    rgb_t c = bolt_color(s_led.bolt, s_led.tick);
-    if (s_led.pairing && (s_led.tick / PAIR_BLINK_TICKS) % 2U) {
-        c = (rgb_t){0, 0, LEVEL};
+    ln_rgb_t c = bolt_color(s_led.bolt, s_led.tick);
+    if (s_led.ready_ticks > 0) {
+        s_led.ready_ticks--;
+        /* Counts down, so the first phase after the start is "on". */
+        c = (s_led.ready_ticks / READY_BLINK_TICKS) % 2U ? (ln_rgb_t){0, LEVEL, 0} : (ln_rgb_t){0, 0, 0};
+    } else if (s_led.pairing && (s_led.tick / PAIR_BLINK_TICKS) % 2U) {
+        c = (ln_rgb_t){0, 0, LEVEL};
     }
-    if (s_led.shown_valid && c.r == s_led.shown.r && c.g == s_led.shown.g && c.b == s_led.shown.b) {
-        return;
-    }
-    if (led_strip_set_pixel(s_led.strip, 0, c.r, c.g, c.b) == ESP_OK && led_strip_refresh(s_led.strip) == ESP_OK) {
-        s_led.shown = c;
-        s_led.shown_valid = true;
-    }
+    ln_rgb_set(c);
 }
 
 void status_led_init(void)
 {
-    led_strip_config_t cfg = {
-        .strip_gpio_num = CONFIG_LOCHNESS_STATUS_LED_GPIO,
-        .max_leds = 1,
-        .led_model = LED_MODEL_WS2812,
-        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
-    };
-    led_strip_rmt_config_t rmt = {.resolution_hz = RMT_RESOLUTION_HZ};
-    if (led_strip_new_rmt_device(&cfg, &rmt, &s_led.strip) != ESP_OK) {
-        ESP_LOGW(TAG, "no LED on GPIO %d", CONFIG_LOCHNESS_STATUS_LED_GPIO);
+    if (!ln_rgb_init(CONFIG_LOCHNESS_STATUS_LED_GPIO)) {
         return;
     }
     s_led.bolt = LP_BOLT_UNKNOWN;
@@ -93,6 +73,8 @@ void status_led_show(lp_bolt_t bolt, bool pairing)
     s_led.pairing = pairing;
 }
 
+void status_led_ready(void) { s_led.ready_ticks = 2U * READY_BLINKS * READY_BLINK_TICKS; }
+
 #else
 
 void status_led_init(void) {}
@@ -101,5 +83,6 @@ void status_led_show(lp_bolt_t bolt, bool pairing)
     (void)bolt;
     (void)pairing;
 }
+void status_led_ready(void) {}
 
 #endif

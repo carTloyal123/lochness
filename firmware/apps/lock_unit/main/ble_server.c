@@ -8,13 +8,21 @@
 
 #include <string.h>
 
+#include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "host/ble_gap.h"
+#include "host/ble_gatt.h"
 #include "host/ble_hs.h"
-#include "host/util/util.h"
+#include "host/ble_hs_adv.h"
+#include "host/ble_hs_id.h"
+#include "host/ble_hs_mbuf.h"
 #include "link_proto/lp.h"
 #include "link_proto/lp_ble.h"
+#include "lock_link/ll.h"
 #include "lock_task.h"
 #include "nimble/ble.h"
+#include "nimble/hci_common.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 #include "os/os_mbuf.h"
@@ -25,15 +33,29 @@ static const ble_uuid128_t SVC_UUID = {.u = {.type = BLE_UUID_TYPE_128}, .value 
 static const ble_uuid128_t RX_UUID = {.u = {.type = BLE_UUID_TYPE_128}, .value = LP_BLE_RX_UUID_LE};
 static const ble_uuid128_t TX_UUID = {.u = {.type = BLE_UUID_TYPE_128}, .value = LP_BLE_TX_UUID_LE};
 
-/* Service data = 16-byte service UUID + one flags byte. */
-enum { SVC_DATA_LEN = 17, SVC_DATA_FLAGS = 16 };
+enum {
+    /* Service data = 16-byte service UUID + one flags byte. */
+    SVC_DATA_LEN = 17,
+    SVC_DATA_FLAGS = 16,
+    /* Extended advertising set for the link. Matter's BLE manager owns set 0
+     * (commissioning); keeping ours separate lets both advertise at once. */
+    ADV_INSTANCE = 1,
+    PAIRING_ITVL_MIN_MS = 100,
+    PAIRING_ITVL_MAX_MS = 150,
+    /* How often to check whether Matter has brought the host up. */
+    SYNC_POLL_US = 50000,
+    /* Highest TX power the controller allows. */
+    TX_POWER_MAX = 127,
+};
 
 /* Touched from the NimBLE host task; `pairing` is also set by the lock task. */
 static struct {
     uint16_t tx_handle;
-    uint8_t own_addr_type;
     volatile bool pairing;
+    volatile bool ready;
+    volatile bool paused;
     int connections;
+    esp_timer_handle_t sync_timer;
 } s_ble; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): module state
 
 static void advertise(void);
@@ -81,6 +103,8 @@ static const struct ble_gatt_svc_def SERVICES[] = {
     {0},
 };
 
+/* Events for connections made through our advertising set only; Matter's
+ * commissioning connections go to its own handler. */
 static int gap_event(struct ble_gap_event *event, void *arg)
 {
     (void)arg;
@@ -109,14 +133,8 @@ static int gap_event(struct ble_gap_event *event, void *arg)
     return 0;
 }
 
-static void advertise(void)
+static bool set_adv_data(void)
 {
-    if (s_ble.connections >= CONFIG_BT_NIMBLE_MAX_CONNECTIONS) {
-        return;
-    }
-    if (ble_gap_adv_active()) {
-        ble_gap_adv_stop();
-    }
     /* Service data = UUID (16 bytes) + flags. No name: the lock does not
      * announce who it belongs to. */
     static uint8_t svc_data[SVC_DATA_LEN] = LP_BLE_SERVICE_UUID_LE;
@@ -126,46 +144,110 @@ static void advertise(void)
     fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
     fields.svc_data_uuid128 = svc_data;
     fields.svc_data_uuid128_len = sizeof(svc_data);
-    int rc = ble_gap_adv_set_fields(&fields);
-    if (rc != 0) {
-        ESP_LOGE(TAG, "adv fields: %d", rc);
+    struct os_mbuf *data = os_msys_get_pkthdr(BLE_HS_ADV_MAX_SZ, 0);
+    if (!data) {
+        return false;
+    }
+    if (ble_hs_adv_set_fields_mbuf(&fields, data) != 0) {
+        os_mbuf_free_chain(data);
+        return false;
+    }
+    return ble_gap_ext_adv_set_data(ADV_INSTANCE, data) == 0; /* takes the mbuf */
+}
+
+static void advertise(void)
+{
+    if (!s_ble.ready || s_ble.connections >= LL_MAX_CONNS) {
         return;
     }
-    struct ble_gap_adv_params params = {
-        .conn_mode = BLE_GAP_CONN_MODE_UND,
-        .disc_mode = BLE_GAP_DISC_MODE_GEN,
+    if (s_ble.paused) {
+        (void)ble_gap_ext_adv_stop(ADV_INSTANCE);
+        return;
+    }
+    if (ble_gap_ext_adv_active(ADV_INSTANCE)) {
+        (void)ble_gap_ext_adv_stop(ADV_INSTANCE);
+    }
+    /* Legacy PDUs so any BLE 4 central (the keypad, phones) sees it. The
+     * public address is stable, and keypads store it at pairing. */
+    struct ble_gap_ext_adv_params params = {
+        .connectable = 1,
+        .scannable = 1,
+        .legacy_pdu = 1,
+        .own_addr_type = BLE_OWN_ADDR_PUBLIC,
+        .primary_phy = BLE_HCI_LE_PHY_1M,
+        .secondary_phy = BLE_HCI_LE_PHY_1M,
+        .tx_power = TX_POWER_MAX,
+        .sid = ADV_INSTANCE,
         /* The keypad starts connecting on the first key press, so most of
          * this wait hides behind typing; one-touch lock sees all of it. */
         .itvl_min = BLE_GAP_ADV_ITVL_MS(CONFIG_LOCHNESS_ADV_INTERVAL_MS),
         .itvl_max = BLE_GAP_ADV_ITVL_MS(CONFIG_LOCHNESS_ADV_INTERVAL_MS + CONFIG_LOCHNESS_ADV_INTERVAL_MS / 10),
     };
     if (s_ble.pairing) {
-        params.itvl_min = BLE_GAP_ADV_ITVL_MS(100);
-        params.itvl_max = BLE_GAP_ADV_ITVL_MS(150);
+        params.itvl_min = BLE_GAP_ADV_ITVL_MS(PAIRING_ITVL_MIN_MS);
+        params.itvl_max = BLE_GAP_ADV_ITVL_MS(PAIRING_ITVL_MAX_MS);
     }
-    rc = ble_gap_adv_start(s_ble.own_addr_type, NULL, BLE_HS_FOREVER, &params, gap_event, NULL);
+    int rc = ble_gap_ext_adv_configure(ADV_INSTANCE, &params, NULL, gap_event, NULL);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "adv configure: %d", rc);
+        return;
+    }
+    if (!set_adv_data()) {
+        ESP_LOGE(TAG, "adv data");
+        return;
+    }
+    rc = ble_gap_ext_adv_start(ADV_INSTANCE, 0, 0);
     if (rc != 0 && rc != BLE_HS_EALREADY) {
         ESP_LOGE(TAG, "adv start: %d", rc);
     }
 }
 
-static void on_sync(void)
+/* Host synced: start advertising the link. */
+static void on_ready(void)
 {
     /* TODO(privacy): rotate addresses and replace the static service data
      * with a tag only paired peers can recognize. */
-    ESP_ERROR_CHECK(ble_hs_util_ensure_addr(0));
-    ESP_ERROR_CHECK(ble_hs_id_infer_auto(0, &s_ble.own_addr_type));
     uint8_t addr[BLE_DEV_ADDR_LEN];
-    ble_hs_id_copy_addr(s_ble.own_addr_type, addr, NULL);
+    if (ble_hs_id_copy_addr(BLE_ADDR_PUBLIC, addr, NULL) != 0) {
+        ESP_LOGE(TAG, "no public address; link not advertised");
+        return;
+    }
     ESP_LOGI(TAG, "advertising as %02x:%02x:%02x:%02x:%02x:%02x", addr[5], addr[4], addr[3], addr[2],
              addr[1], addr[0]);
+    s_ble.ready = true;
     advertise();
 }
 
-static void on_reset(int reason)
+/* ---- Matter owns the host -------------------------------------------------- */
+
+const struct ble_gatt_svc_def *ble_server_services(void) { return SERVICES; }
+
+static void poll_sync(void *arg)
 {
-    ESP_LOGW(TAG, "host reset: %d", reason);
+    (void)arg;
+    if (!ble_hs_synced()) {
+        return;
+    }
+    (void)esp_timer_stop(s_ble.sync_timer);
+    on_ready();
 }
+
+esp_err_t ble_server_attach(void)
+{
+    /* Matter's sync callback is its own, so watch for the host instead. */
+    const esp_timer_create_args_t args = {.callback = poll_sync, .name = "ble_sync"};
+    esp_err_t err = esp_timer_create(&args, &s_ble.sync_timer);
+    if (err == ESP_OK) {
+        err = esp_timer_start_periodic(s_ble.sync_timer, SYNC_POLL_US);
+    }
+    return err;
+}
+
+/* ---- We own the host (builds without Matter) ------------------------------- */
+
+static void on_sync(void) { on_ready(); }
+
+static void on_reset(int reason) { ESP_LOGW(TAG, "host reset: %d", reason); }
 
 static void host_task(void *param)
 {
@@ -196,6 +278,8 @@ esp_err_t ble_server_start(void)
     return ESP_OK;
 }
 
+/* ---- Link I/O -------------------------------------------------------------- */
+
 bool ble_server_send(uint16_t conn, const uint8_t *frame, size_t len)
 {
     struct os_mbuf *mbuf = ble_hs_mbuf_from_flat(frame, (uint16_t)len);
@@ -205,17 +289,25 @@ bool ble_server_send(uint16_t conn, const uint8_t *frame, size_t len)
     return ble_gatts_notify_custom(conn, s_ble.tx_handle, mbuf) == 0;
 }
 
-void ble_server_disconnect(uint16_t conn) { ble_gap_terminate(conn, BLE_ERR_REM_USER_CONN_TERM); }
+void ble_server_disconnect(uint16_t conn) { (void)ble_gap_terminate(conn, BLE_ERR_REM_USER_CONN_TERM); }
 
 void ble_server_set_pairing(bool open)
 {
     if (s_ble.pairing != open) {
         s_ble.pairing = open;
-        if (ble_hs_synced()) {
-            advertise();
-        }
+        advertise();
     }
 }
+
+void ble_server_set_paused(bool paused)
+{
+    if (s_ble.paused != paused) {
+        s_ble.paused = paused;
+        advertise();
+    }
+}
+
+bool ble_server_paused(void) { return s_ble.paused; }
 
 #else /* !CONFIG_BT_ENABLED: QEMU smoke-test builds have no radio */
 
@@ -235,5 +327,7 @@ bool ble_server_send(uint16_t conn, const uint8_t *frame, size_t len)
 }
 void ble_server_disconnect(uint16_t conn) { (void)conn; }
 void ble_server_set_pairing(bool open) { (void)open; }
+void ble_server_set_paused(bool paused) { (void)paused; }
+bool ble_server_paused(void) { return false; }
 
 #endif

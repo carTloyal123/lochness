@@ -1,12 +1,14 @@
 ---
-# The single source of lint rules: clangd (editor) and tools/lint.sh (CLI/CI)
-# both read this file and the nested ones (components/monocypher opts out).
-# Keep editor-only settings in .clangd and rules here.
+# The single source of lint rules, for all of our code: clangd (editor) and
+# tools/lint.sh (CLI/CI) both read it. The one other .clang-tidy is
+# components/monocypher's, which turns vendored code off. Keep editor-only
+# settings in .clangd and rules here.
 #
 # Every check is on and every finding is an error. The only removals are
 # checks that cannot apply to this code base (they target another project or
-# language) and alias checks that would report the same finding twice; reasons
-# below. Prefer fixing or NOLINT(check) with a reason over adding here.
+# language, or fire inside a platform macro with no fix at the call site) and
+# alias checks that would report the same finding twice; reasons below.
+# Prefer fixing or NOLINT(check) with a reason over adding here.
 #
 #   altera-*      Intel FPGA OpenCL kernels.
 #   llvmlibc-*    LLVM's own libc implementation (namespaces, entrypoint macros).
@@ -28,6 +30,17 @@
 #   cppcoreguidelines-avoid-magic-numbers
 #                 Alias of readability-magic-numbers (same finding twice and
 #                 a second copy of its options to keep in step).
+#   hicpp-signed-bitwise
+#                 ESP_LOGx expands to `(level) | ESP_LOG_CONFIGS_DEFAULT` on a
+#                 signed enum, so it fires on every log call (and on NimBLE's
+#                 flag macros); the operands are IDF's, not ours.
+#   cppcoreguidelines-pro-type-vararg (and its hicpp alias)
+#                 C++ only (the Matter glue): ESP_LOGx and printf are the
+#                 platform's logging and console output.
+#   cppcoreguidelines-pro-type-union-access
+#                 C++ only: our protocol and the Matter SDK's event types are
+#                 C tagged unions (lp_msg_t, ChipDeviceEvent), and ESP_LOGx
+#                 expands to a union access.
 Checks: >
   *,
   -altera-*,
@@ -39,6 +52,10 @@ Checks: >
   -readability-implicit-bool-conversion,
   -modernize-use-trailing-return-type,
   -cppcoreguidelines-avoid-magic-numbers,
+  -hicpp-signed-bitwise,
+  -cppcoreguidelines-pro-type-vararg,
+  -hicpp-vararg,
+  -cppcoreguidelines-pro-type-union-access,
 WarningsAsErrors: '*'
 # Lint our headers, not ESP-IDF's or the vendored Monocypher. (Header
 # filtering is clang-tidy's; clangd only reports on the open file.)
@@ -70,8 +87,10 @@ CheckOptions:
   # ESP_LOGx and the CHIP macros are do { } while (0) inside; only flag ours.
   cppcoreguidelines-avoid-do-while.IgnoreMacros: true
   readability-function-size.LineThreshold: 120
-  # Known cycles inside ESP-IDF (FreeRTOS.h <-> idf_additions.h, NimBLE os/).
-  misc-header-include-cycle.IgnoredFilesList: 'FreeRTOS\.h;ble_hs\.h;os_mbuf\.h'
+  # Known cycles inside ESP-IDF (FreeRTOS.h <-> idf_additions.h, NimBLE's
+  # ble_hs.h <-> ble_gap.h and os/) and the Matter SDK (esp_matter.h,
+  # ConfigurationManager.h <-> its generic implementation).
+  misc-header-include-cycle.IgnoredFilesList: 'FreeRTOS\.h;ble_hs\.h;ble_gap\.h;os_mbuf\.h;esp_matter\.h;ConfigurationManager\.h'
   bugprone-easily-swappable-parameters.MinimumLength: 3
   misc-include-cleaner.IgnoreHeaders: 'sys/_.*;machine/.*;sdkconfig\.h;freertos/.*;esp_.*\.h;host/.*;nimble/.*;services/.*'
 ...

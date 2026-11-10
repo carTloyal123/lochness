@@ -198,7 +198,9 @@ lc_err_t lc_request(lc_t *lc, lc_op_t op, lc_source_t source, const uint8_t *pin
         (source != LC_SOURCE_KEYPAD && source != LC_SOURCE_REMOTE && source != LC_SOURCE_APP)) {
         return LC_ERR_INVALID_ARG;
     }
-    if (is_moving(lc)) {
+    /* Against a move in progress: busy. The same direction goes through the
+     * usual checks below and then succeeds (see the end). */
+    if (is_moving(lc) && lc->pending_op != op) {
         return LC_ERR_BUSY;
     }
 
@@ -234,6 +236,12 @@ lc_err_t lc_request(lc_t *lc, lc_op_t op, lc_source_t source, const uint8_t *pin
         *user_out = user;
     }
 
+    /* Already on its way: a repeated command (a double tap, a controller
+     * resending) succeeds without restarting the motor. The move reports
+     * the first requester. */
+    if (is_moving(lc)) {
+        return LC_OK;
+    }
     if (op == LC_OP_LOCK && lc->bolt == LC_BOLT_LOCKED) {
         return LC_OK;
     }

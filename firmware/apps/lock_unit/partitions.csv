@@ -1,9 +1,12 @@
 # Name,   Type, SubType,  Offset,   Size
 # nvs_keys is reserved for NVS encryption (hardening milestone).
-# Two OTA slots for signed BLE firmware updates.
+# Two OTA slots for signed firmware updates (Matter OTA). 1.875 MB each fits
+# the Matter-over-Thread build in a 4 MB flash; nvs stays where it was so an
+# upgrade keeps users, PINs, the log and keypad pairings. Matter keeps its
+# fabrics and Thread credentials in the same nvs partition.
 nvs,      data, nvs,      0x9000,   0x10000
 nvs_keys, data, nvs_keys, 0x19000,  0x1000
 otadata,  data, ota,      0x1a000,  0x2000
 phy_init, data, phy,      0x1c000,  0x1000
-ota_0,    app,  ota_0,    0x20000,  0x1A0000
-ota_1,    app,  ota_1,    0x1C0000, 0x1A0000
+ota_0,    app,  ota_0,    0x20000,  0x1E0000
+ota_1,    app,  ota_1,    0x200000, 0x1E0000
