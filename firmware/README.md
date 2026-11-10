@@ -106,6 +106,8 @@ The lock itself is the Matter device: a Door Lock endpoint over Thread, no hub. 
 
 The commissioning window opens at boot for 15 minutes while the lock has no controller. `matter commission` reopens it (also for adding a second controller), and prints the codes. In the Home app: Add Accessory, then scan the QR code (open the `https://project-chip.github.io/...` link it prints) or enter the manual code `3497-011-2332`. Home warns that it is uncertified: it is a development device with test certificates, test vendor/product IDs (0xFFF1/0x8000) and the shared test passcode. Home gives the lock the Thread network's credentials during commissioning.
 
+Home names it "Matter Accessory": Apple takes the default name from the product registered for the vendor and product ID in the CSA's Distributed Compliance Ledger (DCL), not from the names the device reports, and the test IDs have no entry. Rename it once in Home (accessory settings, then Name); Home keeps it. The device's own names still show in the accessory's details (manufacturer, model, serial). A real vendor ID with a DCL entry (part of certification) makes "Lochness Lock" the default.
+
 - Lock and unlock from Home are remote operations: the lock's remote policy (`config remote-unlock`, `config remote-pin`) and operating modes apply.
 - Keypad, knob (`sim turn`), console and auto-relock operations show up in Home through the lock task's state updates.
 - `matter status` shows the names Home uses (menuconfig: Lochness lock unit, then Matter), the controller count, the window and the Thread state.
