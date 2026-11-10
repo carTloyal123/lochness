@@ -8,7 +8,8 @@
 #                                      # type the given console commands
 #   ./esp.sh send PORT [--wait S] CMD...  # type console commands into a
 #                                      # running board (no reset), e.g.
-#                                      # ./esp.sh send /dev/cu.usbserial-1110 "matter esp hub commission"
+#                                      # ./esp.sh send /dev/cu.usbserial-1120 "status"
+#   ./esp.sh boards [--no-probe]       # list plugged-in boards and their app
 #   ./esp.sh -C path/to/project build  # or idf.py's own -C / current directory
 set -euo pipefail
 
@@ -25,6 +26,14 @@ fi
 if [[ "${1:-}" == qemu ]]; then
     shift
     exec "$ROOT/firmware/tools/qemu_console.sh" "$@"
+fi
+
+if [[ "${1:-}" == boards ]]; then
+    shift
+    # shellcheck source=firmware/tools/idf_env.sh
+    . "$ROOT/firmware/tools/idf_env.sh"
+    idf_env_load >/dev/null 2>&1 # for pyserial
+    exec python3 "$ROOT/firmware/tools/boards.py" "$@"
 fi
 
 if [[ "${1:-}" == send ]]; then
