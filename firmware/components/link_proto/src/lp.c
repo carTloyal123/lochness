@@ -25,7 +25,6 @@ static int body_len(uint8_t type)
     case LP_MSG_KEYPAD_STATUS: return KEYPAD_STATUS_BODY_LEN;
     case LP_MSG_PAIR_RESULT: return PAIR_RESULT_BODY_LEN;
     case LP_MSG_TIME_SET: return TIME_SET_BODY_LEN;
-    case LP_MSG_PING: return 0;
     case LP_MSG_LOCK_STATE: return LOCK_STATE_BODY_LEN;
     default: return -1;
     }
@@ -119,8 +118,6 @@ size_t lp_encode(const lp_msg_t *msg, uint8_t *buf, size_t cap)
         put32(body, msg->time_set.unix_s);
         put16(body + 4, (uint16_t)msg->time_set.utc_offset_min);
         break;
-    case LP_MSG_PING:
-        break;
     case LP_MSG_LOCK_STATE:
         if (!lock_state_ok(msg->lock_state.bolt, msg->lock_state.door, msg->lock_state.event,
                            msg->lock_state.source)) {
@@ -157,7 +154,7 @@ bool lp_decode(const uint8_t *buf, size_t len, lp_msg_t *msg)
         msg->hello.fw_major = body[2];
         msg->hello.fw_minor = body[3];
         msg->hello.battery_mv = get16(body + 4);
-        return msg->hello.role >= LP_ROLE_KEYPAD && msg->hello.role <= LP_ROLE_PHONE;
+        return msg->hello.role == LP_ROLE_KEYPAD || msg->hello.role == LP_ROLE_PHONE;
     case LP_MSG_HELLO_ACK:
         msg->hello_ack.proto = body[0];
         msg->hello_ack.bolt = body[1];
@@ -189,8 +186,6 @@ bool lp_decode(const uint8_t *buf, size_t len, lp_msg_t *msg)
         msg->time_set.unix_s = get32(body);
         msg->time_set.utc_offset_min = (int16_t)get16(body + 4);
         return offset_ok(msg->time_set.utc_offset_min);
-    case LP_MSG_PING:
-        return true;
     case LP_MSG_LOCK_STATE:
         msg->lock_state.bolt = body[0];
         msg->lock_state.door = body[1];

@@ -18,7 +18,7 @@ void app_main(void)
         .disconnected = keypad_task_post_disconnected,
         .frame = keypad_task_post_frame,
     };
-    ESP_ERROR_CHECK(ln_central_start(&CENTRAL_CBS, true));
+    ESP_ERROR_CHECK(ln_central_start(&CENTRAL_CBS));
     input_start();
     ESP_LOGI(TAG, "lochness keypad ready");
     console_start();

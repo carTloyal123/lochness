@@ -1,8 +1,8 @@
 # Sourced by the scripts in this repo: loads ESP-IDF (idf.py and toolchains)
 # into the current shell, quietly unless it fails.
 # Set IDF_PATH to use an ESP-IDF other than ~/esp/esp-idf-v6.0.2, and
-# ESP_MATTER_PATH for an esp-matter other than ~/esp/esp-matter-v1.6.1 (only
-# the hub needs it; it is loaded when present).
+# ESP_MATTER_PATH for an esp-matter other than ~/esp/esp-matter-v1.6.1 (for
+# the lock's Matter-over-Thread build; it is loaded when present).
 
 IDF_PATH="${IDF_PATH:-$HOME/esp/esp-idf-v6.0.2}"
 ESP_MATTER_PATH="${ESP_MATTER_PATH:-$HOME/esp/esp-matter-v1.6.1}"

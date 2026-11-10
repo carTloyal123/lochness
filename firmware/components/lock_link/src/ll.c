@@ -95,22 +95,17 @@ static bool send_msg(ll_t *ll, ll_conn_t *c, const lp_msg_t *msg)
     return ll->hooks.send(ll->hooks.ctx, c->handle, frame, ct_len + 1);
 }
 
-static bool gets_state(uint8_t role) { return role == LP_ROLE_HUB || role == LP_ROLE_PHONE; }
-
-static uint64_t idle_timeout_ms(uint8_t role)
-{
-    return role == LP_ROLE_HUB ? LL_HUB_IDLE_TIMEOUT_MS : LL_IDLE_TIMEOUT_MS;
-}
+static bool gets_state(uint8_t role) { return role == LP_ROLE_PHONE; }
 
 static void establish(ll_t *ll, ll_conn_t *c, uint8_t peer)
 {
     c->peer = peer;
     c->role = ll->peers.peers[peer].role;
     c->state = LL_CONN_ESTABLISHED;
-    c->deadline_ms = now_ms(ll) + idle_timeout_ms(c->role);
+    c->deadline_ms = now_ms(ll) + LL_IDLE_TIMEOUT_MS;
 }
 
-/* Push the current state to a freshly established hub/phone session. */
+/* Push the current state to a freshly established phone session. */
 static bool send_snapshot(ll_t *ll, ll_conn_t *c)
 {
     if (!gets_state(c->role) || !ll->hooks.snapshot) {
@@ -239,7 +234,7 @@ static void handle_data(ll_t *ll, ll_conn_t *c, const uint8_t *body, size_t len)
         drop(ll, c);
         return;
     }
-    c->deadline_ms = now_ms(ll) + idle_timeout_ms(c->role);
+    c->deadline_ms = now_ms(ll) + LL_IDLE_TIMEOUT_MS;
     bool ok = lp_decode(plain, plain_len, &msg);
     sl_wipe(plain, sizeof(plain));
     if (!ok) {

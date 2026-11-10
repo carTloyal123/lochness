@@ -379,7 +379,7 @@ TEST(test_link_ciphertext_length_hides_pin)
 TEST(test_link_wrong_role_window)
 {
     world_init();
-    ll_open_pairing(&world.ll, LP_ROLE_HUB, PAIR_WINDOW_S);
+    ll_open_pairing(&world.ll, LP_ROLE_PHONE, PAIR_WINDOW_S);
     kp_start_pairing(&world.kp);
     pump();
     CHECK_EQ(last_fb(), KP_FB_PAIR_FAILED);

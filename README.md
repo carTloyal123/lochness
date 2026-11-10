@@ -4,7 +4,7 @@
 
 Created in [T3 Code](https://t3.codes).
 
-A privacy-first, local-only smart lock: Matter hub + retrofit thumb-turn lock + wireless keypad.
+A privacy-first, local-only smart lock: a retrofit thumb-turn lock that is itself a Matter-over-Thread device, plus a wireless keypad. No hub.
 No cloud, no accounts. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Host tests

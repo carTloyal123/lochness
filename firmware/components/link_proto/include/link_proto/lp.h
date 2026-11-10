@@ -1,6 +1,6 @@
 /*
  * lochness link protocol v1: framing and messages exchanged between the lock
- * unit and its peers (keypad now; hub and phone later).
+ * unit and its peers (keypad now; phone app later).
  *
  * Frame (one BLE GATT write / notification):
  *   [frame_type u8][body]
@@ -42,7 +42,8 @@ typedef enum {
 
 typedef enum {
     LP_ROLE_KEYPAD = 1,
-    LP_ROLE_HUB = 2,
+    /* 2 was the BLE-to-Matter hub, retired: the lock itself is to be the
+     * Matter device. Not reused, so an old hub pairing can never match. */
     LP_ROLE_PHONE = 3,
 } lp_role_t;
 
@@ -53,9 +54,9 @@ typedef enum {
     LP_MSG_ACCESS_RESULT = 0x11, /* lock -> peer */
     LP_MSG_KEYPAD_STATUS = 0x20, /* keypad -> lock */
     LP_MSG_PAIR_RESULT = 0x30,   /* lock -> peer, first DATA after XX */
-    LP_MSG_TIME_SET = 0x40,      /* hub -> lock: wall clock; doubles as keepalive */
-    LP_MSG_PING = 0x41,          /* hub -> lock: keepalive while the hub has no clock */
-    LP_MSG_LOCK_STATE = 0x50,    /* lock -> hub: state change or event */
+    LP_MSG_TIME_SET = 0x40,      /* phone -> lock: wall clock */
+    /* 0x41 was the hub's PING keepalive; retired, not reused. */
+    LP_MSG_LOCK_STATE = 0x50,    /* lock -> phone: state change or event */
 } lp_msg_type_t;
 
 typedef enum { LP_OP_LOCK = 0, LP_OP_UNLOCK = 1 } lp_op_t;

@@ -1,6 +1,6 @@
 # Lochness link protocol v1
 
-This is how keypads (and later the hub and phone apps) talk to the lock unit. The source of truth is the code: `firmware/components/link_proto/include/link_proto/lp.h` (messages) and `lp_ble.h` (BLE mapping). This doc explains it for app developers.
+This is how keypads (and later the phone apps) talk to the lock unit. Matter controllers don't use it: they reach the lock over Thread. The source of truth is the code: `firmware/components/link_proto/include/link_proto/lp.h` (messages) and `lp_ble.h` (BLE mapping). This doc explains it for app developers.
 
 ## Layers
 
@@ -51,21 +51,20 @@ All integers are little-endian. Every type has a fixed size, so ciphertext lengt
 
 | Type | Name | Body |
 |---|---|---|
-| `0x01` | HELLO | proto u8, role u8 (1 keypad, 2 hub, 3 phone), fw_major u8, fw_minor u8, battery_mv u16 |
+| `0x01` | HELLO | proto u8, role u8 (1 keypad, 3 phone; 2 was the retired hub and is rejected), fw_major u8, fw_minor u8, battery_mv u16 |
 | `0x02` | HELLO_ACK | proto u8, bolt u8 |
 | `0x10` | ACCESS_REQ | seq u8, op u8 (0 lock, 1 unlock), pin_len u8, pin[8] ASCII digits, zero padded |
 | `0x11` | ACCESS_RESULT | seq u8, result u8, bolt u8, lockout_s u16 |
 | `0x20` | KEYPAD_STATUS | battery_mv u16, flags u8 (bit 0 tamper, bit 1 low battery) |
 | `0x30` | PAIR_RESULT | accepted u8 |
 | `0x40` | TIME_SET | unix_s u32, utc_offset_min i16 (local offset now, DST included; −720..840) |
-| `0x41` | PING | (empty) |
 | `0x50` | LOCK_STATE | bolt u8, door u8, event u8, source u8, user_index u16 |
 
 Result codes: 0 ok, 1 denied, 2 locked out, 3 outside schedule, 4 mode/policy, 5 busy, 6 door open, 7 not permitted for role, 8 error.
 Bolt states: 0 unknown, 1 locked, 2 unlocked, 3 moving, 4 jammed.
 Door states: 0 unknown, 1 closed, 2 open.
 Events: 0 locked, 1 unlocked, 2 wrong code, 3 lockout started, 4 access denied, 5 jammed, 6 door opened, 7 door closed, 255 none (state snapshot).
-Sources: 0 keypad, 1 remote (hub), 2 app, 3 manual, 4 auto-relock, 255 none.
+Sources: 0 keypad, 1 remote (Matter), 2 app, 3 manual, 4 auto-relock, 255 none.
 
 `battery_mv` 0 means unknown (no sense circuit). A keypad sends `KEYPAD_STATUS` only when it has a flag to report, at the start of a session.
 
@@ -75,7 +74,9 @@ Sources: 0 keypad, 1 remote (hub), 2 app, 3 manual, 4 auto-relock, 255 none.
 
 **Session.** On the first key press the keypad connects and sends IK1 with `HELLO`. The lock looks up the decrypted static key. If it's an unknown key or the role doesn't match, the lock drops the connection. Otherwise it replies with IK2. The keypad then sends `ACCESS_REQ` as DATA and gets `ACCESS_RESULT` back. The lock drops idle sessions after 30 s and unfinished handshakes after 5 s.
 
-**Hub session.** The hub pairs like a keypad, inside a window opened for the hub role (`pair hub`), and keeps the XX session as its first session. Afterwards it stays connected: it reconnects with backoff (0.5 s doubling to 30 s) and sends `TIME_SET`, or `PING` while it has no clock, every 60 s. The lock drops a hub session after 5 minutes of silence. Right after a hub session is established the lock sends a `LOCK_STATE` snapshot (event 255); after that it pushes `LOCK_STATE` on every event and every bolt or door change. Only hub (and later phone) sessions receive `LOCK_STATE`, and only they may set the clock: a keypad sits outside the door, and moving the clock would move every schedule.
+**Phone session.** Right after a phone session is established the lock sends a `LOCK_STATE` snapshot (event 255); after that it pushes `LOCK_STATE` on every event and every bolt or door change. Only phone sessions receive `LOCK_STATE`, and only they may set the clock with `TIME_SET`: a keypad sits outside the door, and moving the clock would move every schedule. Phone sessions use the same 30 s idle timeout as keypads.
+
+**Retired values.** Role 2 and message `0x41` (PING) belonged to the BLE-to-Matter hub. The lock rejects both, and they are never reused, so a leftover hub pairing can't come back with a new meaning.
 
 **Keypad resend.** If the link drops after a keypad sent `ACCESS_REQ` but before `ACCESS_RESULT` arrived (for example because the lock rebooted), the keypad resends it once in a new session. Lock and unlock are idempotent. A wrong PIN whose answer was lost may count twice toward the lockout.
 
@@ -84,6 +85,6 @@ Sources: 0 keypad, 1 remote (hub), 2 app, 3 manual, 4 auto-relock, 255 none.
 ## Known gaps (first pass)
 
 - **Privacy:** the lock advertises a fixed service UUID from a stable address. Planned: rotating addresses, plus an advertising tag only paired peers can recognize.
-- **Pairing confirmation:** keypad pairing is "just works" inside the physical window. A rogue keypad paired during the window can only submit rate-limited PIN guesses. Hub and phone pairing will add a confirmation code derived from the handshake hash.
-- **Events to phones:** `LOCK_STATE` goes to hub and phone sessions; there is no phone app yet.
-- **Low battery and tamper** from keypads are logged on the lock but not yet raised as events to the hub.
+- **Pairing confirmation:** keypad pairing is "just works" inside the physical window. A rogue keypad paired during the window can only submit rate-limited PIN guesses. Phone pairing will add a confirmation code derived from the handshake hash.
+- **Events to phones:** `LOCK_STATE` goes to phone sessions; there is no phone app yet.
+- **Low battery and tamper** from keypads are logged on the lock but not yet raised as events (planned: Matter Door Lock alarms).

@@ -35,8 +35,8 @@ menu "Lochness lock unit"
         range 100 2000
         default 300
         help
-            How often the lock advertises to its keypad and hub. A keypad
-            or hub waits on average about half of this to connect. Each
+            How often the lock advertises to its keypad and phones. A
+            peer waits on average about half of this to connect. Each
             advertising event costs a fixed amount of energy, so the
             radio's average current scales roughly with 1 / interval.
             Measure on the real board before choosing a production value.

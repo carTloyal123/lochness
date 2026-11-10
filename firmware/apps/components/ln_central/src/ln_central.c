@@ -32,7 +32,7 @@ static const struct ble_gap_conn_params CONN_PARAMS = {
 
 enum {
     CONNECT_TIMEOUT_MS = 5000,
-    SCAN_TIMEOUT_MS = 30000, /* matches KP_PAIR_TIMEOUT_MS / HUB_PAIR_TIMEOUT_MS */
+    SCAN_TIMEOUT_MS = 30000, /* matches KP_PAIR_TIMEOUT_MS */
     LOCK_ADDR_LEN = LN_CENTRAL_ADDR_LEN,
     /* Advertised service data: 128-bit service UUID, then one flags byte. */
     ADV_UUID_LEN = 16,
@@ -116,23 +116,6 @@ static void become_idle(bool report)
     }
 }
 
-/* Shared host: the owner's sync callback is not ours, so learn it lazily. */
-static bool ensure_synced(void)
-{
-    if (s_bc.synced) {
-        return true;
-    }
-    if (!ble_hs_synced() || ble_hs_id_infer_auto(0, &s_bc.own_addr_type) != 0) {
-        return false;
-    }
-    /* The lock needs a large MTU; the host's owner may have set less. */
-    if (ble_att_preferred_mtu() < CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU) {
-        ble_att_set_preferred_mtu(CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU);
-    }
-    s_bc.synced = true;
-    return true;
-}
-
 void ln_central_connect(const uint8_t *addr, size_t addr_len)
 {
     request_t req = {.valid = true, .scan = addr == NULL};
@@ -145,7 +128,7 @@ void ln_central_connect(const uint8_t *addr, size_t addr_len)
         memcpy(req.addr.val, addr + 1, BLE_DEV_ADDR_LEN);
     }
     lock();
-    if (!ensure_synced()) {
+    if (!s_bc.synced) {
         unlock();
         s_bc.cbs.disconnected();
         return;
@@ -392,15 +375,12 @@ static void host_task(void *param)
     nimble_port_freertos_deinit();
 }
 
-esp_err_t ln_central_start(const ln_central_cbs_t *cbs, bool own_stack)
+esp_err_t ln_central_start(const ln_central_cbs_t *cbs)
 {
     s_bc.mutex = xSemaphoreCreateRecursiveMutex();
     configASSERT(s_bc.mutex);
     s_bc.conn = BLE_HS_CONN_HANDLE_NONE;
     s_bc.cbs = *cbs;
-    if (!own_stack) {
-        return ESP_OK;
-    }
     esp_err_t err = nimble_port_init();
     if (err != ESP_OK) {
         return err;

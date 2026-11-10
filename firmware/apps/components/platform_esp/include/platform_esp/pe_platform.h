@@ -17,7 +17,7 @@ lc_platform_t pe_platform(void);
 /* Number of boots so far, counted in pe_init. Survives factory reset. */
 uint16_t pe_boot_count(void);
 
-/* Wall time arrives from the hub (Matter Time Sync); until then it is unknown. */
+/* Wall time arrives from Matter Time Sync (or the app); until then it is unknown. */
 void pe_time_set(uint32_t unix_s, int16_t tz_offset_min);
 bool pe_time_known(void);
 /* Local offset last given to pe_time_set, in minutes. */

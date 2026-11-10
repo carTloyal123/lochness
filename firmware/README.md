@@ -7,16 +7,14 @@
 | `components/link_proto` | Link frames and messages, plus the BLE UUIDs. The contract with the apps (see `docs/LINK_PROTOCOL.md`). Portable. |
 | `components/lock_link` | Lock-side link server: paired peers, handshakes, request dispatch. Portable. |
 | `components/keypad_core` | Keypad state machine: key entry, link, pairing, feedback. Portable. |
-| `components/hub_core` | Hub side of the link: pairing, a persistent session with reconnect backoff, remote lock/unlock, clock and keepalive, LOCK_STATE updates. Portable. |
 | `components/monocypher` | Vendored Monocypher 4.0.2. |
-| `apps/components/ln_central` | ESP-IDF BLE central shared by the keypad and hub (scan, connect, GATT setup). On the hub it attaches to Matter's NimBLE host. |
+| `apps/components/ln_central` | ESP-IDF BLE central for the keypad (scan, connect, GATT setup). |
 | `apps/components/platform_esp` | ESP-IDF adapters for lock_core: NVS persistence, HMAC PIN digests, time, RNG. |
 | `apps/components/ln_store` | ESP-IDF NVS helpers and device-secret generation (shared by both apps). |
 | `apps/lock_unit` | Lock unit firmware (ESP32-C6): lock task, BLE GATT server, console. Motor is simulated until the driver lands. |
-| `apps/hub` | Hub firmware (ESP32-C6): Matter Door Lock over Wi-Fi (esp-matter), linked to the lock over BLE. |
 | `apps/keypad` | Wireless keypad firmware (ESP32-C6 for now, H2 later): BLE central, button matrix, LEDs and buzzer, console. |
 | `test/host` | Host tests: lock_core, Noise test vectors, protocol, and end-to-end keypad ↔ lock over an in-memory transport. |
-| `../esp.sh` | Run any `idf.py` command without sourcing ESP-IDF: one app, `all` apps, `host` tests, or `qemu`. |
+| `../esp.sh` | Run any `idf.py` command without sourcing ESP-IDF: one app, `all` apps, `host` tests, or `qemu`. Also `boards` (list plugged-in boards and their app) and `send` (type console commands). |
 | `tools/bench/bench.py` | Two-board bench tests over real BLE: latency, lockout, reboots, persistence. |
 | `tools/qemu_console.sh` | Run lock_unit in QEMU, interactive or scripted (`./esp.sh qemu`). |
 | `tools/compile_db.py` | Build the merged `compile_commands.json` that clangd and clang-tidy use. |
@@ -25,7 +23,7 @@
 
 ## Toolchain setup (macOS)
 
-ESP-IDF **v6.0.2** is pinned because it is the version esp-matter recommends, and the hub will need esp-matter.
+ESP-IDF **v6.0.2** is pinned because it is the version esp-matter recommends, and the lock's Matter-over-Thread build needs esp-matter.
 
 ```sh
 brew install cmake ninja dfu-util libgcrypt glib pixman sdl2 libslirp
@@ -37,7 +35,7 @@ python3 tools/idf_tools.py install qemu-riscv32   # optional: run without hardwa
 python3 tools/idf_tools.py install esp-clang      # clangd and clang-tidy (editor, tools/lint.sh)
 ```
 
-The hub also needs esp-matter `release/v1.6.1` (the release that recommends IDF v6.0.2) in `~/esp/esp-matter-v1.6.1`:
+Matter needs esp-matter `release/v1.6.1` (the release that recommends IDF v6.0.2) in `~/esp/esp-matter-v1.6.1`:
 
 ```sh
 cd ~/esp && git clone -b release/v1.6.1 --depth 1 https://github.com/espressif/esp-matter.git esp-matter-v1.6.1
@@ -46,7 +44,7 @@ cd connectedhomeip/connectedhomeip && ./scripts/checkout_submodules.py --platfor
 . ~/esp/esp-idf-v6.0.2/export.sh && ./install.sh --no-host-tool
 ```
 
-`--no-host-tool` skips chip-tool, which does not build on Apple Silicon without Rosetta (its zap-cli is x86-only). Apple Home commissions the hub, so chip-tool is not needed. `./esp.sh` loads esp-matter automatically when it is there.
+`--no-host-tool` skips chip-tool, which does not build on Apple Silicon without Rosetta (its zap-cli is x86-only). Apple Home (or another controller) does the commissioning, so chip-tool is not needed. `./esp.sh` loads esp-matter automatically when it is there.
 
 Each new shell: `. ~/esp/esp-idf-v6.0.2/export.sh` (an alias like `alias idf='. ~/esp/esp-idf-v6.0.2/export.sh'` helps).
 
@@ -63,13 +61,13 @@ The editor and the linter cannot disagree, because each input has exactly one so
 
 | What | Single source | Used by |
 |---|---|---|
-| Rules | Three `.clang-tidy` files, each with one job and no overlap: `firmware/.clang-tidy` (all rules), `apps/.clang-tidy` (the ESP-IDF/Matter glue: the apps and the ESP-only components in `apps/components`), `components/monocypher/.clang-tidy` (vendored: all off) | clangd and `lint.sh` |
+| Rules | Three `.clang-tidy` files, each with one job and no overlap: `firmware/.clang-tidy` (all rules), `apps/.clang-tidy` (the ESP-IDF glue: the apps and the ESP-only components in `apps/components`), `components/monocypher/.clang-tidy` (vendored: all off) | clangd and `lint.sh` |
 | Tool | `tools/esp_clang.sh` picks the LLVM build; `tools/clangd` and `tools/clang-tidy` wrap it | the editor and `lint.sh` |
 | Compile flags | `firmware/compile_commands.json` from `tools/compile_db.py` | clangd and `lint.sh` |
 
 - **`.clang-tidy`** turns on every check and treats every finding as an error. The few exclusions are checks written for other projects (Intel FPGA, LLVM's libc, Fuchsia), alias checks that would report the same finding twice, and checks with no call-site fix. Each one is listed with its reason in the file that turns it off. Prefer a fix, or `NOLINT(check): reason`, over another exclusion.
 - **`firmware/.clangd`** holds only editor behaviour: which database to use, inlay hints, indexing. It defines no diagnostics. clangd's own include checker is off, because `misc-include-cleaner` in `.clang-tidy` does that job.
-- **`compile_db.py`** merges the lock, keypad and hub builds and the host tests into one database. It rewrites ESP-IDF's GCC commands so clang can parse them: RISC-V target, picolibc and libstdc++ headers, GCC-only flags dropped. It also fails if any C/C++ file in the repo is in no build, since such a file would be silently unparsed and unlinted. Downloaded `managed_components` are skipped. `lint.sh` refreshes the database on every run (and configures the builds the first time).
+- **`compile_db.py`** merges the lock and keypad builds and the host tests into one database. It rewrites ESP-IDF's GCC commands so clang can parse them: RISC-V target, picolibc and libstdc++ headers, GCC-only flags dropped. It also fails if any C/C++ file in the repo is in no build, since such a file would be silently unparsed and unlinted. Downloaded `managed_components` are skipped. `lint.sh` refreshes the database on every run (and configures the builds the first time).
 
 **VS Code / Cursor:** open the repo root and install the recommended clangd extension. `.vscode/settings.json` already points it at `firmware/tools/clangd` and turns off Microsoft's IntelliSense. **Other editors:** set the clangd binary to `firmware/tools/clangd`, not `/usr/bin/clangd` (Xcode's, an older LLVM with different checks).
 
@@ -88,7 +86,7 @@ From any shell, without sourcing ESP-IDF first:
 
 `idf.py menuconfig` → **Lochness lock unit** sets the door-sensor GPIO and simulated motor timing. **Lochness platform** selects the PIN key source.
 
-## Console (development stand-in for keypad/hub/app)
+## Console (development stand-in for keypad/Matter/app)
 
 ```
 user add Alice                 code add 1 1234          pin 1234       lock
@@ -127,22 +125,14 @@ python3 firmware/tools/bench/bench.py --lock /dev/cu.usbserial-210 --keypad /dev
 
 It factory-resets the lock, re-pairs the keypad, then measures cold, typed and warm request latency and checks lockout (including across a lock reboot), recovery from either board rebooting mid-session, persistence across power cycles, battery and log reporting, and that pairing without a window fails. `--keep` reuses the current pairing, `--only a,b` picks tests, `--json` saves results. The keypad logs `timing: link … ms, result … ms after connect` for each cold request.
 
-## Hub and Apple Home
+## Which board is which
 
-Flash `apps/hub` to a third C6. Its console is the Matter shell: hub commands are `matter esp hub status|commission [min]|pair|forget confirm|lock [pin]|unlock [pin]`. `./esp.sh send PORT CMD...` types commands into a running board from the Mac without resetting it.
-
-```
-lochness> pair hub                 # lock: open a 60 s window for the hub role
-> matter esp hub pair              # hub: logs "pairing PAIRED", then "link to lock UP"
+```sh
+./esp.sh boards                     # port, app (lock_unit / keypad), USB serial number
+./esp.sh send /dev/cu.usbserial-1120 status   # type console commands, no reset
 ```
 
-Then add it in the Home app: Add Accessory → scan the QR code (`matter onboardingcodes ble` on the hub prints it) or enter the manual code `3497-011-2332`. It is a development device with test certificates, so Home warns that it is uncertified. The iPhone gives the hub your 2.4 GHz Wi-Fi network. The commissioning window closes 15 minutes after boot. To reopen it without a reset: `./esp.sh send <hub port> "matter esp hub commission"` (or `matter esp hub commission [3..15 min]` on the console). The same command adds a second controller later.
-
-Home names the accessory from Basic Information: vendor `CONFIG_HUB_VENDOR_NAME` ("Lochness"), product `CONFIG_HUB_PRODUCT_NAME` ("Lochness Hub"), serial `LN-` + Wi-Fi MAC, software version from `PROJECT_VER` (see `main/device_info.cpp`; `matter esp hub status` prints them). While commissioning it advertises over BLE as `Lochness-<discriminator>`. Vendor and product IDs stay the Matter test IDs (0xFFF1/0x8000) until there is a real VID.
-
-- Lock and unlock from Home go to the lock, which applies its own remote policy (`config remote-unlock`, `config remote-pin`).
-- Keypad, knob (`sim turn`) and auto-relock operations show up in Home through the lock's state pushes.
-- The hub gives the lock the time from SNTP (`CONFIG_HUB_SNTP_SERVER`; point it at your router, or leave it empty to disable). Set your time zone in `CONFIG_HUB_TZ` (POSIX TZ string, default `UTC0`) so weekday schedules use local time.
+`boards` asks each board's console for `help` without resetting it and names the app from a command only it has. The USB serial number sticks with the board when its port name changes.
 
 ## Run without hardware
 

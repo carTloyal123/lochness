@@ -11,7 +11,7 @@ CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
 # Development key. See apps/components/platform_esp/Kconfig.
 CONFIG_LOCHNESS_PIN_KEY_DEV_NVS=y
 
-# Bluetooth LE (NimBLE): GATT server for keypad / hub / phone links
+# Bluetooth LE (NimBLE): GATT server for keypad / phone links
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
 CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y

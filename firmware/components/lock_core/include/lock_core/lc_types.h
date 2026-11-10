@@ -51,7 +51,7 @@ typedef enum {
 
 typedef enum {
     LC_SOURCE_KEYPAD,
-    LC_SOURCE_REMOTE, /* via hub / Matter */
+    LC_SOURCE_REMOTE, /* via Matter */
     LC_SOURCE_APP,    /* phone over the secure channel; authorized at channel layer */
     LC_SOURCE_MANUAL, /* thumb-turn knob or exterior key, detected by encoder */
     LC_SOURCE_AUTO,   /* auto-relock */
@@ -62,7 +62,7 @@ typedef enum {
     LC_OP_UNLOCK,
 } lc_op_t;
 
-/* Wall-clock time as supplied by the hub (Matter Time Sync). */
+/* Wall-clock time, as Matter Time Sync (or the app) supplies it. */
 typedef struct {
     uint32_t unix_s;
     uint8_t weekday;        /* 0 = Sunday ... 6 = Saturday, local time */

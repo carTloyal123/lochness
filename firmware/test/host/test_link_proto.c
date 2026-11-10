@@ -45,7 +45,8 @@ TEST(test_lp_roundtrip)
 TEST(test_lp_rejects_malformed)
 {
     lp_msg_t d;
-    enum { BAD_OP = 7, UNKNOWN_TYPE = 0x77, BAD_ROLE = 9 };
+    /* RETIRED_ROLE and RETIRED_PING were the hub's; old hubs must not get in. */
+    enum { BAD_OP = 7, UNKNOWN_TYPE = 0x77, BAD_ROLE = 9, RETIRED_ROLE = 2, RETIRED_PING = 0x41 };
     uint8_t buf[32] = {LP_MSG_ACCESS_REQ, 1, LP_OP_UNLOCK, 4, '1', '2', 'x', '4', 0, 0, 0, 0};
     CHECK(!lp_decode(buf, REQ_LEN, &d)); /* non-digit */
     buf[REQ_OFF_PIN + 2] = '3';
@@ -66,6 +67,10 @@ TEST(test_lp_rejects_malformed)
     uint8_t bad_role[HELLO_LEN] = {LP_MSG_HELLO, 1, 0, 0, 0, 0, 0};
     bad_role[HELLO_OFF_ROLE] = BAD_ROLE;
     CHECK(!lp_decode(bad_role, HELLO_LEN, &d));
+    bad_role[HELLO_OFF_ROLE] = RETIRED_ROLE;
+    CHECK(!lp_decode(bad_role, HELLO_LEN, &d));
+    uint8_t ping[1] = {RETIRED_PING};
+    CHECK(!lp_decode(ping, sizeof(ping), &d));
 }
 
 TEST(test_lp_fixed_sizes)

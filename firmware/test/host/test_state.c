@@ -1,6 +1,6 @@
 /*
- * Hub sessions on the lock side: clock updates, LOCK_STATE pushes, and the
- * rules that keep keypads out of both. The "hub" here is a bare Noise IK
+ * Phone sessions on the lock side: clock updates, LOCK_STATE pushes, and the
+ * rules that keep keypads out of both. The "phone" here is a bare Noise IK
  * initiator driving lock_link directly.
  */
 #include <stdint.h>
@@ -18,10 +18,10 @@
 #include "test.h"
 
 enum {
-    HUB_CONN = 3,
+    PHONE_CONN = 3,
     KEYPAD_CONN = 4,
     MAX_OUT = 8,
-    HUB_SLOT = 0,
+    PHONE_SLOT = 0,
     KEYPAD_SLOT = 1,
     SOME_UNIX_S = 1800000000,
     CHICAGO_DST_MIN = -300,
@@ -44,7 +44,7 @@ static struct {
     lc_t lc;
     ll_t ll;
     sl_keypair_t lock_id;
-    peer_t hub, keypad;
+    peer_t phone, keypad;
     out_t out[MAX_OUT];
     int nout;
     int dropped;
@@ -126,7 +126,7 @@ static void setup(void)
     lc_init(&world.lc, &plat, &hooks, &cfg);
     lc_boot(&world.lc, LC_BOLT_LOCKED, LC_DOOR_CLOSED);
 
-    enum { LOCK_FILL = 'L', HUB_FILL = 'H', KEYPAD_FILL = 'K' };
+    enum { LOCK_FILL = 'L', PHONE_FILL = 'P', KEYPAD_FILL = 'K' };
     memset(world.lock_id.priv, LOCK_FILL, SL_KEY_LEN);
     sl_keypair_from_private(&world.lock_id);
     ll_hooks_t lock_hooks = {.now_ms = h_now,
@@ -138,7 +138,7 @@ static void setup(void)
                      .time_set = h_time_set,
                      .snapshot = h_snapshot};
     ll_init(&world.ll, &world.lock_id, &lock_hooks);
-    add_peer(HUB_SLOT, LP_ROLE_HUB, &world.hub, HUB_FILL);
+    add_peer(PHONE_SLOT, LP_ROLE_PHONE, &world.phone, PHONE_FILL);
     add_peer(KEYPAD_SLOT, LP_ROLE_KEYPAD, &world.keypad, KEYPAD_FILL);
 }
 
@@ -229,13 +229,13 @@ TEST(test_lp_time_and_state_roundtrip)
     CHECK(!lp_decode(buf, n, &d));
 }
 
-TEST(test_hub_gets_snapshot_on_connect)
+TEST(test_phone_gets_snapshot_on_connect)
 {
     setup();
-    CHECK(open_session(&world.hub, HUB_CONN, LP_ROLE_HUB));
+    CHECK(open_session(&world.phone, PHONE_CONN, LP_ROLE_PHONE));
     lp_msg_t msg = {0}; /* CHECK does not return on failure */
     CHECK_EQ(world.nout, 2); /* IK2, then LOCK_STATE */
-    CHECK(recv_msg(&world.hub, 1, &msg));
+    CHECK(recv_msg(&world.phone, 1, &msg));
     CHECK_EQ(msg.type, LP_MSG_LOCK_STATE);
     CHECK_EQ(msg.lock_state.bolt, LP_BOLT_LOCKED);
     CHECK_EQ(msg.lock_state.door, LP_DOOR_CLOSED);
@@ -254,7 +254,7 @@ TEST(test_keypad_gets_no_state)
     CHECK_EQ(world.nout, 0);
 }
 
-TEST(test_hub_sets_time_keypad_cannot)
+TEST(test_phone_sets_time_keypad_cannot)
 {
     setup();
     CHECK(open_session(&world.keypad, KEYPAD_CONN, LP_ROLE_KEYPAD));
@@ -262,20 +262,20 @@ TEST(test_hub_sets_time_keypad_cannot)
     send_msg(&world.keypad, KEYPAD_CONN, &t);
     CHECK_EQ(world.time_sets, 0);
 
-    CHECK(open_session(&world.hub, HUB_CONN, LP_ROLE_HUB));
-    send_msg(&world.hub, HUB_CONN, &t);
+    CHECK(open_session(&world.phone, PHONE_CONN, LP_ROLE_PHONE));
+    send_msg(&world.phone, PHONE_CONN, &t);
     CHECK_EQ(world.time_sets, 1);
     CHECK_EQ(world.time_unix, SOME_UNIX_S);
     CHECK_EQ(world.time_offset, CHICAGO_DST_MIN);
     CHECK_EQ(world.dropped, 0);
 }
 
-TEST(test_hub_receives_events)
+TEST(test_phone_receives_events)
 {
     setup();
-    CHECK(open_session(&world.hub, HUB_CONN, LP_ROLE_HUB));
+    CHECK(open_session(&world.phone, PHONE_CONN, LP_ROLE_PHONE));
     lp_msg_t snapshot;
-    CHECK(recv_msg(&world.hub, 1, &snapshot));
+    CHECK(recv_msg(&world.phone, 1, &snapshot));
     world.nout = 0;
 
     lc_event_t ev = {.type = LC_EVENT_UNLOCKED, .source = LC_SOURCE_KEYPAD, .user_index = 1};
@@ -284,42 +284,11 @@ TEST(test_hub_receives_events)
     lock_bridge_state(&world.lc, &ev, &s);
     ll_broadcast_state(&world.ll, &s);
     lp_msg_t msg = {0}; /* CHECK does not return on failure */
-    CHECK(recv_msg(&world.hub, 0, &msg));
+    CHECK(recv_msg(&world.phone, 0, &msg));
     CHECK_EQ(msg.lock_state.bolt, LP_BOLT_UNLOCKED);
     CHECK_EQ(msg.lock_state.event, LP_EVENT_UNLOCKED);
     CHECK_EQ(msg.lock_state.source, LP_SOURCE_KEYPAD);
     CHECK_EQ(msg.lock_state.user_index, 1);
-}
-
-TEST(test_hub_idle_timeout_longer)
-{
-    setup();
-    CHECK(open_session(&world.hub, HUB_CONN, LP_ROLE_HUB));
-    CHECK(open_session(&world.keypad, KEYPAD_CONN, LP_ROLE_KEYPAD));
-    world.fake.now_ms += LL_IDLE_TIMEOUT_MS;
-    ll_tick(&world.ll);
-    CHECK_EQ(world.dropped, 1);
-    CHECK_EQ(world.dropped_conn, KEYPAD_CONN);
-    world.fake.now_ms += LL_HUB_IDLE_TIMEOUT_MS - LL_IDLE_TIMEOUT_MS;
-    ll_tick(&world.ll);
-    CHECK_EQ(world.dropped, 2);
-    CHECK_EQ(world.dropped_conn, HUB_CONN);
-}
-
-TEST(test_hub_keepalive_extends_session)
-{
-    setup();
-    CHECK(open_session(&world.hub, HUB_CONN, LP_ROLE_HUB));
-    lp_msg_t snapshot;
-    CHECK(recv_msg(&world.hub, 1, &snapshot));
-    lp_msg_t t = {.type = LP_MSG_TIME_SET, .time_set = {.unix_s = SOME_UNIX_S}};
-    for (int i = 0; i < 3; i++) {
-        world.fake.now_ms += LL_HUB_IDLE_TIMEOUT_MS - 1;
-        ll_tick(&world.ll);
-        send_msg(&world.hub, HUB_CONN, &t);
-    }
-    CHECK_EQ(world.dropped, 0);
-    CHECK_EQ(world.time_sets, 3);
 }
 
 TEST(test_log_entries_carry_boot)

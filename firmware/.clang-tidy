@@ -11,7 +11,7 @@
 #   altera-*      Intel FPGA OpenCL kernels.
 #   llvmlibc-*    LLVM's own libc implementation (namespaces, entrypoint macros).
 #   fuchsia-*     Google Fuchsia's house rules (no default arguments, no static
-#                 objects, ...), which the Matter SDK's C++ API requires.
+#                 objects, ...), which the Matter SDK's C++ API needs.
 #   clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
 #                 Wants C11 Annex K memcpy_s/memset_s; picolibc and glibc lack
 #                 it. Secret wiping is handled by sl_wipe / volatile loops.
@@ -70,9 +70,8 @@ CheckOptions:
   # ESP_LOGx and the CHIP macros are do { } while (0) inside; only flag ours.
   cppcoreguidelines-avoid-do-while.IgnoreMacros: true
   readability-function-size.LineThreshold: 120
-  # Known cycles inside ESP-IDF (FreeRTOS.h <-> idf_additions.h, NimBLE os/)
-  # and esp-matter (esp_matter.h <-> its command implementation header).
-  misc-header-include-cycle.IgnoredFilesList: 'FreeRTOS\.h;ble_hs\.h;os_mbuf\.h;esp_matter\.h'
+  # Known cycles inside ESP-IDF (FreeRTOS.h <-> idf_additions.h, NimBLE os/).
+  misc-header-include-cycle.IgnoredFilesList: 'FreeRTOS\.h;ble_hs\.h;os_mbuf\.h'
   bugprone-easily-swappable-parameters.MinimumLength: 3
   misc-include-cleaner.IgnoreHeaders: 'sys/_.*;machine/.*;sdkconfig\.h;freertos/.*;esp_.*\.h;host/.*;nimble/.*;services/.*'
 ...

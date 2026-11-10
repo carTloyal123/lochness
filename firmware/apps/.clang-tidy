@@ -1,35 +1,13 @@
 ---
-# ESP-IDF and Matter glue: the apps and the ESP-only components under
-# apps/components. The code here talks to C APIs and ESP-IDF/esp-matter
-# macros, so a few checks have no call-site fix. They stay on for the
-# portable components (firmware/components) and the host tests.
+# ESP-IDF glue: the apps and the ESP-only components under apps/components.
+# The code here talks to ESP-IDF's C APIs and macros, so one check has no
+# call-site fix. It stays on for the portable components (firmware/components)
+# and the host tests.
 #
 #   hicpp-signed-bitwise
 #       ESP_LOGx expands to `(level) | ESP_LOG_CONFIGS_DEFAULT` on signed
 #       enums, so it fires on every log call (and on the NimBLE flag macros).
-#   bugprone-macro-parentheses
-#       esp-matter builds define CHIP_ADDRESS_RESOLVE_IMPL_INCLUDE_HEADER=<...>
-#       on the command line; the finding has no source location (so no
-#       NOLINT) and an include target cannot be parenthesised. The glue's own
-#       few macros are simple (COUNT_OF, PIN_ARG).
-# C++ only (the hub's Matter shim; C files never trigger these):
-#   cppcoreguidelines-pro-type-vararg, hicpp-vararg
-#       ESP_LOGx and printf are the platform's logging and console output.
-#   cppcoreguidelines-pro-type-union-access
-#       The interface types are C tagged unions (lp_msg_t, ChipDeviceEvent,
-#       esp_matter_attr_val_t), and ESP_LOGx expands to a union access.
-#   cppcoreguidelines-pro-bounds-pointer-arithmetic,
-#   cppcoreguidelines-pro-bounds-array-to-pointer-decay, hicpp-no-array-decay
-#       Console handlers get argv as char **, and the C APIs take char * plus
-#       a size; there is no std::span on this side of the boundary.
 InheritParentConfig: true
 Checks: >
   -hicpp-signed-bitwise,
-  -bugprone-macro-parentheses,
-  -cppcoreguidelines-pro-type-vararg,
-  -hicpp-vararg,
-  -cppcoreguidelines-pro-type-union-access,
-  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
-  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
-  -hicpp-no-array-decay,
 ...

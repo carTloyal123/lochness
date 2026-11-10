@@ -77,7 +77,20 @@ static const char *const USER_TYPE_NAMES[] = {"unrestricted", "schedule", "dispo
 static const char *const SOURCE_NAMES[] = {"keypad", "remote", "app", "manual", "auto"};
 static const char *const EVENT_NAMES[] = {"locked",        "unlocked", "wrong-code",  "lockout",
                                           "access-denied", "jammed",   "door-opened", "door-closed"};
-static const char *const ROLE_NAMES[] = {"?", "keypad", "hub", "phone"};
+/* Indexed by lp_role_t; 2 was the retired hub (an old pairing shows "?"). */
+static const char *const ROLE_NAMES[] = {"?", "keypad", "?", "phone"};
+
+static bool parse_role(const char *name, lp_role_t *role)
+{
+    if (strcmp(name, "keypad") == 0) {
+        *role = LP_ROLE_KEYPAD;
+    } else if (strcmp(name, "phone") == 0) {
+        *role = LP_ROLE_PHONE;
+    } else {
+        return false;
+    }
+    return true;
+}
 
 static int lookup(const char *s, const char *const *names, size_t n)
 {
@@ -541,7 +554,7 @@ static int cmd_config(int argc, char **argv)
 static int cmd_time(int argc, char **argv)
 {
     if (argc < 2) {
-        printf("usage: time <unix-seconds> [utc-offset-minutes]   (stand-in for hub time sync)\n");
+        printf("usage: time <unix-seconds> [utc-offset-minutes]   (stand-in for Matter time sync)\n");
         return 1;
     }
     long long unix_s = 0;
@@ -653,13 +666,12 @@ static int cmd_pair(int argc, char **argv)
 {
     /* Stand-in for the physical pairing button on the lock unit. */
     if (argc < 2) {
-        printf("usage: pair keypad|hub|phone [seconds]   |   pair stop\n");
+        printf("usage: pair keypad|phone [seconds]   |   pair stop\n");
         return 1;
     }
     pair_args_t args = {.seconds = 0};
     if (strcmp(argv[1], "stop") != 0) {
-        int role = lookup(argv[1], ROLE_NAMES, COUNT_OF(ROLE_NAMES));
-        if (role < 1) {
+        if (!parse_role(argv[1], &args.role)) {
             printf("unknown role\n");
             return 1;
         }
@@ -667,7 +679,6 @@ static int cmd_pair(int argc, char **argv)
         if (argc > 2 && !parse_arg("seconds", argv[2], 1, PAIR_MAX_S, &seconds)) {
             return 1;
         }
-        args.role = (lp_role_t)role;
         args.seconds = (uint32_t)seconds;
     }
     lock_task_call(do_pair, &args);
@@ -796,17 +807,17 @@ void console_start(void)
     ESP_ERROR_CHECK(esp_console_register_help_command());
     reg("pin", "Keypad: enter a PIN to unlock", cmd_pin);
     reg("lock", "Keypad: lock (one-touch, or with optional PIN)", cmd_lock);
-    reg("remote", "Hub: remote lock|unlock [pin]", cmd_remote);
+    reg("remote", "Matter stand-in: remote lock|unlock [pin]", cmd_remote);
     reg("app", "App: lock|unlock", cmd_app);
     reg("user", "Manage users", cmd_user);
     reg("code", "Manage PIN codes", cmd_code);
     reg("sched", "Week-day schedules for schedule users", cmd_sched);
     reg("config", "Show or change settings", cmd_config);
-    reg("time", "Set wall-clock time (hub stand-in)", cmd_time);
+    reg("time", "Set wall-clock time (Matter time sync stand-in)", cmd_time);
     reg("status", "Show lock state", cmd_status);
     reg("log", "Show the last N access log entries", cmd_log);
     reg("pair", "Open a pairing window (stand-in for the lock's pair button)", cmd_pair);
-    reg("peers", "List or remove paired keypads/hubs/phones", cmd_peers);
+    reg("peers", "List or remove paired keypads/phones", cmd_peers);
     reg("sim", "Simulate door sensor, manual turns, jams", cmd_sim);
     reg("factory-reset", "Erase all lock state", cmd_factory_reset);
 

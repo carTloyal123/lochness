@@ -49,7 +49,7 @@ typedef enum {
 typedef struct {
     uint32_t auto_relock_s;     /* 0 = off. Counted from unlock or door close, whichever is later. */
     bool one_touch_lock;        /* keypad may lock without a PIN */
-    bool remote_unlock_allowed; /* lock-side cap; the hub cannot change this */
+    bool remote_unlock_allowed; /* lock-side cap; Matter controllers cannot change this */
     bool require_pin_for_remote;
     bool private_events;        /* strip user_index from notifications leaving the lock */
     uint32_t motor_timeout_ms;
@@ -74,7 +74,7 @@ typedef struct {
     /* Start driving the bolt. Report completion with lc_on_motor_done(). */
     void (*motor_start)(void *ctx, lc_op_t op);
     void (*motor_stop)(void *ctx);
-    /* Event for the hub/app. May be NULL. */
+    /* Event for Matter and the app. May be NULL. */
     void (*notify)(void *ctx, const lc_event_t *ev);
     /*
      * Persist the named state. CREDS and RATELIMIT must be durable before this

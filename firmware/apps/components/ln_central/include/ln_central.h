@@ -1,5 +1,5 @@
 /*
- * BLE central for lock-link peers (keypad, hub): connects to the paired lock
+ * BLE central for the keypad's lock link: connects to the paired lock
  * (or scans for one with an open pairing window), exchanges MTU, discovers
  * the link service, subscribes, and hands frames to the caller.
  *
@@ -29,12 +29,8 @@ typedef struct {
     void (*frame)(const uint8_t *frame, size_t len);
 } ln_central_cbs_t;
 
-/*
- * own_stack: initialize and run NimBLE here (keypad). Otherwise another
- * component owns the host (the hub's Matter stack) and this one only waits
- * for it to sync.
- */
-esp_err_t ln_central_start(const ln_central_cbs_t *cbs, bool own_stack);
+/* Initializes NimBLE and runs its host task. */
+esp_err_t ln_central_start(const ln_central_cbs_t *cbs);
 /* addr == NULL: scan for a lock advertising an open pairing window. */
 void ln_central_connect(const uint8_t *addr, size_t addr_len);
 void ln_central_disconnect(void);

@@ -42,7 +42,6 @@ ll_access_result_t lock_bridge_access(lc_t *lc, lp_role_t role, lp_op_t op, cons
     lc_source_t source = LC_SOURCE_KEYPAD;
     switch (role) {
     case LP_ROLE_KEYPAD: source = LC_SOURCE_KEYPAD; break;
-    case LP_ROLE_HUB: source = LC_SOURCE_REMOTE; break;
     case LP_ROLE_PHONE: source = LC_SOURCE_APP; break;
     default: return r;
     }

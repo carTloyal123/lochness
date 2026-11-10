@@ -76,7 +76,7 @@ static struct {
      * lock_link is never re-entered from inside its own callbacks. */
     lp_msg_t state_q[STATE_QUEUE_LEN];
     uint8_t state_q_len;
-    /* Last state pushed to hubs, to detect changes without an event. */
+    /* Last state pushed to phones, to detect changes without an event. */
     uint8_t sent_bolt;
     uint8_t sent_door;
 } s_lock; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): module state
@@ -103,7 +103,7 @@ static const char *event_name(lc_event_type_t t)
 static void queue_state(const lc_event_t *ev)
 {
     if (s_lock.state_q_len == STATE_QUEUE_LEN) {
-        ESP_LOGW(TAG, "state queue full; hub misses an event");
+        ESP_LOGW(TAG, "state queue full; phones miss an event");
         return;
     }
     lock_bridge_state(&s_lock.ctx.lc, ev, &s_lock.state_q[s_lock.state_q_len++]);
@@ -203,7 +203,7 @@ static void link_keypad_status(void *ctx, uint8_t peer, uint16_t battery_mv, uin
     status->flags = flags;
     status->boot = s_lock.ctx.lc.boot_count;
     status->uptime_s = (uint32_t)(now_ms() / 1000U);
-    /* TODO: surface low battery / tamper as lock events for the hub. */
+    /* TODO: surface low battery / tamper as lock events (Matter alarms). */
     if (!changed) {
         return;
     }
@@ -221,7 +221,7 @@ static void link_time_set(void *ctx, uint32_t unix_s, int16_t utc_offset_min)
     bool first = !pe_time_known();
     pe_time_set(unix_s, utc_offset_min);
     if (first) {
-        ESP_LOGI(TAG, "clock set by hub: %lu, UTC%+d min", (unsigned long)unix_s, utc_offset_min);
+        ESP_LOGI(TAG, "clock set by phone: %lu, UTC%+d min", (unsigned long)unix_s, utc_offset_min);
     }
 }
 

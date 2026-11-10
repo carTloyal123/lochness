@@ -96,23 +96,11 @@ int test_failure_count(void) { return g_failures; }
     X(test_link_resend_after_link_drop) \
     X(test_link_resend_only_once) \
     X(test_lp_time_and_state_roundtrip) \
-    X(test_hub_gets_snapshot_on_connect) \
+    X(test_phone_gets_snapshot_on_connect) \
     X(test_keypad_gets_no_state) \
-    X(test_hub_sets_time_keypad_cannot) \
-    X(test_hub_receives_events) \
-    X(test_hub_idle_timeout_longer) \
-    X(test_hub_keepalive_extends_session) \
-    X(test_log_entries_carry_boot) \
-    X(test_hubcore_pair_keeps_session) \
-    X(test_hubcore_pairing_needs_hub_window) \
-    X(test_hubcore_remote_unlock_and_events) \
-    X(test_hubcore_remote_unlock_policy_enforced) \
-    X(test_hubcore_one_request_at_a_time) \
-    X(test_hubcore_sends_time_and_keepalive) \
-    X(test_hubcore_ping_without_clock_keeps_session) \
-    X(test_hubcore_reconnects_with_backoff) \
-    X(test_hubcore_request_fails_when_link_drops) \
-    X(test_hubcore_removed_hub_cannot_reconnect)
+    X(test_phone_sets_time_keypad_cannot) \
+    X(test_phone_receives_events) \
+    X(test_log_entries_carry_boot)
 
 TESTS
 #undef X

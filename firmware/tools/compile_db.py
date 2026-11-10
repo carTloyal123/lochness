@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Merge the firmware's compile databases into firmware/compile_commands.json.
 
-clangd and clang-tidy need one database covering the lock, keypad and hub
-apps and the host tests. ESP-IDF's databases name riscv32-esp-elf-gcc, pass
+clangd and clang-tidy need one database covering the lock and keypad apps
+and the host tests. ESP-IDF's databases name riscv32-esp-elf-gcc, pass
 GCC-only flags and get libc headers from a GCC specs file, none of which clang
 understands. This script rewrites each entry so any recent clang can parse it:
 
@@ -13,7 +13,7 @@ understands. This script rewrites each entry so any recent clang can parse it:
 
 Only files in this repo are kept (not ESP-IDF's own sources), so clangd indexes
 our code and reads IDF through its headers. When a file appears in several
-builds, the first build listed wins: lock_unit, keypad, hub, then host tests.
+builds, the first build listed wins: lock_unit, keypad, then host tests.
 
 Every C/C++ source in the repo must appear in the database, or the editor
 can't parse it and the linter silently skips it; missing ones are listed and
@@ -35,7 +35,7 @@ FIRMWARE = Path(__file__).resolve().parent.parent
 IDF_PATH = Path(os.environ.get("IDF_PATH", Path.home() / "esp/esp-idf-v6.0.2"))
 
 # Priority order: the first build that compiles a file supplies its command.
-ESP_APPS = ["apps/lock_unit", "apps/keypad", "apps/hub"]
+ESP_APPS = ["apps/lock_unit", "apps/keypad"]
 HOST_BUILD = "test/host/build"
 
 # GCC flags clang rejects or warns about. Matched exactly or, when ending in
@@ -84,7 +84,7 @@ def run(cmd: list[str], cwd: Path) -> None:
 def configure() -> None:
     env_sh = FIRMWARE / "tools/idf_env.sh"
     for app in ESP_APPS:
-        # idf_env.sh loads ESP-IDF (and esp-matter, for the hub); reconfigure
+        # idf_env.sh loads ESP-IDF (and esp-matter when present); reconfigure
         # is enough to emit compile_commands.json without compiling anything.
         script = f'. "{env_sh}" && idf_env_load && idf.py reconfigure >/dev/null'
         print(f"+ idf.py reconfigure ({app})", file=sys.stderr)
