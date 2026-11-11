@@ -1,4 +1,9 @@
 {
-    "recommendations": ["llvm-vs-code-extensions.vscode-clangd"],
+    "recommendations": [
+        "llvm-vs-code-extensions.vscode-clangd",
+        // hardware/: Python (interpreter from hardware/.venv) and the build123d 3D viewer
+        "ms-python.python",
+        "bernhard-42.ocp-cad-viewer"
+    ],
     "unwantedRecommendations": ["ms-vscode.cpptools"]
 }

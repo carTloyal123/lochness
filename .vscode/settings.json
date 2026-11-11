@@ -15,5 +15,21 @@
     "files.associations": {
         ".clangd": "yaml",
         ".clang-tidy": "yaml"
-    }
+    },
+
+    // hardware/: the uv environment made by the "hardware: setup" task
+    // (cd hardware && uv sync), which includes build123d and ocp_vscode.
+    "python.defaultInterpreterPath": "${workspaceFolder}/hardware/.venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.testing.pytestEnabled": true,
+    "python.testing.cwd": "${workspaceFolder}/hardware",
+    "python.testing.pytestArgs": ["tests"],
+    // OCP CAD Viewer: our models use +Y up (see hardware/deadbolt/fixture.py).
+    // The viewer opens when a file that imports ocp_vscode (hardware/view.py) is opened.
+    "OcpCadViewer.view.up": "Y",
+    "OcpCadViewer.view.ortho": false,
+    "OcpCadViewer.view.collapse": "leaves",
+    // RESET frames each new show; KEEP can leave the model off-screen.
+    "OcpCadViewer.view.reset_camera": "RESET",
+    "OcpCadViewer.advanced.autostart": true
 }

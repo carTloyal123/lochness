@@ -19,4 +19,4 @@ ctest --test-dir firmware/test/host/build --output-on-failure
 
 ## License
 
-MIT (see [LICENSE](LICENSE)): use, copy, modify and distribute freely, keeping the copyright notice. Vendored third-party code keeps its own license: Monocypher (`firmware/components/monocypher`) is BSD-2-Clause or CC0, see its `LICENCE.md`.
+Software is MIT (see [LICENSE](LICENSE)): use, copy, modify and distribute freely, keeping the copyright notice. The hardware designs in `hardware/` are CERN-OHL-S-2.0 (see [hardware/LICENSE](hardware/LICENSE)). Vendored third-party code keeps its own license: Monocypher (`firmware/components/monocypher`) is BSD-2-Clause or CC0, see its `LICENCE.md`.

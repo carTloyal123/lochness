@@ -1,0 +1,64 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "hardware: setup",
+            "type": "shell",
+            "command": "uv sync",
+            "options": {
+                "cwd": "${workspaceFolder}/hardware"
+            },
+            "runOptions": {
+                "runOn": "folderOpen"
+            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "hardware: view",
+            "detail": "Show the concepts on the door in OCP CAD Viewer",
+            "type": "shell",
+            "command": "uv run view.py ${input:hardwareView}",
+            "options": {
+                "cwd": "${workspaceFolder}/hardware"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "hardware: build concepts",
+            "detail": "STEP files, renders and the comparison table",
+            "type": "shell",
+            "command": "uv run build_concepts.py",
+            "options": {
+                "cwd": "${workspaceFolder}/hardware"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "hardware: test",
+            "type": "shell",
+            "command": "uv run pytest -q",
+            "options": {
+                "cwd": "${workspaceFolder}/hardware"
+            },
+            "group": "test",
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "hardwareView",
+            "type": "pickString",
+            "description": "What to show",
+            "options": ["all", "A-puck", "B-slab", "C-pill", "fixture"],
+            "default": "all"
+        }
+    ]
+}
