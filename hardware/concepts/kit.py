@@ -13,8 +13,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from build123d import (Box, Color, Cone, Cylinder, Part, Polygon, Pos, RectangleRounded, Rot,
-                       extrude)
+from build123d import (Box, Color, Cone, Cylinder, Location, Part, Plane, Polygon, Pos,
+                       RectangleRounded, Rot, extrude)
 
 from deadbolt.fixture import DeadboltParams, _post_xs, _tailpiece_angle
 
@@ -32,6 +32,7 @@ ACCENT = {  # printed parts that should stand out from the shell
     "chassis": Color(0.82, 0.84, 0.86), "light_pipe": Color(0.95, 0.95, 1.0),
     "magnet": Color(0.7, 0.1, 0.1), "battery_door": Color(0.85, 0.85, 0.82),
 }
+INSERT_COLOR = Color(0.8, 0.65, 0.25)  # brass
 
 
 @dataclass
@@ -50,13 +51,29 @@ class Unit:
     meshes: set[frozenset[str]] = field(default_factory=set)  # gear pairs allowed to interpenetrate
     motor_xy: tuple[float, float] | None = None
     layout: "DriveLayout | None" = None
+    shaft_angle: float = 0.0  # where the coupler shaft's flat faces (it turns with the tailpiece)
+    fixings: list["Fixing"] = field(default_factory=list)
+    snaps: list["Snap"] = field(default_factory=list)
+    _cuts: dict[str, list[Part]] = field(default_factory=dict)
 
     def add(self, name: str, part: Part, kind: str, desc: str) -> Part:
         assert name not in self.items, name
+        for c in self._cuts.pop(name, []):
+            part -= c
         part.label = name
-        part.color = ACCENT.get(name) or KIND_COLORS[kind]
+        part.color = ACCENT.get(name) or (INSERT_COLOR if name.endswith("_insert") else KIND_COLORS[kind])
         self.items[name] = Item(part, kind, desc)
         return part
+
+    def cut(self, name: str, solid: Part) -> None:
+        """Cut a hole in a part, whether it has been added yet or not."""
+        item = self.items.get(name)
+        if item is None:
+            self._cuts.setdefault(name, []).append(solid)
+            return
+        label, color = item.part.label, item.part.color
+        item.part = item.part - solid
+        item.part.label, item.part.color = label, color
 
     def joint(self, a: str, b: str, max_gap: float = 0.0) -> None:
         self.joints.append((a, b, max_gap))
@@ -132,25 +149,164 @@ def centre_distance(m, za, zb) -> float:
     return m * (za + zb) / 2
 
 
-# --- fasteners: built head-up with the head's top face at z=0, shank along -Z ---
-SCREWS = {  # d, head_d, head_h, countersunk
-    "M1.6": (1.6, 3.0, 1.0, False), "M2": (2.0, 3.8, 1.3, False), "M3": (3.0, 5.7, 1.65, False),
-    "M3 CSK": (3.0, 6.0, 1.7, True), "#8-32 CSK": (4.17, 7.5, 2.3, True),
+# --- fasteners ---
+# Screws thread into one of: a heat-set brass insert in a printed part, a tapped hole
+# in the steel back plate, or a bought part's own threads (the motor face). Never into
+# bare plastic. Lengths are stock lengths; fix() picks the shortest that engages enough
+# and sinks the insert deeper if a stock length would bottom out.
+@dataclass(frozen=True)
+class ScrewType:
+    d: float  # nominal diameter
+    clear: float  # clearance hole
+    head: str  # "button", "pan" or "csk"
+    head_d: float
+    head_h: float
+    lengths: tuple[float, ...]  # stock lengths (csk: overall, others: under the head)
+    desc: str
+
+
+SCREW_TYPES = {
+    "M1.6 pan": ScrewType(1.6, 1.9, "pan", 3.2, 1.3, (2, 2.5, 3, 4, 5, 6, 8), "pan head (ISO 7045)"),
+    "M2 button": ScrewType(2.0, 2.4, "button", 3.5, 1.3, (3, 4, 5, 6, 8, 10, 12, 16, 20),
+                           "button head hex socket"),
+    "M3 button": ScrewType(3.0, 3.4, "button", 5.7, 1.65, (4, 5, 6, 8, 10, 12, 16, 20, 25, 30),
+                           "button head hex socket (ISO 7380)"),
+    "M3 csk": ScrewType(3.0, 3.4, "csk", 6.72, 1.86, (6, 8, 10, 12, 16, 20, 25, 30),
+                        "countersunk hex socket (ISO 10642)"),
 }
 
 
-def screw(size: str, length: float) -> Part:
-    d, hd, hh, csk = SCREWS[size]
-    head = Pos(0, 0, -hh / 2) * (Cone(d / 2, hd / 2, hh) if csk else Cylinder(hd / 2, hh))
-    shank = Pos(0, 0, -hh - length / 2) * Cylinder(d / 2, length)
-    return head + shank
+@dataclass(frozen=True)
+class InsertType:
+    """Heat-set brass insert. `hole` is the printed hole it is melted into (supplier's figure)."""
+    hole: float
+    l: float
+    min_eng: float  # least thread the screw must reach into it
 
 
-def csk_hole(size: str, through_z0: float, top_z: float, x: float, y: float, clearance=0.0) -> Part:
-    """Cut for a countersunk head sitting flush at top_z, plus its shank through to through_z0."""
-    d, hd, hh, _ = SCREWS[size]
-    return (Pos(x, y, top_z - hh / 2) * Cone(d / 2 + clearance, hd / 2 + clearance, hh)
-            + zcyl(d + clearance, through_z0, top_z, x, y))
+# CNC Kitchen / Ruthex-style standard inserts. Check the hole size against your supplier.
+INSERTS = {"M2": InsertType(3.2, 3.0, 2.5), "M3": InsertType(4.0, 5.7, 4.0)}
+INSERT_RESERVE = 1.0  # blind hole below the insert, for displaced plastic and the screw tip
+MIN_WALL = 1.2  # around an insert or tapped hole: three 0.4 mm perimeters
+
+
+def screw_solid(st: ScrewType, length: float) -> Part:
+    """Seat at z=0 (button/pan: under the head; csk: the flush top face), shank along -Z."""
+    if st.head == "csk":
+        head = Pos(0, 0, -st.head_h / 2) * Cone(st.d / 2, st.head_d / 2, st.head_h)
+    else:
+        head = Pos(0, 0, st.head_h / 2) * Cylinder(st.head_d / 2, st.head_h)
+    return head + Pos(0, 0, -length / 2) * Cylinder(st.d / 2, length)
+
+
+def _zc(d: float, z0: float, z1: float) -> Part:
+    return Pos(0, 0, (z0 + z1) / 2) * Cylinder(d / 2, z1 - z0)
+
+
+@dataclass
+class Fixing:
+    """One screw: what it clamps, what it threads into, and how far."""
+    name: str
+    type: str
+    length: float
+    clamp: float  # seat to the top of the thread (insert top / tapped face)
+    into: str
+    thread: str  # "insert", "tapped" or "bought"
+    eng_range: tuple[float, float]
+    probe: Part | None  # a MIN_WALL ring round the thread; must lie inside `into`
+
+    @property
+    def engagement(self) -> float:
+        return self.length - self.clamp
+
+
+def fix(u: Unit, name: str, type_: str, loc: Location, clamp: float, into: str, thread: str,
+        clamps: list[str], eng: tuple[float, float] | None = None, cbore: float = 0.0,
+        tapped_depth: float = 0.0) -> Fixing:
+    """Add a screw (and its insert), and cut its holes in every part it passes through.
+
+    loc puts the seat at the origin with the screw pointing along local -Z. `clamp` is the
+    distance from the seat to where the thread starts. `cbore` sinks the head that deep
+    into clamps[0].
+    """
+    st = SCREW_TYPES[type_]
+    size = type_.split()[0]
+    ins = INSERTS[size] if thread == "insert" else None
+    lo, hi = (ins.min_eng, ins.l + INSERT_RESERVE - 0.5) if ins else eng
+    length = next((L for L in st.lengths if L - clamp >= lo - 1e-6), None)
+    assert length is not None, f"{name}: no stock {type_} is long enough for {clamp:.1f} mm"
+    recess = max(0.0, length - clamp - hi)
+    assert ins or recess < 1e-6, f"{name}: {type_} x {length} would bottom out"
+    t = clamp + recess  # the insert's top, below the seat
+
+    clear = _zc(st.clear, -t, 0.01)
+    if st.head == "csk":
+        clear += Pos(0, 0, -st.head_h / 2) * Cone(st.clear / 2, st.head_d / 2, st.head_h) \
+            + _zc(st.head_d, 0, 0.5)
+    elif cbore:
+        clear += _zc(st.head_d + 0.6, 0, cbore + 0.01)
+    for c in clamps:
+        u.cut(c, loc * clear)
+
+    u.add(name, loc * screw_solid(st, length), FASTENER, f"{size} x {length:g} {st.desc}")
+    u.joint(name, clamps[0], 0.3 if st.head == "csk" else 0.0)
+    for c in clamps[1:]:
+        u.joint(name, c, 0.3)
+    probe = None
+    if ins:
+        u.cut(into, loc * (_zc(st.clear, -t - 0.01, 0.01) + _zc(ins.hole, -t - ins.l - INSERT_RESERVE, -t)))
+        u.add(f"{name}_insert", loc * (_zc(ins.hole, -t - ins.l, -t) - _zc(st.d, -t - ins.l - 1, -t + 1)),
+              FASTENER, f"Heat-set insert {size} x {ins.l:g} (hole {ins.hole:g} mm)")
+        u.joint(name, f"{name}_insert")
+        u.joint(f"{name}_insert", into)
+        probe = loc * (_zc(ins.hole + 2 * MIN_WALL, -t - ins.l, -t) - _zc(ins.hole, -t - ins.l - 1, -t + 1))
+    else:
+        if thread == "tapped":
+            u.cut(into, loc * _zc(st.d, -t - tapped_depth - 0.01, -t + 0.01))
+            probe = loc * (_zc(st.d + 2 * MIN_WALL, -t - tapped_depth, -t) - _zc(st.d, -t - tapped_depth - 1, -t + 1))
+        else:  # the bought part's own threaded hole, as deep as it is
+            u.cut(into, loc * _zc(st.d, -t - hi - 0.01, -t + 0.01))
+        u.joint(name, into)
+    f = Fixing(name, type_, length, t, into, thread, (lo, hi), probe)
+    u.fixings.append(f)
+    return f
+
+
+@dataclass
+class Snap:
+    """A printed cantilever snap: thickness t, free length l, deflection to engage."""
+    name: str
+    t: float
+    l: float
+    deflection: float
+
+    @property
+    def strain(self) -> float:  # root strain of a uniform cantilever: 1.5 t y / l^2
+        return 1.5 * self.t * self.deflection / self.l ** 2
+
+
+SNAP_STRAIN_LIMIT = 0.025  # PETG/ASA, for snaps opened a few times
+
+
+def wall_snap(u: Unit, name: str, loc: Location, z0: float, z1: float, wall_t: float = 1.6,
+              width: float = 8.0, bump: float = 0.8, bump_h: float = 2.0) -> tuple[Part, Part, Part]:
+    """A snap arm cut into a chassis wall, its bump, and the pocket in the cover over it.
+
+    loc puts the wall's outer face on local y=0 with +y outwards. The arm is the wall
+    between two slits, from z0 up to the wall's free top edge z1; the bump's flat underside
+    holds the cover down, its ramp lets the cover slide on.
+    Returns (slits to cut from the chassis, bump to add to it, pocket to cut from the cover).
+    """
+    slits = Part()
+    for sx in (-1, 1):
+        x = sx * (width / 2 + 0.3)
+        slits += Pos(x, -wall_t / 2, (z0 + z1 + 1) / 2) * Box(0.6, wall_t + 0.2, z1 + 1 - z0)
+    zb = z1 - bump_h - 0.8
+    prof = Polygon((0, zb), (bump, zb), (bump, zb + 0.4), (0, zb + bump_h), align=None)
+    wedge = Pos(-(width / 2 - 0.5), 0, 0) * extrude(Plane.YZ * prof, amount=width - 1.0)
+    pocket = Pos(0, 0.5, zb + (bump_h + 0.6) / 2) * Box(width, 1.0, bump_h + 0.6)
+    u.snaps.append(Snap(name, wall_t, z1 - z0, bump))
+    return loc * slits, loc * wedge, loc * pocket
 
 
 # --- bought parts ---
@@ -194,8 +350,8 @@ class DriveLayout:
     lug_angle_deg: float = 90.0  # coupler lug, relative to the tailpiece's wide face
 
     @property
-    def bridge_z(self) -> tuple[float, float]:
-        return (self.gear_z0 + 6.5, self.gear_z0 + 8.5)
+    def bridge_z(self) -> tuple[float, float]:  # 3 mm: room to sink the motor screws' heads
+        return (self.gear_z0 + 6.5, self.gear_z0 + 9.5)
 
     @property
     def enc_z(self) -> tuple[float, float]:
@@ -209,6 +365,15 @@ class DriveLayout:
     @property
     def chip_z(self) -> tuple[float, float]:  # AS5600 body, 1 mm above the magnet
         return (self.enc_z[1] + 1.0, self.enc_z[1] + 2.5)
+
+
+SHAFT_FLAT = 1.2  # depth of the flat on the coupler's knob shaft
+
+
+def d_shaft(angle_deg: float, z0: float, z1: float) -> Part:
+    """The coupler's knob shaft: a D, so the knob and encoder gear are keyed to it."""
+    flat = box(SHAFT_D / 2 - SHAFT_FLAT, SHAFT_D, -SHAFT_D, SHAFT_D, z0 - 1, z1 + 1)
+    return Rot(0, 0, angle_deg) * (zcyl(SHAFT_D, z0, z1) - flat)
 
 
 M_OUT, PINION_TEETH = 1.0, 10
@@ -232,12 +397,12 @@ def drive_module(u: Unit, p: DeadboltParams, locked: bool, L: DriveLayout) -> No
     hub = zcyl(HUB_D, 3.3, b1)
     lug_mid = tail_ang + L.lug_angle_deg
     lug = sector(HUB_D / 2 - 0.2, LUG_R, lug_mid - LUG_W_DEG / 2, lug_mid + LUG_W_DEG / 2, g0 + 0.3, g1 - 0.3)
-    shaft = zcyl(SHAFT_D, b1, L.shaft_top)
+    u.shaft_angle = tail_ang
+    shaft = d_shaft(tail_ang, b1, L.shaft_top)
     coupler = hub + lug + shaft
     slot = Pos(0, 0, (3.3 + p.tailpiece_protrusion + 1) / 2) * Box(
         p.tailpiece_w + 0.4, p.tailpiece_t + 0.4, p.tailpiece_protrusion + 1 - 3.3 + 0.02)
-    coupler -= Rot(0, 0, tail_ang) * slot
-    coupler -= zcyl(3.0, L.shaft_top - 8.0, L.shaft_top + 1)  # tapped for the knob screw
+    coupler -= Rot(0, 0, tail_ang) * slot  # the knob screw's insert is cut by knob_on_shaft
     u.add("coupler", coupler, PRINTED, "Coupler / tailpiece adapter (per brand), PA12 or PETG-CF")
 
     # Output gear: pocket spans the lug's travel in both bolt states, plus margin each side.
@@ -267,6 +432,7 @@ def drive_module(u: Unit, p: DeadboltParams, locked: bool, L: DriveLayout) -> No
             motor = gm16_standing(mx, my, b1, shaft_len)
             desc = "16 mm planetary gear motor, 6 V, ~100:1, 4 mm D-shaft"
         u.add("motor", motor, BOUGHT, desc)
+        motor_face_screws(u, L, mx, my)
         sd = N20["shaft_d"] if L.motor == "n20" else GM16["shaft_d"]
         pin = spur_gear(M_OUT, PINION_TEETH, g0, g1, mx, my, phase_deg=pin_phase, bore=sd)
         u.add("pinion", pin, PRINTED, f"Motor pinion, m1 {PINION_TEETH}T (or brass, pressed)")
@@ -278,8 +444,8 @@ def drive_module(u: Unit, p: DeadboltParams, locked: bool, L: DriveLayout) -> No
     # Encoder: a 1:1 pair turns a diametric magnet on the idler, read by an AS5600 above it.
     ex, ey = L.encoder_xy
     d_phase, i_phase = mesh_phases(ENC_TEETH, ENC_TEETH, L.encoder_angle_deg)
-    enc_drive = spur_gear(M_ENC, ENC_TEETH, e0, e1, phase_deg=d_phase, bore=SHAFT_D)
-    u.add("enc_drive", enc_drive, PRINTED, "Encoder drive gear, m0.8 20T, pressed on the coupler")
+    enc_drive = spur_gear(M_ENC, ENC_TEETH, e0, e1, phase_deg=d_phase) - d_shaft(tail_ang, e0 - 1, e1 + 1)
+    u.add("enc_drive", enc_drive, PRINTED, "Encoder drive gear, m0.8 20T, on the coupler's D-shaft")
     u.joint("enc_drive", "coupler")
     idler = spur_gear(M_ENC, ENC_TEETH, e0, e1, ex, ey, phase_deg=i_phase, bore=3.0)
     idler -= zcyl(MAGNET["d"], e1 - 2.0, e1 + 1, ex, ey)
@@ -293,16 +459,30 @@ def drive_module(u: Unit, p: DeadboltParams, locked: bool, L: DriveLayout) -> No
     u.layout = L
 
 
-def bridge_cuts(u: Unit, L: DriveLayout, posts: list[tuple[float, float]]) -> Part:
-    """Holes every bridge needs: coupler, motor shaft, encoder pin boss seat, post screws."""
+def bridge_cuts(u: Unit, L: DriveLayout) -> Part:
+    """Holes every bridge needs: coupler, motor shaft, encoder pin seat. Screws cut their own."""
     b0, b1 = L.bridge_z
     cut = zcyl(HUB_D + BORE_CLEAR, b0 - 1, b1 + 1) + zcyl(3.0, b0 - 1, b1 + 1, *L.encoder_xy)
     if u.motor_xy:
         mx, my = u.motor_xy
         cut += zcyl(6.0, b0 - 1, b1 + 1, mx, my)  # motor shaft + pinion hub clearance
-    for x, y in posts:
-        cut += zcyl(2.2, b0 - 1, b1 + 1, x, y)
     return cut
+
+
+# UNMEASURED: face-screw patterns, from typical datasheets. Check against the motor bought.
+N20_FACE_HOLES = ("M1.6 pan", 9.0, (1.2, 2.0))  # screw, spacing across the 12 mm width, thread depth
+GM16_FACE_HOLES = ("M2 button", 12.0, (1.5, 2.5))
+
+
+def motor_face_screws(u: Unit, L: DriveLayout, mx: float, my: float) -> None:
+    """Two screws up through the bridge into the motor's gearbox face, heads sunk in the bridge."""
+    b0, b1 = L.bridge_z
+    type_, spacing, eng = N20_FACE_HOLES if L.motor == "n20" else GM16_FACE_HOLES
+    sink = SCREW_TYPES[type_].head_h + 0.1
+    for i, s in enumerate((-1, 1)):
+        loc = Pos(mx + s * spacing / 2, my, b0 + sink) * Rot(180, 0, 0)
+        fix(u, f"screw_motor_{i}", type_, loc, b1 - (b0 + sink), "motor", "bought", ["bridge"],
+            eng=eng, cbore=sink)
 
 
 def bridge_extras(u: Unit, L: DriveLayout) -> Part:
@@ -323,69 +503,57 @@ def bridge_extras(u: Unit, L: DriveLayout) -> Part:
     return extra
 
 
-def add_stack_screw(u: Unit, name: str, x: float, y: float, head_z: float, tip_z: float,
+def add_stack_screw(u: Unit, name: str, x: float, y: float, head_z: float, post_top: float,
                     into: str, through: list[str]) -> None:
-    """M2 screw from head_z down to tip_z, clamping `through` parts into `into`."""
-    u.add(name, Pos(x, y, head_z + SCREWS["M2"][2]) * screw("M2", head_z - tip_z), FASTENER,
-          f"M2 x {math.ceil(head_z - tip_z)} socket button screw")
-    u.joint(name, into)
-    for t in through:
-        u.joint(name, t, 0.3)
+    """M2 down from head_z, clamping `through` parts onto an insert in the post top at post_top."""
+    fix(u, name, "M2 button", Pos(x, y, head_z), head_z - post_top, into, "insert", through)
 
 
 def knob_on_shaft(u: Unit, name: str, desc: str, outer: Part, bottom_z: float, shaft_top: float) -> None:
     """A knob (or cap) keyed on the coupler shaft, held by an axial M3 screw."""
     top = outer.bounding_box().max.Z
-    knob = outer - zcyl(SHAFT_D, bottom_z - 1, shaft_top) - zcyl(6.2, top - 2.0, top + 1) \
-        - zcyl(3.4, shaft_top - 1, top)
-    u.add(name, knob, PRINTED, desc)
+    seat = top - 2.0
+    u.add(name, outer - d_shaft(u.shaft_angle, bottom_z - 1, shaft_top), PRINTED, desc)
     u.joint(name, "coupler")
-    s = Pos(0, 0, top - 2.0 + SCREWS["M3"][2]) * screw("M3", (top - 2.0) - (shaft_top - 6.0))
-    u.add("screw_knob", s, FASTENER, "M3 x 8 socket button screw (knob)")
-    u.joint("screw_knob", "coupler")
-    u.joint("screw_knob", name)
+    fix(u, "screw_knob", "M3 button", Pos(0, 0, seat), seat - shaft_top, "coupler", "insert", [name],
+        cbore=2.0)
 
 
 def back_plate(u: Unit, p: DeadboltParams, outline: Part, chassis_screws: list[tuple[float, float]]) -> None:
     """3 mm steel plate on the door: countersunk for the deadbolt's screws, tapped M3 for the chassis."""
-    SCREWS["door"] = (p.post_hole_d, 7.5, 2.3, True)  # thread per brand; shank = the post's hole
+    door = ScrewType(p.post_hole_d, p.post_hole_d, "csk", 7.5, 2.3, (), "")  # thread per brand
     plate = outline - zcyl(10.0, -1, 4)
     for x in _post_xs(p):
-        plate -= csk_hole("door", -1, 3.0, x, 0)
-        s = Pos(x, 0, 3.0) * screw("door", 22.0 - 2.3)
+        plate -= Pos(x, 0, 3.0) * (Pos(0, 0, -door.head_h / 2) * Cone(door.d / 2, door.head_d / 2, door.head_h)
+                                   + _zc(door.d, -4, 0.01))
+        s = Pos(x, 0, 3.0) * screw_solid(door, 22.0)
         u.add(f"screw_door_{'r' if x > 0 else 'l'}", s, FASTENER,
               "Deadbolt through-screw, flat head (thread per brand, e.g. #8-32 x 1\")")
         u.joint(f"screw_door_{'r' if x > 0 else 'l'}", "plate")
         u.joint(f"screw_door_{'r' if x > 0 else 'l'}", "door")
-    for x, y in chassis_screws:
-        plate -= zcyl(3.0, -1, 4, x, y)
-    u.add("plate", plate, METAL, "Back plate, 3 mm steel/aluminium, laser cut, 2x M3 tapped")
+    u.add("plate", plate, METAL, "Back plate, 3 mm steel, laser cut, 2x M3 tapped")
     u.joint("plate", "door")
 
 
+PLATE_T = 3.0
+
+
 def chassis_screws(u: Unit, positions: list[tuple[float, float]], floor_top: float) -> None:
+    """M3 down through the chassis floor into the plate's tapped holes. The door is behind the
+    plate, so the screw may reach through the plate but no further."""
     for i, (x, y) in enumerate(positions):
-        n = f"screw_chassis_{i}"
-        u.add(n, Pos(x, y, floor_top + SCREWS["M3"][2]) * screw("M3", floor_top), FASTENER,
-              "M3 x 5 socket button screw (chassis to plate)")
-        u.joint(n, "chassis")
-        u.joint(n, "plate")
+        fix(u, f"screw_chassis_{i}", "M3 button", Pos(x, y, floor_top), floor_top - PLATE_T, "plate",
+            "tapped", ["chassis"], eng=(2.4, PLATE_T), tapped_depth=PLATE_T)
 
 
-def cover_screw(u: Unit, i: int, x: float, y_outer: float, z: float, length: float = 8.0) -> None:
-    """Countersunk M3 entering the cover's bottom face (at y_outer) going +Y into a chassis boss."""
-    n = f"screw_cover_{i}"
-    s = Pos(x, y_outer, z) * Rot(90, 0, 0) * screw("M3 CSK", length)
-    u.add(n, s, FASTENER, f"M3 x {length:.0f} countersunk screw (cover)")
-    u.joint(n, "cover")
-    u.joint(n, "chassis")
+COVER_WALL = 2.0
 
 
-def cover_screw_cut(x: float, y_outer: float, z: float, length: float = 8.0) -> Part:
-    d, hd, hh, _ = SCREWS["M3 CSK"]
-    return Pos(x, y_outer, z) * Rot(90, 0, 0) * (
-        Pos(0, 0, -hh / 2) * Cone(d / 2 + 0.2, hd / 2 + 0.2, hh)
-        + Pos(0, 0, -hh - length / 2) * Cylinder(d / 2, length))
+def cover_screw(u: Unit, i: int, x: float, y_outer: float, z: float) -> None:
+    """Countersunk M3 through the cover's bottom wall (outer face at y_outer), going +Y into an
+    insert set in the chassis wall from outside (before the cover goes on)."""
+    fix(u, f"screw_cover_{i}", "M3 csk", Pos(x, y_outer, z) * Rot(90, 0, 0), COVER_WALL, "chassis",
+        "insert", ["cover"])
 
 
 def pcb_parts(u: Unit, prefix: str, board_top: float, blocks: dict[str, tuple]) -> None:

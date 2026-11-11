@@ -1,4 +1,5 @@
-"""Assembly checks for a concept: collisions, joints, connectivity, fit to the door.
+"""Assembly checks for a concept: collisions, joints, connectivity, fit to the door,
+fasteners (stock lengths, thread engagement, wall round each insert) and snap strain.
 
     uv run python -m concepts.check            # all concepts, prints every problem
     uv run python -m concepts.check B-slab
@@ -14,7 +15,7 @@ from itertools import combinations
 from build123d import Compound, Part
 
 from concepts.designs import CONCEPTS, Concept
-from concepts.kit import Unit
+from concepts.kit import MIN_WALL, SCREW_TYPES, SNAP_STRAIN_LIMIT, Unit
 from deadbolt.fixture import DeadboltParams, GENERIC_US, build
 
 OVERLAP_TOL = 0.05  # mm^3: touching faces are fine, interpenetration is not
@@ -92,10 +93,38 @@ def fit(u: Unit, p: DeadboltParams) -> list[str]:
     return out
 
 
+WALL_TOL = 0.01  # fraction of the wall probe allowed outside the part (faceting)
+
+
+def fasteners(u: Unit) -> list[str]:
+    """Every screw is a stock length, reaches far enough into its thread without bottoming
+    out, and has at least MIN_WALL of material round its insert or tapped hole."""
+    parts = u.parts()
+    out = []
+    for f in u.fixings:
+        if f.length not in SCREW_TYPES[f.type].lengths:
+            out.append(f"{f.name}: {f.type} x {f.length} is not a stock length")
+        lo, hi = f.eng_range
+        if not lo - 1e-6 <= f.engagement <= hi + 1e-6:
+            out.append(f"{f.name}: {f.engagement:.1f} mm of thread, needs {lo:.1f}-{hi:.1f}")
+        if f.probe is not None:
+            outside = (f.probe - parts[f.into]).volume
+            if outside > WALL_TOL * f.probe.volume:
+                out.append(f"{f.name}: wall round its thread in {f.into} is under {MIN_WALL} mm "
+                           f"({outside:.2f} mm^3 missing)")
+    return out
+
+
+def snaps(u: Unit) -> list[str]:
+    return [f"{s.name}: {s.strain:.1%} strain, over {SNAP_STRAIN_LIMIT:.1%}"
+            for s in u.snaps if s.strain > SNAP_STRAIN_LIMIT]
+
+
 def check(c: Concept, p: DeadboltParams = GENERIC_US, locked: bool = True) -> dict[str, list[str]]:
     u, fixture = c.unit(p, locked), build(p, locked)
     return {"collisions": collisions(u, fixture), "joints": joint_gaps(u, fixture),
-            "unattached": unattached(u), "fit": fit(u, p)}
+            "unattached": unattached(u), "fit": fit(u, p), "fasteners": fasteners(u),
+            "snaps": snaps(u)}
 
 
 def main() -> int:

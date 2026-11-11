@@ -3,7 +3,7 @@ attached back to the door, and the whole unit clear of the door edge and handle.
 
 import pytest
 
-from concepts.check import collisions, fit, joint_gaps, unattached
+from concepts.check import collisions, fasteners, fit, joint_gaps, snaps, unattached
 from concepts.designs import CONCEPTS, life_years
 from concepts.kit import PRINTED
 from deadbolt.fixture import PRESETS, build
@@ -42,6 +42,22 @@ def test_every_part_is_attached_to_the_door(built):
 def test_fits_the_door(built):
     u, _, p = built
     assert fit(u, p) == []
+
+
+def test_fasteners_are_sound(built):
+    u, _, _ = built
+    assert fasteners(u) == []
+
+
+def test_no_screw_threads_into_bare_plastic(built):
+    u, _, _ = built
+    assert all(f.thread in ("insert", "tapped", "bought") for f in u.fixings)
+    assert all(f.thread == "insert" or u.items[f.into].kind != PRINTED for f in u.fixings)
+
+
+def test_snaps_within_strain(built):
+    u, _, _ = built
+    assert snaps(u) == []
 
 
 @pytest.mark.parametrize("key", sorted(CONCEPTS))

@@ -73,7 +73,7 @@ Three layouts built from real parts on the fixture, so they can be compared and 
 | B-slab | vertical, drive at the bottom, cells above behind a door | 4x AA lithium | 16 mm planetary, standing | over the drive |
 | C-pill | horizontal, cells towards the hinge behind a door | 4x AA lithium | N20 lying flat, worm drive | over the drive |
 
-`concepts/kit.py` holds what they share. That's the drive module: a coupler over the tailpiece, an m1 involute output gear with a 132 deg lost-motion pocket, the motor pinion, and a 1:1 encoder gear pair turning a diametric magnet under an AS5600. It also holds fasteners, bought-part envelopes and helpers. `concepts/designs.py` builds each concept: steel back plate on the deadbolt's screws, printed chassis (floor, skirt, posts, bosses, battery bay), bridge, PCB stack on spacers, cover with battery door, knob, light pipe.
+`concepts/kit.py` holds what they share. That's the drive module: a coupler over the tailpiece, an m1 involute output gear with a 132 deg lost-motion pocket, the motor pinion, and a 1:1 encoder gear pair turning a diametric magnet under an AS5600. It also holds the fastener library, snaps, bought-part envelopes and helpers. `concepts/designs.py` builds each concept: steel back plate on the deadbolt's screws, printed chassis (floor, skirt, posts, bosses, slotted battery ribs, snap arms), bridge, PCB stack on spacers, cover with battery door, knob, light pipe.
 
 ```sh
 uv run build_concepts.py              # per concept: STEP, STLs of printed parts, BOM.md, renders -> out/concepts/<key>/
@@ -81,11 +81,34 @@ uv run python -m concepts.check       # assembly problems, listed
 uv run pytest tests/test_concepts.py
 ```
 
-The checks (and tests) for every fixture preset, locked and unlocked:
+### How the parts fasten
+
+| Joint | Fastener | Threads into |
+|---|---|---|
+| Back plate to door | the deadbolt's own 2 flat-head through-screws | the exterior half's posts |
+| Chassis to back plate | 2x M3 x 5 button head | tapped holes in the 3 mm steel plate |
+| Bridge and PCB stack to chassis | M2 button head through PCB, spacer tube and bridge | M2 heat-set inserts in the chassis posts |
+| Motor to bridge (A, B) / bulkhead (C) | 2 screws into the gearbox face, heads sunk into the 3 mm bridge | the motor's own face holes |
+| Cover to chassis (B, C) | 2x M3 x 6 countersunk at the bottom, 2 snap arms at the top (B) or ends (C) | M3 inserts set into the chassis wall from outside |
+| Knob / cap to coupler | M3 button head, knob keyed on the coupler's D-shaft | an M3 insert in the coupler's top |
+| Battery door | 2 hooks under the rim, a snap latch at the other end | a keeper under the cover's rim |
+| Encoder gear to coupler | keyed on the D-shaft | |
+| Battery contacts | drop into slots in the ribs from above; link plates put the cells in series | |
+
+No screw threads into bare plastic. Screws are stock lengths: `fix()` in `concepts/kit.py` picks the shortest one that engages enough, and sinks the insert deeper when a stock length would bottom out. Insert sizes are CNC Kitchen / Ruthex standard (M2: 3.2 mm hole, 3 mm long; M3: 4.0 mm hole, 5.7 mm long). Check the hole size against the inserts you buy.
+
+UNMEASURED: the motors' face-screw patterns (N20: 2x M1.6 at 9 mm; 16 mm planetary: 2x M2 at 12 mm) are typical datasheet values. Check them against the motors you buy before printing the bridge.
+
+### Checks
+
+The checks (and tests) run for every fixture preset, locked and unlocked:
 - no two parts collide, except meshing gear teeth
 - every declared joint actually touches (or is within its running clearance)
 - every part connects through joints back to the door
 - the unit stays clear of the latch edge and the handle (the handle clearance is a placeholder until measured)
+- every screw is a stock length, with enough thread engaged and without bottoming out
+- at least 1.2 mm of material (three perimeters) round every insert and tapped hole
+- no snap arm strains past 2.5% when it engages (PETG/ASA)
 
 Approximations: gear teeth are true involutes; the worm is drawn as rings, not a helix. Bought parts are datasheet-typical envelopes. Battery life comes from the energy model at the bottom of `designs.py`.
 

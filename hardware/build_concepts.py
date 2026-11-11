@@ -100,6 +100,8 @@ def main() -> int:
     for c in CONCEPTS.values():
         d = OUT / c.key
         d.mkdir(exist_ok=True)
+        for old in d.glob("*.stl"):  # parts can be renamed or dropped between builds
+            old.unlink()
         u = c.unit(GENERIC_US)
         export_step(c.assembly(GENERIC_US), d / f"{c.key}.step")
         for name, item in u.items.items():
@@ -118,7 +120,7 @@ def main() -> int:
         rows.append((c, size, counts))
 
     print(f"Energy model: {wh_per_year():.1f} Wh/year (see concepts/designs.py for assumptions)\n")
-    print("| Concept | W x H x D mm | Battery | Est. life | Motor | Printed | Bought/PCB | Screws |")
+    print("| Concept | W x H x D mm | Battery | Est. life | Motor | Printed | Bought/PCB | Screws + inserts |")
     print("|---|---|---|---|---|---|---|---|")
     for c, s, n in rows:
         print(f"| {c.name} | {s.X:.0f} x {s.Y:.0f} x {s.Z:.0f} | {c.battery} ({c.battery_wh:.0f} Wh) | "
