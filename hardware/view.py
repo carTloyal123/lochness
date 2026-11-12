@@ -7,6 +7,7 @@ below and run again.
     uv run view.py                  # the concepts, side by side on separate doors
     uv run view.py B-slab           # one concept
     uv run view.py fixture          # just the door and deadbolt
+    uv run view.py devkit           # the dev kit on its own
 
 In the viewer: the tree on the left toggles each part (hide the shell to see
 inside), the clipping tab cuts sections, and the measure tools check clearances.
@@ -22,8 +23,9 @@ from ocp_vscode import Camera, find_and_set_port, get_port, show
 
 from concepts.designs import CONCEPTS
 from deadbolt.fixture import PRESETS, build
+from devkit.rig import rig
 
-CONCEPT = "all"  # "all", "fixture", or a key from concepts.designs.CONCEPTS
+CONCEPT = "all"  # "all", "fixture", "devkit", or a key from concepts.designs.CONCEPTS
 PRESET = "generic"
 LOCKED = True
 SPACING = 260.0  # mm between doors when showing every concept
@@ -31,15 +33,20 @@ SPACING = 260.0  # mm between doors when showing every concept
 
 def scene(concept: str, preset: str = PRESET, locked: bool = LOCKED) -> list[Compound]:
     p = PRESETS[preset]
-    fixture = Compound(label="door+deadbolt", children=list(build(p, locked).values()))
-    if concept == "fixture":
-        return [fixture]
-    c = CONCEPTS[concept]
+    if concept == "devkit":
+        u, parts = rig(p, locked)
+        name = "dev kit"
+    else:
+        parts = build(p, locked)
+        if concept == "fixture":
+            return [Compound(label="door+deadbolt", children=list(parts.values()))]
+        u, name = CONCEPTS[concept].unit(p, locked), CONCEPTS[concept].name
+    fixture = Compound(label="door+deadbolt", children=list(parts.values()))
     groups: dict[str, list] = {}
-    for item in c.unit(p, locked).items.values():  # one tree node per kind, to hide e.g. all printed parts
+    for item in u.items.values():  # one tree node per kind, to hide e.g. all wires or fasteners
         groups.setdefault(item.kind, []).append(item.part)
-    unit = Compound(label=c.name, children=[Compound(label=k, children=v) for k, v in groups.items()])
-    return [Compound(label=c.key, children=[unit, fixture])]
+    unit = Compound(label=name, children=[Compound(label=k, children=v) for k, v in groups.items()])
+    return [Compound(label=concept, children=[unit, fixture])]
 
 
 NO_VIEWER = """

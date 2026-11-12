@@ -2,15 +2,18 @@
 
 Every concept shares the drive module in concepts/kit.py: a coupler over the
 tailpiece, an m1 output gear with a lost-motion pocket, a motor pinion (or worm),
-a 1:1 encoder gear pair turning a magnet under an AS5600, and a knob on the
-coupler's shaft. What differs is the layout around it: chassis, cover, battery
-bay, PCB and motor.
+bolt sensing (a magnet in a flag on the coupler, read by two Hall switches
+on the PCB at the locked and unlocked angles), and a knob on the coupler's shaft.
+The motor is a Pololu micro metal gearmotor with a 12 CPR encoder on its back end, which
+gives the output gear's position (to park it mid-pocket) and stalls. The chips are the
+ones in concepts/parts.py, the same as the dev kit's. What differs is the layout around
+it: chassis, cover, battery bay, PCB and motor.
 
 Assembly order (all three): melt the heat-set inserts into the chassis posts, cover
 bosses and coupler; screw the steel back plate to the deadbolt's posts; fit coupler +
 output gear; drop the chassis over them and screw it to the plate (M3 into the plate's
 tapped holes); screw the motor to the bridge (or C's bulkhead) by its gearbox face;
-fit the bridge and encoder gears; screw the PCB stack down (M2 into the post inserts);
+fit the bridge and the bolt flag; screw the PCB stack down (M2 into the post inserts);
 drop the battery contacts into their rib slots; snap the cover on and screw its
 bottom; fit the knob (M3 into the coupler's insert).
 
@@ -30,9 +33,10 @@ from typing import Callable
 
 from build123d import Compound, Cylinder, Part, Pos, Rot
 
-from concepts.kit import (AA, BOUGHT, CELL, CR123A, INSERTS, INSERT_RESERVE, METAL, N20, PCB,
-                          PRINTED, DriveLayout, Snap, Unit, add_stack_screw, back_plate, box, bridge_cuts,
-                          bridge_extras, chassis_screws, cover_screw, drive_module, fix,
+from concepts import parts as P
+from concepts.kit import (AA, BOUGHT, CELL, CR123A, INSERTS, INSERT_RESERVE, METAL, MOTOR_DESC, N20, PCB,
+                          PRINTED, DriveLayout, Snap, Unit, add_stack_screw, back_plate, bolt_hall_blocks, box,
+                          bridge_cuts, bridge_extras, chassis_screws, cover_screw, drive_module, fix,
                           knob_on_shaft, pcb_parts, polar, rrect, wall_snap, zcyl)
 from deadbolt.fixture import DeadboltParams
 
@@ -210,7 +214,8 @@ def base_joints(u: Unit) -> None:
     u.joint("coupler", "door", 0.3)  # slides over the tailpiece
     u.joint("bridge", "chassis")
     u.joint("ring_gear", "bridge", 0.6)
-    u.joint("enc_pin", "bridge")
+    if "enc_pin" in u.items:
+        u.joint("enc_pin", "bridge")
 
 
 @dataclass
@@ -249,15 +254,16 @@ def _visible(parts: dict[str, Part], guts_only: bool) -> dict[str, Part]:
 # A: Puck. Round, coaxial. The chassis is the visible cup and the front cap is the
 # knob. Cells sit on the bridge under the cap: undo one screw and lift the cap to
 # change them. The main PCB is an annulus under the bridge, around the gear, so the
-# MCU must be chip-down: an ESP32-C6-MINI module (13.2 mm) is wider than the ring.
+# MCU must be chip-down: an ESP32-C6-MINI module (13.2 mm) is wider than the ring. The
+# encoder motor stands 32.5 mm off the bridge, which sets the cup's depth.
 # =====================================================================================
-A_R_OUT, A_WALL, A_TOP = 37.0, 2.0, 39.0
+A_R_OUT, A_WALL, A_TOP = 37.0, 2.0, 48.5
 
 
 def _puck(p: DeadboltParams, locked: bool) -> Unit:
     u = Unit()
     L = DriveLayout(gear_z0=5.5, gear_teeth=40, motor="n20", motor_angle_deg=90.0,
-                    encoder_angle_deg=270.0, shaft_top=A_TOP + 0.5 + 6.0)
+                    shaft_top=A_TOP + 0.5 + 6.0, motor_turn_deg=180.0, hall_r=8.5)
     b0, b1 = L.bridge_z
     plate_r = 30.0
     floor_screws = [(25.0, 0.0), (-25.0, 0.0)]
@@ -290,11 +296,14 @@ def _puck(p: DeadboltParams, locked: bool) -> Unit:
     blocks = {}
     for name, (r, ang, w, h, ht) in {
         "mcu_chip": (28.0, 200.0, 5.0, 5.0, 0.9), "antenna": (32.0, 160.0, 3.2, 1.6, 1.0),
-        "driver": (27.0, 30.0, 5.0, 6.5, 1.2), "hall": (31.0, 0.0, 3.0, 3.0, 1.0),
         "led": (30.0, led_ang, 2.0, 2.0, 1.0), "conn": (28.0, 230.0, 6.0, 4.0, 2.5),
     }.items():
         x, y = polar(r, math.radians(ang))
         blocks[name] = (x - w / 2, x + w / 2, y - h / 2, y + h / 2, ht)
+    for name, (r, ang) in {"driver": (28.0, 30.0), "hall_door": (31.0, 0.0), "regulator": (28.0, 300.0),
+                           "motor_conn": (28.5, 140.0)}.items():
+        x, y = polar(r, math.radians(ang))
+        blocks[name] = (x, y, ang + 90.0)
     pcb_parts(u, "pcb", pcb_z[1], blocks)
     u.add("light_pipe", pipe, PRINTED, "Light pipe, clear PMMA/PC, 3 mm, through the cup wall")
     u.joint("light_pipe", "pcb_led", 1.0)
@@ -313,13 +322,13 @@ def _puck(p: DeadboltParams, locked: bool) -> Unit:
     for i, (x, y) in enumerate(bridge_posts):
         add_stack_screw(u, f"screw_bridge_{i}", x, y, b1, b0, "chassis", ["bridge"])
 
-    # Encoder board on two spacers; the same screws hold that side of the bridge down.
-    eb_top = L.chip_z[1] + 1.6
-    eb = rrect(0, -20.0, 16.0, 22.0, 2.0, eb_top - 1.6, eb_top)
-    u.add("enc_board", eb, PCB, "Encoder board, AS5600, wired to the main PCB")
-    ex, ey = L.encoder_xy
-    pcb_parts(u, "enc_board", eb_top, {"as5600": (ex - 2.5, ex + 2.5, ey - 3.1, ey + 3.1, 1.5, True),
-                                       "conn": (-4.0, 4.0, -12.5, -9.5, 2.5)})
+    # Bolt-sensor board on two spacers, over the flag: the main PCB is down by the floor, so
+    # the puck alone still needs this second (small) board. The same screws hold that side of
+    # the bridge down.
+    eb_top = L.board_bottom + 1.6
+    eb = rrect(0, -11.5, 18.6, 39.0, 2.0, eb_top - 1.6, eb_top) - zcyl(13.0, 0, 60)  # between the cells
+    u.add("enc_board", eb, PCB, "Bolt-sensor board, 2x Hall switch, wired to the main PCB")
+    pcb_parts(u, "enc_board", eb_top, bolt_hall_blocks(L, p) | {"conn": (-4.0, 4.0, -16.5, -13.5, 2.5)})
     spacers_and_stack(u, board_posts, b1, "enc_board", eb_top, b0)
 
     cap = zcyl(2 * A_R_OUT, A_TOP + 0.5, A_TOP + 10.5)
@@ -329,14 +338,15 @@ def _puck(p: DeadboltParams, locked: bool) -> Unit:
 
 # =====================================================================================
 # B: Tall slab. Drive at the bottom, 4x AA above it behind a battery door, main PCB
-# over the drive with the AS5600 on its underside. Depth is set by the 16 mm motor.
+# over the drive with the bolt Hall switches on its underside. Depth is set by the
+# standing encoder motor (32.5 mm off the bridge).
 # The cover hooks onto two snaps at the top of the chassis and is screwed at the bottom.
 # =====================================================================================
 def _slab(p: DeadboltParams, locked: bool) -> Unit:
     u = Unit()
     W, y_bot, y_top, R, depth = 68.0, -35.0, 102.6, 8.0, 51.5
-    L = DriveLayout(gear_z0=5.5, gear_teeth=40, motor="gm16", motor_angle_deg=90.0,
-                    encoder_angle_deg=180.0, shaft_top=depth + 0.5 + 6.0)
+    L = DriveLayout(gear_z0=5.5, gear_teeth=40, motor="n20", motor_angle_deg=90.0,
+                    shaft_top=depth + 0.5 + 6.0)
     b0, b1 = L.bridge_z
     cy, H = (y_bot + y_top) / 2, y_top - y_bot
     outline = lambda z0, z1, inset: rrect(0, cy, W - 2 * (2 + inset), H - 2 * (2 + inset), R - 2 - inset, z0, z1)
@@ -365,19 +375,20 @@ def _slab(p: DeadboltParams, locked: bool) -> Unit:
     bridge = rrect(0, 3.25, 60.0, 68.5, 4.0, b0, b1) - bridge_cuts(u, L) + bridge_extras(u, L)
     for x, _ in cover_screws:  # notches round the cover-screw bosses
         bridge -= box(x - M3_BOSS / 2 - 0.3, x + M3_BOSS / 2 + 0.3, y_bot, y_bot + 12.0, b0 - 1, b1 + 1)
-    u.add("bridge", bridge, PRINTED, "Bridge: gear retainer, motor mount, encoder pin seat")
+    u.add("bridge", bridge, PRINTED, "Bridge: gear retainer, motor mount")
     base_joints(u)
     u.joint("motor", "bridge")
 
-    top = L.chip_z[1] + 1.6
-    pcb = rrect(0, 3.5, 59.6, 69.0, 2.0, top - 1.6, top) - zcyl(13.0, 0, 60) - zcyl(17.0, 0, 60, *u.motor_xy)
-    u.add("pcb", pcb, PCB, "Main PCB, 1.6 mm FR4, AS5600 on the underside")
-    ex, ey = L.encoder_xy
-    pcb_parts(u, "pcb", top, {
-        "mcu": (9.0, 22.2, -17.0, -0.4, 2.4), "driver": (9.0, 14.0, 12.0, 18.5, 1.2),
-        "as5600": (ex - 2.5, ex + 2.5, ey - 3.1, ey + 3.1, 1.5, True),
-        "hall": (26.5, 29.5, 3.0, 6.0, 1.0), "led": (16.0, 18.0, 28.5, 30.5, 1.0),
-        "button": (-24.0, -18.0, 12.0, 18.0, 3.5), "conn": (-12.0, -4.0, -29.0, -25.0, 2.5),
+    top = L.board_bottom + 1.6
+    mx, my = u.motor_xy
+    pcb = rrect(0, 3.5, 59.6, 69.0, 2.0, top - 1.6, top) - zcyl(13.0, 0, 60) \
+        - rrect(mx, my, N20["w"] + 0.6, N20["t"] + 0.6, 1.0, 0, 60)  # the gearbox passes through
+    u.add("pcb", pcb, PCB, "Main PCB, 1.6 mm FR4, bolt Hall switches on the underside")
+    pcb_parts(u, "pcb", top, bolt_hall_blocks(L, p) | {
+        "mcu": (15.6, -8.7, 0.0), "driver": (11.5, 15.25, 90.0), "hall_door": (28.0, 4.5, 0.0),
+        "regulator": (-12.0, 14.0, 0.0), "motor_conn": (-13.0, 26.0, 0.0),
+        "led": (16.0, 18.0, 28.5, 30.5, 1.0), "button": (-24.0, -18.0, 12.0, 18.0, 3.5),
+        "conn": (-12.0, -4.0, -29.0, -25.0, 2.5),
     })
     spacers_and_stack(u, posts, b1, "pcb", top, b0)
     light_pipe(u, 17.0, 29.5, top + 1.0, depth, "cover")
@@ -406,10 +417,10 @@ def _slab(p: DeadboltParams, locked: bool) -> Unit:
 # =====================================================================================
 def _pill(p: DeadboltParams, locked: bool) -> Unit:
     u = Unit()
-    x0, x1, H, R, depth = -102.0, 36.0, 66.0, 14.0, 32.0
+    x0, x1, H, R, depth = -109.0, 36.0, 70.0, 14.0, 32.0
     cx, W = (x0 + x1) / 2, x1 - x0
     L = DriveLayout(gear_z0=9.0, gear_teeth=40, motor="n20-worm", motor_angle_deg=90.0,
-                    encoder_angle_deg=0.0, shaft_top=depth + 0.5 + 6.0)
+                    shaft_top=depth + 0.5 + 6.0)
     b0, b1 = L.bridge_z
     outline = lambda z0, z1, inset: rrect(cx, 0, W - 2 * (2 + inset), H - 2 * (2 + inset), R - 2 - inset, z0, z1)
     plate_outline = lambda z0, z1, g: rrect(-3.0, 0, 62.0 - 2 * g, 56.0 - 2 * g, 4.0 - g, z0, z1)
@@ -421,35 +432,36 @@ def _pill(p: DeadboltParams, locked: bool) -> Unit:
     back_plate(u, p, plate_outline(0, FLOOR[0], 0), floor_screws)
     drive_module(u, p, locked, L)
 
-    # Worm on a long-shaft N20 lying along X; the output gear is the worm wheel. The motor's
-    # gearbox face screws to a bulkhead; a cradle under the can stops it turning.
-    worm_y, worm_z, face_x = 24.0, L.gear_z0 + 3.0, -10.0
+    # Worm on the motor's 10 mm shaft, the motor lying along X with its connector towards the
+    # bore. The output gear is the worm wheel. The gearbox face screws to a bulkhead; a
+    # cradle under the can stops the motor turning. The gearbox must stay outside the
+    # wheel's tips, so the shaft ends 1 mm past the wheel's centre line: the worm is two
+    # turns either side of it, running on past the shaft's end.
+    worm_y, worm_z = 24.0, L.gear_z0 + 3.0
+    face_x = -9.0
     bulk_x = (face_x, face_x + 2.0)
-    worm = _xcyl(5.5, -7.0, 8.5, worm_y, worm_z)
-    for k in range(5):
-        worm += _xcyl(10.0, -6.1 + k * math.pi, -4.5 + k * math.pi, worm_y, worm_z)
-    worm -= _xcyl(3.0, -9.0, 9.0, worm_y, worm_z)
+    worm = _xcyl(5.5, face_x + 2.2, 2.4, worm_y, worm_z)
+    for k in (-0.5, 0.5):
+        worm += _xcyl(10.0, k * math.pi - 0.8, k * math.pi + 0.8, worm_y, worm_z)
+    worm -= _xcyl(3.0, face_x, face_x + N20["shaft_l"], worm_y, worm_z)
     u.add("worm", worm, PRINTED, "Worm, m1 single start, on the motor shaft (or brass)")
     u.meshes.add(frozenset({"worm", "ring_gear"}))
     gb_x0 = face_x - N20["gearbox"]
     can_x0 = gb_x0 - N20["can"]
-    gearbox = box(gb_x0, face_x, worm_y - 5, worm_y + 5, worm_z - 6, worm_z + 6)
-    can = _xcyl(12.0, can_x0, gb_x0, worm_y, worm_z) & box(-60, 0, worm_y - 5, worm_y + 5, 0, 40)
-    shaft = _xcyl(3.0, face_x, 10.5, worm_y, worm_z)
-    u.add("motor", gearbox + can + shaft, BOUGHT, "N20 gear motor, 6 V, ~30:1, long 3 mm shaft")
+    motor_loc = Pos(face_x, worm_y, worm_z) * Rot(0, -90, 0) * Rot(0, 0, 180)
+    u.add("motor", P.micro_gearmotor().at(motor_loc), BOUGHT, MOTOR_DESC["n20-worm"])
     u.joint("worm", "motor")
-    for i, dz in enumerate((-4.5, 4.5)):
+    for i, dz in enumerate((-N20["face_holes"] / 2, N20["face_holes"] / 2)):
         fix(u, f"screw_motor_{i}", "M1.6 pan", Pos(bulk_x[1], worm_y, worm_z + dz) * Rot(0, 90, 0),
             bulk_x[1] - bulk_x[0], "motor", "bought", ["chassis"], eng=(1.2, 2.0))
 
     chassis = chassis_posts(chassis_shell(outline, plate_outline, wall_top), posts, b0)
     chassis = floor_cuts(chassis)
-    chassis += box(-35.0, -21.0, 16.0, 29.4, FLOOR[1], worm_z + 6) \
-        - box(can_x0 - 1, gb_x0 + 1, worm_y - 5, worm_y + 5, worm_z - 6, 40)  # cradle
-    chassis += box(*bulk_x, 20.0, 29.4, FLOOR[1], worm_z + 6) - _xcyl(4.0, bulk_x[0] - 1, bulk_x[1] + 1, worm_y, worm_z)
-    chassis += box(9.0, 13.0, 19.4, 29.4, FLOOR[1], worm_z + 5) - _xcyl(3.0, 8.0, 14.0, worm_y, worm_z)
+    chassis += box(can_x0 + 1, gb_x0 - 1, 16.0, 31.4, FLOOR[1], worm_z + 6) \
+        - box(can_x0, gb_x0, worm_y - 5.2, worm_y + 5.2, worm_z - 6.2, 40)  # cradle
+    chassis += box(*bulk_x, 20.0, 31.4, FLOOR[1], worm_z + 6) - _xcyl(4.2, bulk_x[0] - 1, bulk_x[1] + 1, worm_y, worm_z)
     chassis += battery_bay(u, dict(AA, desc="AA 1.5 V lithium cell (Energizer L91)"),
-                           [-42.5, -57.5, -72.5, -87.5], -29.4, FLOOR[1], "chassis", rib_x=(-95.5, -35.5))
+                           [-49.5, -64.5, -79.5, -94.5], -29.4, FLOOR[1], "chassis", rib_x=(-102.5, -42.5))
     chassis &= outline(-1, 40, 0)
     chassis = cover_bosses(chassis, cover_screws, -H / 2)
     pockets = Part()
@@ -463,23 +475,22 @@ def _pill(p: DeadboltParams, locked: bool) -> Unit:
 
     # Bridge over the wheel on the side away from the worm (the worm holds the near side down).
     bridge = rrect(0, -5.5, 56.0, 42.0, 3.0, b0, b1) - bridge_cuts(u, L) + bridge_extras(u, L)
-    u.add("bridge", bridge, PRINTED, "Bridge: wheel retainer, encoder pin seat")
+    u.add("bridge", bridge, PRINTED, "Bridge: wheel retainer")
     base_joints(u)
 
-    top = L.chip_z[1] + 1.6
+    top = L.board_bottom + 1.6
     pcb = rrect(-2.0, 0, 64.5, 55.0, 9.0, top - 1.6, top) - zcyl(13.0, 0, 60)
-    u.add("pcb", pcb, PCB, "Main PCB, 1.6 mm FR4, AS5600 on the underside")
-    ex, ey = L.encoder_xy
-    pcb_parts(u, "pcb", top, {
-        "mcu": (-30.0, -16.8, -20.0, -3.4, 2.4), "driver": (-12.0, -6.5, -22.0, -15.5, 1.2),
-        "as5600": (ex - 2.5, ex + 2.5, ey - 3.1, ey + 3.1, 1.5, True),
-        "hall": (26.0, 29.0, -2.0, 1.0, 1.0), "led": (-7.5, -5.5, 20.5, 22.5, 1.0),
-        "button": (-30.0, -24.0, 10.0, 16.0, 2.0), "conn": (-31.0, -23.0, 19.0, 23.0, 2.0),
+    u.add("pcb", pcb, PCB, "Main PCB, 1.6 mm FR4, bolt Hall switches on the underside")
+    pcb_parts(u, "pcb", top, bolt_hall_blocks(L, p) | {
+        "mcu": (-23.4, -11.7, 0.0), "driver": (-9.25, -18.75, 90.0), "hall_door": (27.5, -0.5, 0.0),
+        "regulator": (-14.0, 8.0, 0.0), "motor_conn": (-16.0, 22.0, 0.0),
+        "led": (-7.5, -5.5, 20.5, 22.5, 1.0), "button": (-30.0, -24.0, 10.0, 16.0, 2.0),
+        "conn": (-31.0, -23.0, 19.0, 23.0, 2.0),
     })
     spacers_and_stack(u, posts, b1, "pcb", top, b0)
     light_pipe(u, -6.5, 21.5, top + 1.0, depth, "cover")
 
-    door_c, door_w, door_h = (-66.0, 0.0), 58.0, 52.0
+    door_c, door_w, door_h = (-73.0, 0.0), 58.0, 52.0
     keeper = battery_door(u, *door_c, door_w, door_h, depth)
     cover = rrect(cx, 0, W, H, R, 0, depth) - rrect(cx, 0, W - 4, H - 4, R - 2, -1, depth - 2)
     cover -= zcyl(13.0, depth - 3, depth + 1) + zcyl(3.0, depth - 3, depth + 1, -6.5, 21.5)
@@ -501,21 +512,21 @@ CONCEPTS: dict[str, Concept] = {
                 "Round and coaxial; the chassis is the visible cup and the front cap is the knob. "
                 "Smallest, but the PCB has to be a chip-down annulus.",
                 "August Wi-Fi (about 72 mm round, 46 mm deep, 2x CR123A)",
-                "2x CR123A lithium", 9.0, "N20 spur gear motor",
-                "smallest motor; fine on a well-aligned door, marginal if the bolt rubs the strike",
+                "2x CR123A lithium", 9.0, "Pololu #5193 (150:1, encoder), standing",
+                "torque to be checked against the door (README, measurement 10)",
                 _puck),
         Concept("B-slab", "Tall slab",
                 "Vertical slab, drive at the bottom, cells above behind a battery door. "
-                "Biggest battery and motor; the most visible.",
+                "Biggest battery; the most visible.",
                 "Yale Approach (about 66 x 142 x 41 mm, 4x AA), Aqara U200 (62 x 152 x 61 mm)",
-                "4x AA lithium", 18.0, "16 mm planetary gear motor",
-                "roughly 3x the N20's torque in the same gear layer; margin for sticky doors",
+                "4x AA lithium", 18.0, "Pololu #5193 (150:1, encoder), standing",
+                "torque to be checked against the door (README, measurement 10)",
                 _slab),
         Concept("C-pill", "Offset pill",
                 "Flat worm drive over the bore, cells towards the hinge behind a battery door. "
                 "Shallowest, but wide.",
                 "no direct US retrofit precedent; similar split to some EU cylinder retrofits",
-                "4x AA lithium", 18.0, "N20 lying flat, driving a worm wheel",
+                "4x AA lithium", 18.0, "Pololu #5185 (30:1, encoder) lying flat, driving a worm wheel",
                 "worm gives high torque in a flat layer but only ~40-50% efficient, so more energy per move",
                 _pill, drive_efficiency_factor=1.6),
     )

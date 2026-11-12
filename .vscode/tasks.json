@@ -42,6 +42,16 @@
             "problemMatcher": []
         },
         {
+            "label": "hardware: build dev kit",
+            "detail": "STEP, STLs, BOM, wiring table and renders for the dev kit",
+            "type": "shell",
+            "command": "uv run build_devkit.py",
+            "options": {
+                "cwd": "${workspaceFolder}/hardware"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "hardware: test",
             "type": "shell",
             "command": "uv run pytest -q",
@@ -57,7 +67,7 @@
             "id": "hardwareView",
             "type": "pickString",
             "description": "What to show",
-            "options": ["all", "A-puck", "B-slab", "C-pill", "fixture"],
+            "options": ["all", "devkit", "A-puck", "B-slab", "C-pill", "fixture"],
             "default": "all"
         }
     ]

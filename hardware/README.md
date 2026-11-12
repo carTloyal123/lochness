@@ -69,17 +69,38 @@ Three layouts built from real parts on the fixture, so they can be compared and 
 
 | Concept | Layout | Battery | Motor | Main PCB |
 |---|---|---|---|---|
-| A-puck | round cup, the front cap is the knob, cells under the cap | 2x CR123A | N20, standing | annulus under the bridge (chip-down ESP32-C6) |
-| B-slab | vertical, drive at the bottom, cells above behind a door | 4x AA lithium | 16 mm planetary, standing | over the drive |
-| C-pill | horizontal, cells towards the hinge behind a door | 4x AA lithium | N20 lying flat, worm drive | over the drive |
+| A-puck | round cup, the front cap is the knob, cells under the cap | 2x CR123A | Pololu #5193, standing | annulus under the bridge (chip-down ESP32-C6) |
+| B-slab | vertical, drive at the bottom, cells above behind a door | 4x AA lithium | Pololu #5193, standing | over the drive |
+| C-pill | horizontal, cells towards the hinge behind a door | 4x AA lithium | Pololu #5185 lying flat, worm drive | over the drive |
 
-`concepts/kit.py` holds what they share. That's the drive module: a coupler over the tailpiece, an m1 involute output gear with a 132 deg lost-motion pocket, the motor pinion, and a 1:1 encoder gear pair turning a diametric magnet under an AS5600. It also holds the fastener library, snaps, bought-part envelopes and helpers. `concepts/designs.py` builds each concept: steel back plate on the deadbolt's screws, printed chassis (floor, skirt, posts, bosses, slotted battery ribs, snap arms), bridge, PCB stack on spacers, cover with battery door, knob, light pipe.
+`concepts/kit.py` holds what they share. That's the drive module: a coupler over the tailpiece, an m1 involute output gear with a 132 deg lost-motion pocket, the motor pinion, and bolt sensing. It also holds the fastener library, snaps and helpers. `concepts/parts.py` models the motor and every chip and breakout board from its spec sheet (see below). `concepts/designs.py` builds each concept: steel back plate on the deadbolt's screws, printed chassis (floor, skirt, posts, bosses, slotted battery ribs, snap arms), bridge, PCB stack on spacers, cover with battery door, knob, light pipe.
 
 ```sh
 uv run build_concepts.py              # per concept: STEP, STLs of printed parts, BOM.md, renders -> out/concepts/<key>/
 uv run python -m concepts.check       # assembly problems, listed
 uv run pytest tests/test_concepts.py
 ```
+
+### Sensing and electronics
+
+The lock needs two positions. The **bolt's** position matters because the knob and the key turn it without the motor. The **motor's** position matters because after each move the motor backs the output gear off to the middle of its lost-motion pocket, so the knob and the key turn freely.
+
+- **Bolt:** a printed flag on the coupler's D-shaft carries a 3 x 2 mm magnet at 10.5 mm radius (8.5 in the puck, between its cells). Two DRV5032 Hall switches on the main PCB's underside sit where the magnet stops when the bolt is locked and when it is unlocked; between them, the bolt is moving or jammed. `DriveLayout.hall_xy()` places them. In the puck they sit on a small sensor board, because its main PCB is down by the floor.
+- **Motor:** a Pololu micro metal gearmotor with a 12 CPR quadrature encoder on its back end. Through the 150:1 gearbox and the 4:1 output gear that is about 7,200 counts per bolt turn, read by the ESP32-C6's pulse counter. A count that stops while the motor is driven is a stall.
+- **Door:** a third DRV5032 by the latch edge, for a magnet on the frame.
+
+The product and the dev kit use the same chips. `concepts/parts.py` models each from its spec sheet (links in `SOURCES`), with its pins:
+
+| Function | Product (main PCB) | Dev kit (breakout) |
+|---|---|---|
+| MCU, Thread + BLE | ESP32-C6-MINI-1-N4 (13.2 x 16.6 x 2.4) | ESP32-C6-DevKitM-1 (25.4 x 48.26, the same module) |
+| Motor driver | DRV8833PWPR, HTSSOP-16 | Pololu #2130 carrier (12.7 x 20.3) |
+| Bolt and door switches (3) | DRV5032FADBZR, SOT-23 | SparkFun BOB-00717 SOT-23 adapters, chip-down |
+| 3.3 V from the cells | TPS629206DRLR, SOT-583 (3-17 V in, 4 uA) | TPS629206EVM, bench only |
+| Motor + encoder | Pololu #5193 (150:1); #5185 (30:1) in the worm drive | the same |
+| Motor cable socket | JST SM06B-SRSS-TB (6-pin SH, side entry) | the motor cable's own plug, to the breadboards |
+
+The puck can't fit the MINI-1 module in its ring-shaped PCB, so it uses the bare ESP32-C6 chip: the same silicon, but its own antenna and RF layout.
 
 ### How the parts fasten
 
@@ -92,12 +113,12 @@ uv run pytest tests/test_concepts.py
 | Cover to chassis (B, C) | 2x M3 x 6 countersunk at the bottom, 2 snap arms at the top (B) or ends (C) | M3 inserts set into the chassis wall from outside |
 | Knob / cap to coupler | M3 button head, knob keyed on the coupler's D-shaft | an M3 insert in the coupler's top |
 | Battery door | 2 hooks under the rim, a snap latch at the other end | a keeper under the cover's rim |
-| Encoder gear to coupler | keyed on the D-shaft | |
+| Bolt flag (magnet carrier) to coupler | keyed on the D-shaft | |
 | Battery contacts | drop into slots in the ribs from above; link plates put the cells in series | |
 
 No screw threads into bare plastic. Screws are stock lengths: `fix()` in `concepts/kit.py` picks the shortest one that engages enough, and sinks the insert deeper when a stock length would bottom out. Insert sizes are CNC Kitchen / Ruthex standard (M2: 3.2 mm hole, 3 mm long; M3: 4.0 mm hole, 5.7 mm long). Check the hole size against the inserts you buy.
 
-UNMEASURED: the motors' face-screw patterns (N20: 2x M1.6 at 9 mm; 16 mm planetary: 2x M2 at 12 mm) are typical datasheet values. Check them against the motors you buy before printing the bridge.
+The motor's face holes (2x M1.6, 9 mm apart) are from Pololu's drawing; how deep they are threaded is not, so `fix()` assumes 1.2-2.0 mm (UNMEASURED).
 
 ### Checks
 
@@ -110,7 +131,27 @@ The checks (and tests) run for every fixture preset, locked and unlocked:
 - at least 1.2 mm of material (three perimeters) round every insert and tapped hole
 - no snap arm strains past 2.5% when it engages (PETG/ASA)
 
-Approximations: gear teeth are true involutes; the worm is drawn as rings, not a helix. Bought parts are datasheet-typical envelopes. Battery life comes from the energy model at the bottom of `designs.py`.
+Approximations: gear teeth are true involutes; the worm is drawn as rings, not a helix. The motor and electronics are modelled from their drawings (`concepts/parts.py`); cells, magnets and screws are datasheet envelopes; the status LED, button and battery connector are placeholders until they are chosen. Battery life comes from the energy model at the bottom of `designs.py`.
+
+## Dev kit (`devkit/`)
+
+The tall slab (B), opened up for firmware work on a real door. It mounts the same way and has the same drive, motor, battery bay and chips (each on a breakout), so what you learn on it carries over. The differences:
+
+- **Deck instead of the main PCB:** a removable printed deck carries two 170-point mini breadboards. The upper one holds the ESP32-C6-DevKitM-1 (USB end at the cover's side slot, antenna overhanging the far clamp bar) and the lower one the Pololu DRV8833 carrier. The deck is 4.5 mm thick so it can hold M2 inserts. It sits on the slab's PCB spacers at one edge and on two tall posts beyond the cells at the other.
+- **Breadboard mounting:** each breadboard is held down by two printed clamp bars, with a lip over each end's margin, plus its adhesive back. Each bar has two M2 screws. Most go into inserts in the deck; the upper breadboard's top two go through the deck into the tall chassis posts, so they hold the deck down too.
+- **Hall switches:** the three DRV5032s are on SOT-23 adapters, glued chip-down into a printed carrier on three spacers. The chips' faces are where the product PCB's underside is, so they see the bolt flag's magnet exactly as on the product. Their header pins come up through the carrier for jumper wires.
+- **Open cover:** the slab's shape with a big front window, so the wiring stays in view, and a side slot for the DevKit's USB cable. It's 17 mm taller than the slab, to fit the second breadboard. Clear PETG works well for it.
+- **Changing cells:** there's no battery door. Remove the cover (two screws, two snaps) and the deck (four screws).
+- **Wiring:** all 24 jumper wires are modelled, coloured by signal, including the motor's 6-wire cable. `WIRING` in `devkit/rig.py` is the proposed pin map: motor PWM on GPIO 18/19, driver enable 20, driver fault 3, motor encoder A/B on 21/4, bolt locked/unlocked switches on 22/23, door switch on 2. It avoids the strapping, USB and UART pins. 3V3 and GND are shared along two spare rows of the driver's breadboard. The 4xAA pack feeds the carrier's VIN and the DevKit runs from USB. A test checks that no breadboard hole takes two wires.
+- **Regulator:** the TPS629206 is the one product chip not on the deck. Its EVM is for bench battery-life runs from the cells, with the DevKit off USB (feeding the DevKit's 3V3 pin while USB is in would fight its own regulator).
+
+```sh
+uv run view.py devkit                 # in the viewer, on the door (or Cmd+Shift+B -> devkit)
+uv run build_devkit.py                # STEP, printed-part STLs, BOM.md, WIRING.md, renders -> out/devkit/
+uv run python -m devkit.check         # the same checks as the concepts
+```
+
+UNMEASURED or UNCONFIRMED: mini breadboard size (47 x 35 mm here; they vary); the DevKitM-1's board thickness (1.6 assumed; Espressif's drawing gives the outline, headers, module and USB positions); the SOT-23 adapter's size (SparkFun's Eagle file says 10.16 x 7.62, its product page 8.6 x 11.7) and which holes carry VCC, OUT and GND; the motor's output shaft length (10 mm on Pololu's drawing, 9 on its product page); the TPS629206EVM's outline (no drawing; about 54 x 39).
 
 ## License
 

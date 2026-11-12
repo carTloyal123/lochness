@@ -4,8 +4,9 @@ gears and the drive module that every concept uses.
 Units are mm in the fixture frame (deadbolt/fixture.py): origin on the bore axis at
 the interior door face, +Z into the room, +X towards the latch edge, +Y up.
 
-Bought parts (motors, cells, magnet, chips, screws) are datasheet-typical envelopes,
-not vendor CAD. Printed parts are the ones we design and are exported as STL.
+The motor and the electronics are modelled from their spec sheets in concepts/parts.py;
+cells, magnets and screws are datasheet envelopes. Printed parts are the ones we design and
+are exported as STL.
 """
 
 from __future__ import annotations
@@ -13,24 +14,28 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from build123d import (Box, Color, Cone, Cylinder, Location, Part, Plane, Polygon, Pos,
+from build123d import (Box, Color, Compound, Cone, Cylinder, Location, Part, Plane, Polygon, Pos,
                        RectangleRounded, Rot, extrude)
+
+from concepts import parts as P
 
 from deadbolt.fixture import DeadboltParams, _post_xs, _tailpiece_angle
 
 # --- kinds: decide colour, BOM section and whether we export an STL ---
 PRINTED, METAL, BOUGHT, FASTENER, CELL, PCB = "printed", "metal", "bought", "fastener", "cell", "pcb"
+WIRE = "wire"  # hook-up wire (dev kit); flexible, so the collision check skips it
 KIND_COLORS = {
     PRINTED: Color(0.92, 0.92, 0.9), METAL: Color(0.6, 0.62, 0.66), BOUGHT: Color(0.85, 0.5, 0.15),
     FASTENER: Color(0.25, 0.25, 0.28), CELL: Color(0.2, 0.7, 0.35), PCB: Color(0.1, 0.45, 0.2),
+    WIRE: Color(0.9, 0.9, 0.9),
 }
 ACCENT = {  # printed parts that should stand out from the shell
     "coupler": Color(0.2, 0.45, 0.85), "ring_gear": Color(0.3, 0.65, 0.95),
     "pinion": Color(0.95, 0.75, 0.2), "worm": Color(0.95, 0.75, 0.2),
-    "enc_drive": Color(0.55, 0.35, 0.8), "enc_idler": Color(0.55, 0.35, 0.8),
     "knob": Color(0.25, 0.25, 0.28), "bridge": Color(0.75, 0.8, 0.85),
     "chassis": Color(0.82, 0.84, 0.86), "light_pipe": Color(0.95, 0.95, 1.0),
-    "magnet": Color(0.7, 0.1, 0.1), "battery_door": Color(0.85, 0.85, 0.82),
+    "battery_door": Color(0.85, 0.85, 0.82),
+    "bolt_flag": Color(0.55, 0.35, 0.8), "bolt_magnet": Color(0.7, 0.1, 0.1),
 }
 INSERT_COLOR = Color(0.8, 0.65, 0.25)  # brass
 
@@ -59,9 +64,10 @@ class Unit:
     def add(self, name: str, part: Part, kind: str, desc: str) -> Part:
         assert name not in self.items, name
         for c in self._cuts.pop(name, []):
-            part -= c
+            part = _cut(part, c)
         part.label = name
-        part.color = ACCENT.get(name) or (INSERT_COLOR if name.endswith("_insert") else KIND_COLORS[kind])
+        if not _is_model(part):  # a model's children carry their own colours
+            part.color = ACCENT.get(name) or (INSERT_COLOR if name.endswith("_insert") else KIND_COLORS[kind])
         self.items[name] = Item(part, kind, desc)
         return part
 
@@ -72,14 +78,32 @@ class Unit:
             self._cuts.setdefault(name, []).append(solid)
             return
         label, color = item.part.label, item.part.color
-        item.part = item.part - solid
-        item.part.label, item.part.color = label, color
+        item.part = _cut(item.part, solid)
+        item.part.label = label
+        if not _is_model(item.part):
+            item.part.color = color
 
     def joint(self, a: str, b: str, max_gap: float = 0.0) -> None:
         self.joints.append((a, b, max_gap))
 
     def parts(self) -> dict[str, Part]:
         return {k: v.part for k, v in self.items.items()}
+
+
+def _is_model(part: Part) -> bool:
+    return isinstance(part, Compound) and bool(part.children) and not isinstance(part, Part)
+
+
+def _cut(part: Part, solid: Part) -> Part:
+    """Cut a solid from a part, or from each coloured piece of a bought-part model."""
+    if not _is_model(part):
+        return part - solid
+    kids = []
+    for k in part.children:
+        cut = k - solid if k.bounding_box().overlaps(solid.bounding_box()) else k
+        cut.color = k.color
+        kids.append(cut)
+    return Compound(children=kids)
 
 
 # --- geometry helpers ---
@@ -310,26 +334,20 @@ def wall_snap(u: Unit, name: str, loc: Location, z0: float, z1: float, wall_t: f
 
 
 # --- bought parts ---
-N20 = dict(w=12.0, t=10.0, gearbox=9.0, can=15.0, shaft_d=3.0)  # w along local X
-GM16 = dict(d=16.0, l=34.0, shaft_d=4.0)
+N20 = P.MOTOR  # Pololu micro metal gearmotor with encoder (concepts/parts.py)
 AA = dict(d=14.5, l=50.5)
 CR123A = dict(d=17.0, l=34.5)
-MAGNET = dict(d=6.0, h=2.5)  # diametric, for the AS5600
 CONTACT_T, SPRING_L, SPRING_D = 0.6, 3.0, 6.0
+MOTOR_DESC = {
+    "n20": "Pololu #5193 gearmotor, 150:1 HPCB 6 V, 12 CPR encoder, side connector (6-pin JST SH cable)",
+    "n20-worm": "Pololu #5185 gearmotor, 30:1 HPCB 6 V, 12 CPR encoder, side connector (6-pin JST SH cable)",
+}
 
 
-def n20_standing(x, y, face_z, shaft_len) -> Part:
-    """N20 with its gearbox face down at face_z and the shaft going down."""
-    gb = box(x - N20["w"] / 2, x + N20["w"] / 2, y - N20["t"] / 2, y + N20["t"] / 2,
-             face_z, face_z + N20["gearbox"])
-    can = zcyl(N20["w"], face_z + N20["gearbox"], face_z + N20["gearbox"] + N20["can"], x, y) \
-        & box(x - 7, x + 7, y - N20["t"] / 2, y + N20["t"] / 2, face_z, face_z + 40)
-    return gb + can + zcyl(N20["shaft_d"], face_z - shaft_len, face_z, x, y)
-
-
-def gm16_standing(x, y, face_z, shaft_len) -> Part:
-    return zcyl(GM16["d"], face_z, face_z + GM16["l"], x, y) + \
-        zcyl(GM16["shaft_d"], face_z - shaft_len, face_z, x, y)
+def n20_standing(x: float, y: float, face_z: float, turn_deg: float = 0.0) -> Part:
+    """The motor with its gearbox face down at face_z and the shaft going down; its encoder
+    connector faces turn_deg from +Y (the plug goes in from that side)."""
+    return P.micro_gearmotor().at(Pos(x, y, face_z) * Rot(0, 0, turn_deg))
 
 
 def cell_along_y(spec, x, y0, z0) -> Part:
@@ -343,28 +361,37 @@ def cell_along_y(spec, x, y0, z0) -> Part:
 class DriveLayout:
     gear_z0: float  # bottom of the output-gear layer
     gear_teeth: int  # output gear (module 1)
-    motor: str  # "n20", "gm16" or "n20-worm"
+    motor: str  # "n20" (standing, spur pinion) or "n20-worm" (lying, placed by the concept)
     motor_angle_deg: float  # direction from the bore axis to the motor (spur) / worm axis offset side
-    encoder_angle_deg: float  # direction from the bore axis to the encoder idler
     shaft_top: float  # top of the coupler's knob shaft
     lug_angle_deg: float = 90.0  # coupler lug, relative to the tailpiece's wide face
+    motor_turn_deg: float = 0.0  # standing motor: which way its encoder connector faces (0 = +Y)
+    # The bolt magnet's radius. 10.5 lets the dev kit's SOT-23 adapters (10.16 x 7.62) clear
+    # the shaft, so the slab uses it too; the puck's cells leave room for only 8.5.
+    hall_r: float = 10.5
+
+    @property
+    def flag_d(self) -> float:
+        return 2 * (self.hall_r + 2.0)
 
     @property
     def bridge_z(self) -> tuple[float, float]:  # 3 mm: room to sink the motor screws' heads
         return (self.gear_z0 + 6.5, self.gear_z0 + 9.5)
 
     @property
-    def enc_z(self) -> tuple[float, float]:
+    def flag_z(self) -> tuple[float, float]:  # the bolt flag, magnet flush with its top
         top = self.bridge_z[1]
         return (top + 0.5, top + 4.5)
 
     @property
-    def encoder_xy(self) -> tuple[float, float]:
-        return polar(16.0, math.radians(self.encoder_angle_deg))
+    def board_bottom(self) -> float:
+        """Underside of the board carrying the bolt Hall switches: their SOT-23 bodies (1.12)
+        clear the flag by 1.38, which puts the Hall element 1.85 above the magnet."""
+        return self.flag_z[1] + 2.5
 
-    @property
-    def chip_z(self) -> tuple[float, float]:  # AS5600 body, 1 mm above the magnet
-        return (self.enc_z[1] + 1.0, self.enc_z[1] + 2.5)
+    def hall_xy(self, p: DeadboltParams, locked: bool) -> tuple[float, float]:
+        """Where the flag's magnet sits with the bolt locked / unlocked: put a Hall switch there."""
+        return polar(self.hall_r, math.radians(_tailpiece_angle(p, locked) + FLAG_DEG))
 
 
 SHAFT_FLAT = 1.2  # depth of the flat on the coupler's knob shaft
@@ -376,24 +403,27 @@ def d_shaft(angle_deg: float, z0: float, z1: float) -> Part:
     return Rot(0, 0, angle_deg) * (zcyl(SHAFT_D, z0, z1) - flat)
 
 
+FLAG_DEG = 225.0  # the flag's magnet, relative to the tailpiece's wide face
+# The magnet's radius is DriveLayout.hall_r; the flag reaches 2 mm past the magnet.
+BOLT_MAGNET = dict(d=3.0, h=2.0)  # axial NdFeB, a face towards the Hall switches
+
 M_OUT, PINION_TEETH = 1.0, 10
-M_ENC, ENC_TEETH = 0.8, 20
 HUB_D, SHAFT_D, BORE_CLEAR = 16.0, 12.0, 0.4
 LUG_R, LUG_W_DEG, POCKET_R = 13.0, 30.0, 13.6
 POCKET_MARGIN_DEG = 6.0
 
 
 def drive_module(u: Unit, p: DeadboltParams, locked: bool, L: DriveLayout) -> None:
-    """Coupler, output gear, motor + pinion (or worm), encoder gears + magnet, knob shaft.
+    """Coupler, output gear, motor + pinion (or worm), bolt flag + magnet, knob shaft.
 
     The bridge, posts, PCB and knob are concept-specific and added by the concept.
     """
     g0, g1 = L.gear_z0, L.gear_z0 + 6.0
     b0, b1 = L.bridge_z
-    e0, e1 = L.enc_z
+    e0, e1 = L.flag_z
     tail_ang = _tailpiece_angle(p, locked)
 
-    # Coupler: hub through floor/gear/bridge, lug in the gear pocket, D-shaft for encoder gear and knob.
+    # Coupler: hub through floor/gear/bridge, lug in the gear pocket, D-shaft for the flag and knob.
     hub = zcyl(HUB_D, 3.3, b1)
     lug_mid = tail_ang + L.lug_angle_deg
     lug = sector(HUB_D / 2 - 0.2, LUG_R, lug_mid - LUG_W_DEG / 2, lug_mid + LUG_W_DEG / 2, g0 + 0.3, g1 - 0.3)
@@ -421,63 +451,49 @@ def drive_module(u: Unit, p: DeadboltParams, locked: bool, L: DriveLayout) -> No
     u.joint("ring_gear", "coupler", 0.5)  # rides on the hub with running clearance
 
     # Motor and its driver gear.
-    if L.motor in ("n20", "gm16"):
+    if L.motor == "n20":
         cd = centre_distance(M_OUT, L.gear_teeth, PINION_TEETH)
         mx, my = polar(cd, math.radians(L.motor_angle_deg))
-        shaft_len = b1 - (g0 + 0.5)
-        if L.motor == "n20":
-            motor = n20_standing(mx, my, b1, shaft_len)
-            desc = "N20 gear motor, 6 V, ~150:1, 3 mm D-shaft"
-        else:
-            motor = gm16_standing(mx, my, b1, shaft_len)
-            desc = "16 mm planetary gear motor, 6 V, ~100:1, 4 mm D-shaft"
-        u.add("motor", motor, BOUGHT, desc)
+        u.add("motor", n20_standing(mx, my, b1, L.motor_turn_deg), BOUGHT, MOTOR_DESC["n20"])
         motor_face_screws(u, L, mx, my)
-        sd = N20["shaft_d"] if L.motor == "n20" else GM16["shaft_d"]
-        pin = spur_gear(M_OUT, PINION_TEETH, g0, g1, mx, my, phase_deg=pin_phase, bore=sd)
+        pin = spur_gear(M_OUT, PINION_TEETH, g0, g1, mx, my, phase_deg=pin_phase, bore=N20["shaft_d"])
         u.add("pinion", pin, PRINTED, f"Motor pinion, m1 {PINION_TEETH}T (or brass, pressed)")
         u.joint("pinion", "motor")
         u.meshes.add(frozenset({"pinion", "ring_gear"}))
         u.motor_xy = (mx, my)
     # The worm variant is placed by its concept (it lies along X and needs its own mounts).
 
-    # Encoder: a 1:1 pair turns a diametric magnet on the idler, read by an AS5600 above it.
-    ex, ey = L.encoder_xy
-    d_phase, i_phase = mesh_phases(ENC_TEETH, ENC_TEETH, L.encoder_angle_deg)
-    enc_drive = spur_gear(M_ENC, ENC_TEETH, e0, e1, phase_deg=d_phase) - d_shaft(tail_ang, e0 - 1, e1 + 1)
-    u.add("enc_drive", enc_drive, PRINTED, "Encoder drive gear, m0.8 20T, on the coupler's D-shaft")
-    u.joint("enc_drive", "coupler")
-    idler = spur_gear(M_ENC, ENC_TEETH, e0, e1, ex, ey, phase_deg=i_phase, bore=3.0)
-    idler -= zcyl(MAGNET["d"], e1 - 2.0, e1 + 1, ex, ey)
-    u.add("enc_idler", idler, PRINTED, "Encoder idler gear, m0.8 20T, holds the magnet")
-    u.meshes.add(frozenset({"enc_drive", "enc_idler"}))
-    u.add("enc_pin", zcyl(3.0, b0, e1 - 2.0, ex, ey), METAL, "Dowel pin 3 x 8 mm, steel")
-    u.joint("enc_idler", "enc_pin")
-    u.add("magnet", zcyl(MAGNET["d"], e1 - 2.0, e1 - 2.0 + MAGNET["h"], ex, ey), BOUGHT,
-          "Diametric NdFeB magnet 6 x 2.5 mm (AS5600)")
-    u.joint("magnet", "enc_idler")
     u.layout = L
+    # A flag on the D-shaft carries a magnet past the bolt Hall switches on the board above.
+    flag = zcyl(L.flag_d, e0, e1) - d_shaft(tail_ang, e0 - 1, e1 + 1)
+    mx_, my_ = polar(L.hall_r, math.radians(tail_ang + FLAG_DEG))
+    flag -= zcyl(BOLT_MAGNET["d"], e1 - BOLT_MAGNET["h"], e1 + 1, mx_, my_)
+    u.add("bolt_flag", flag, PRINTED, "Bolt flag (magnet carrier) on the coupler's D-shaft")
+    u.joint("bolt_flag", "coupler")
+    u.add("bolt_magnet", zcyl(BOLT_MAGNET["d"], e1 - BOLT_MAGNET["h"], e1, mx_, my_), BOUGHT,
+          "NdFeB magnet 3 x 2 mm, axial (bolt position)")
+    u.joint("bolt_magnet", "bolt_flag")
 
 
 def bridge_cuts(u: Unit, L: DriveLayout) -> Part:
-    """Holes every bridge needs: coupler, motor shaft, encoder pin seat. Screws cut their own."""
+    """Holes every bridge needs: coupler, motor shaft. Screws cut their own."""
     b0, b1 = L.bridge_z
-    cut = zcyl(HUB_D + BORE_CLEAR, b0 - 1, b1 + 1) + zcyl(3.0, b0 - 1, b1 + 1, *L.encoder_xy)
+    cut = zcyl(HUB_D + BORE_CLEAR, b0 - 1, b1 + 1)
     if u.motor_xy:
         mx, my = u.motor_xy
         cut += zcyl(6.0, b0 - 1, b1 + 1, mx, my)  # motor shaft + pinion hub clearance
     return cut
 
 
-# UNMEASURED: face-screw patterns, from typical datasheets. Check against the motor bought.
-N20_FACE_HOLES = ("M1.6 pan", 9.0, (1.2, 2.0))  # screw, spacing across the 12 mm width, thread depth
-GM16_FACE_HOLES = ("M2 button", 12.0, (1.5, 2.5))
+# Pololu drawing: 2x M1.6, 9 apart across the 12 mm width. The thread depth is not drawn
+# (UNMEASURED, typical 1.2-2.0).
+N20_FACE_HOLES = ("M1.6 pan", N20["face_holes"], (1.2, 2.0))
 
 
 def motor_face_screws(u: Unit, L: DriveLayout, mx: float, my: float) -> None:
     """Two screws up through the bridge into the motor's gearbox face, heads sunk in the bridge."""
     b0, b1 = L.bridge_z
-    type_, spacing, eng = N20_FACE_HOLES if L.motor == "n20" else GM16_FACE_HOLES
+    type_, spacing, eng = N20_FACE_HOLES
     sink = SCREW_TYPES[type_].head_h + 0.1
     for i, s in enumerate((-1, 1)):
         loc = Pos(mx + s * spacing / 2, my, b0 + sink) * Rot(180, 0, 0)
@@ -486,20 +502,15 @@ def motor_face_screws(u: Unit, L: DriveLayout, mx: float, my: float) -> None:
 
 
 def bridge_extras(u: Unit, L: DriveLayout) -> Part:
-    """Bosses on the bridge: encoder pin seat, motor sleeve."""
+    """A sleeve on the bridge round the standing motor's gearbox, so it cannot turn."""
     b0, b1 = L.bridge_z
-    e0, _ = L.enc_z
-    ex, ey = L.encoder_xy
-    extra = zcyl(6.0, b1, e0, ex, ey) - zcyl(3.0, b0 - 1, e0 + 1, ex, ey)
+    extra = Part()
     if L.motor == "n20":
         mx, my = u.motor_xy
         w, t = N20["w"], N20["t"]
         sleeve = box(mx - w / 2 - 1.6, mx + w / 2 + 1.6, my - t / 2 - 1.6, my + t / 2 + 1.6, b1, b1 + 7)
         sleeve -= box(mx - w / 2, mx + w / 2, my - t / 2, my + t / 2, b1 - 1, b1 + 8)
         extra += sleeve
-    elif L.motor == "gm16":
-        mx, my = u.motor_xy
-        extra += zcyl(GM16["d"] + 3.2, b1, b1 + 6, mx, my) - zcyl(GM16["d"], b1 - 1, b1 + 7, mx, my)
     return extra
 
 
@@ -556,20 +567,46 @@ def cover_screw(u: Unit, i: int, x: float, y_outer: float, z: float) -> None:
         "insert", ["cover"])
 
 
+CHIPS = {  # name on a board -> (model, BOM line)
+    "mcu": (P.esp32_c6_mini_1, "ESP32-C6-MINI-1-N4 module (Thread + BLE), antenna keep-out under its end"),
+    "driver": (P.drv8833_pwp, "DRV8833PWPR dual H-bridge, HTSSOP-16"),
+    "hall_locked": (P.drv5032_dbz, "DRV5032FADBZR Hall switch, SOT-23: bolt locked (underside)"),
+    "hall_unlocked": (P.drv5032_dbz, "DRV5032FADBZR Hall switch, SOT-23: bolt unlocked (underside)"),
+    "hall_door": (P.drv5032_dbz, "DRV5032FADBZR Hall switch, SOT-23: door position (magnet on the frame)"),
+    "regulator": (P.tps629206_drl, "TPS629206DRLR 3.3 V buck, SOT-583 (3-17 V in, 4 uA)"),
+    "motor_conn": (P.jst_sh6_side, "JST SM06B-SRSS-TB, 6-pin SH side entry (motor + encoder cable)"),
+}
+
+
+def bolt_hall_blocks(L: DriveLayout, p: DeadboltParams) -> dict[str, tuple]:
+    """The two bolt-position Hall switches, for pcb_parts: under the board, over the flag's
+    magnet at the locked and unlocked angles."""
+    return {name: (x, y, 0.0, True) for name, locked in (("hall_locked", True), ("hall_unlocked", False))
+            for x, y in [L.hall_xy(p, locked)]}
+
+
 def pcb_parts(u: Unit, prefix: str, board_top: float, blocks: dict[str, tuple]) -> None:
-    """Component blocks on a board: name -> (x0, x1, y0, y1, height[, underside])."""
+    """Parts on a board. A chip from CHIPS: name -> (x, y, rot_deg[, underside]). Anything
+    else is an envelope: name -> (x0, x1, y0, y1, height[, underside])."""
+    bottom = board_top - 1.6
     for name, spec in blocks.items():
-        x0, x1, y0, y1, h = spec[:5]
-        under = len(spec) > 5 and spec[5]
-        z0, z1 = (board_top - 1.6 - h, board_top - 1.6) if under else (board_top, board_top + h)
         n = f"{prefix}_{name}"
-        u.add(n, box(x0, x1, y0, y1, z0, z1), BOUGHT, COMPONENT_DESC.get(name, name))
+        if name in CHIPS:
+            x, y, rot = spec[:3]
+            under = len(spec) > 3 and spec[3]
+            make, desc = CHIPS[name]
+            loc = Pos(x, y, bottom) * Rot(180, 0, rot) if under else Pos(x, y, board_top) * Rot(0, 0, rot)
+            u.add(n, make().at(loc), BOUGHT, desc)
+        else:
+            x0, x1, y0, y1, h = spec[:5]
+            under = len(spec) > 5 and spec[5]
+            z0, z1 = (bottom - h, bottom) if under else (board_top, board_top + h)
+            u.add(n, box(x0, x1, y0, y1, z0, z1), BOUGHT, COMPONENT_DESC.get(name, name))
         u.joint(n, prefix)
 
 
 COMPONENT_DESC = {
-    "mcu": "ESP32-C6-MINI-1 module (Thread + BLE)", "mcu_chip": "ESP32-C6 QFN (chip-down)", "antenna": "2.4 GHz chip antenna",
-    "driver": "DRV8833 H-bridge", "as5600": "AS5600 magnetic encoder (on the board's underside)",
-    "hall": "Door-position hall sensor (magnet on the frame)", "led": "Status RGB LED",
-    "button": "Pairing / reset button", "conn": "Battery / motor connector",
+    "mcu_chip": "ESP32-C6 QFN40 5 x 5 (chip-down: the same chip as the MINI-1 module)",
+    "antenna": "2.4 GHz chip antenna", "led": "Status RGB LED", "button": "Pairing / reset button",
+    "conn": "Battery connector",
 }

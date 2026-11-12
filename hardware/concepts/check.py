@@ -15,7 +15,7 @@ from itertools import combinations
 from build123d import Compound, Part
 
 from concepts.designs import CONCEPTS, Concept
-from concepts.kit import MIN_WALL, SCREW_TYPES, SNAP_STRAIN_LIMIT, Unit
+from concepts.kit import MIN_WALL, SCREW_TYPES, SNAP_STRAIN_LIMIT, WIRE, Unit
 from deadbolt.fixture import DeadboltParams, GENERIC_US, build
 
 OVERLAP_TOL = 0.05  # mm^3: touching faces are fine, interpenetration is not
@@ -35,7 +35,7 @@ def _vol(a: Part, b: Part) -> float:
 
 def collisions(u: Unit, fixture: dict[str, Part]) -> list[str]:
     out = []
-    parts = u.parts()
+    parts = {k: v.part for k, v in u.items.items() if v.kind != WIRE}  # wires are flexible
     for (a, pa), (b, pb) in combinations(parts.items(), 2):
         v = _vol(pa, pb)
         tol = MESH_TOL if frozenset({a, b}) in u.meshes else OVERLAP_TOL
@@ -107,7 +107,7 @@ def fasteners(u: Unit) -> list[str]:
         lo, hi = f.eng_range
         if not lo - 1e-6 <= f.engagement <= hi + 1e-6:
             out.append(f"{f.name}: {f.engagement:.1f} mm of thread, needs {lo:.1f}-{hi:.1f}")
-        if f.probe is not None:
+        if f.probe is not None and f.into in parts:
             outside = (f.probe - parts[f.into]).volume
             if outside > WALL_TOL * f.probe.volume:
                 out.append(f"{f.name}: wall round its thread in {f.into} is under {MIN_WALL} mm "
