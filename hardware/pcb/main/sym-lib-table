@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "lochness") (type "KiCad") (uri "${KIPRJMOD}/lochness.kicad_sym") (options "") (descr "lochness parts KiCad lacks"))
+)

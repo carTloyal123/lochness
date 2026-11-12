@@ -10,3 +10,8 @@ compile_commands.json
 .cache/
 # Python
 __pycache__/
+# KiCad per-user state
+*.kicad_prl
+*-backups/
+fp-info-cache
+*.lck

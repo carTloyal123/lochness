@@ -5,7 +5,8 @@ import pytest
 from concepts.check import collisions, fasteners, fit, joint_gaps, snaps, unattached
 from deadbolt.fixture import PRESETS
 from concepts.parts import DEVKITM_J1, DEVKITM_J3
-from devkit.rig import BB_TOP, HALLS, WIRING, devkit_pin, rig
+from devkit.rig import BB_TOP, HALLS, Hole, devkit_pin, rig, wire_plan
+from wiring.netlist import PIN_MAP, RESERVED_GPIO
 
 
 @pytest.fixture(scope="module", params=[(k, locked) for k in PRESETS for locked in (True, False)],
@@ -51,13 +52,23 @@ def test_snaps_within_strain(built):
 
 
 def test_pin_map_avoids_reserved_pins():
-    used = [a.split()[1] for _, a, _, _ in WIRING if a.startswith("GPIO ")]
+    used = [g for g, _, _ in PIN_MAP.values()]
     assert len(used) == len(set(used)), "a GPIO is used twice"
-    assert set(used).isdisjoint({"8", "9", "12", "13", "15", "16", "17"})
-    assert set(HALLS.values()) <= set(used)
+    assert set(used).isdisjoint(RESERVED_GPIO)
+    assert {int(g) for g in HALLS.values()} <= set(used)
     for gpio in used:
-        assert gpio in DEVKITM_J1 + DEVKITM_J3
-        devkit_pin(gpio)
+        assert str(gpio) in DEVKITM_J1 + DEVKITM_J3
+        devkit_pin(str(gpio))
+
+
+def test_every_wire_follows_the_plan():
+    u, _ = rig()
+    wires = [i for i in u.items.values() if i.kind == "wire"]
+    assert [w.plan for w in wires] == wire_plan()
+    for w in wires:
+        for end, e in zip(w.ends, (w.plan.a, w.plan.b)):
+            if isinstance(e, Hole):
+                assert end == e.xyz()
 
 
 def test_no_breadboard_hole_takes_two_wires():

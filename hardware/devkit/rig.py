@@ -17,13 +17,15 @@ main PCB, each on a breakout (concepts/parts.py), so what is learned on it carri
 - the TPS629206 regulator is the one product chip not in the kit: the DevKit makes its
   own 3.3 V from USB, so battery life is measured on the first product PCB
 
-Frame: the fixture's (deadbolt/fixture.py). WIRING is the proposed pin map;
-build_devkit.py writes it to WIRING.md.
+Frame: the fixture's (deadbolt/fixture.py). Which pin goes where is the net list's
+(wiring/netlist.py, DEVKIT); wire_plan() here only picks the holes, colours and routes.
+build_devkit.py writes the result to WIRING.md; build_wiring.py draws it.
 """
 
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 from build123d import Color, Compound, Part, Plane, Pos, Rot, Solid, Vector
 
@@ -34,6 +36,7 @@ from concepts.kit import (AA, BOUGHT, PRINTED, WIRE, DriveLayout, Unit, add_stac
                           back_plate, box, bridge_cuts, bridge_extras, chassis_screws, cover_screw,
                           drive_module, fix, knob_on_shaft, rrect, wall_snap, zcyl)
 from deadbolt.fixture import GENERIC_US, DeadboltParams, build as build_fixture
+from wiring.netlist import DEVKIT, HALL_HOLE, HALL_PARTS, NET_TITLES, PIN_MAP
 
 W, Y_BOT, Y_TOP, R, DEPTH = 68.0, -35.0, 120.0, 8.0, 51.5  # the slab: 102.6 tall, as deep
 WALL_TOP = 20.0
@@ -61,9 +64,10 @@ DEVKIT_LOC = Pos(-28.905, BOARDS["bb_mcu"] + 12.7, BB_TOP + P.HEADER_H) * Rot(0,
 
 
 def devkit_pin(name: str, header: str = "") -> tuple[float, float, float]:
-    for hdr, pins, col in (("J1", P.DEVKITM_J1, "j"), ("J3", P.DEVKITM_J3, "a")):
+    """The free hole beside a DevKit pin, by name ('18', '3V3', 'G')."""
+    for hdr, pins in (("J1", P.DEVKITM_J1), ("J3", P.DEVKITM_J3)):
         if (not header or header == hdr) and name in pins:
-            return hole("bb_mcu", 16 - pins.index(name), col)
+            return board_hole("devkit", f"{hdr}-{pins.index(name) + 1}").xyz()
     raise KeyError(name)
 
 
@@ -74,9 +78,8 @@ DRV_LOC = Pos(8.89, BOARDS["bb_drv"] + COL_OFF["e"] - 1.27, BB_TOP + P.HEADER_H)
 
 def drv_pin(name: str, col: str = "") -> tuple[float, float, float]:
     """A free hole in a carrier pin's row: power row from column c, control row from i."""
-    if name in P.POLOLU_2130_PWR:
-        return hole("bb_drv", DRV_ROW_GND - P.POLOLU_2130_PWR.index(name), col or "c")
-    return hole("bb_drv", DRV_ROW_GND - P.POLOLU_2130_CTL.index(name), col or "i")
+    side = "P" if name in P.POLOLU_2130_PWR else "C"
+    return board_hole("drv8833", f"{side}-{name}", col).xyz()
 
 
 # 3V3 and GND are shared out along two spare rows of the driver's breadboard (columns f-j).
@@ -87,35 +90,172 @@ def rail(name: str, col: str) -> tuple[float, float, float]:
     return hole("bb_drv", RAIL_3V3 if name == "3V3" else RAIL_GND, col)
 
 
-# Which adapter holes carry the DRV5032's pins depends on how it sits on the SOT-23-6
-# pads; these assume pin 1 on pad 1, pin 2 on pad 3, pin 3 on pad 5. Check the silkscreen.
-HALL_HOLE = {"VCC": "1", "OUT": "3", "GND": "5"}
-HALLS = {"hall_locked": "22", "hall_unlocked": "23", "hall_door": "2"}  # OUT -> GPIO
+HALLS = {r: str(PIN_MAP[b][0]) for b, r in HALL_PARTS.items()}  # adapter -> its OUT's GPIO
 
-# Proposed pin map: (signal, from, to, colour). Avoids the strapping pins (8, 9, 15),
-# USB (12, 13) and UART0 (16, 17). The encoder is read by the PCNT unit: any GPIO will do.
-WIRING = [
-    ("Motor A in 1 (PWM)", "GPIO 18", "DRV8833 AIN1", "yellow"),
-    ("Motor A in 2 (PWM)", "GPIO 19", "DRV8833 AIN2", "orange"),
-    ("Driver enable", "GPIO 20", "DRV8833 nSLEEP", "white"),
-    ("Driver fault (open drain: pull-up on)", "GPIO 3", "DRV8833 nFAULT", "purple"),
-    ("3V3 rail", "3V3", "3V3 row (DRV breadboard row 15)", "red"),
-    ("GND rail", "J3 GND", "GND row (DRV breadboard row 16)", "black"),
-    ("Driver ground", "GND row", "DRV8833 GND (control row)", "black"),
-    ("Motor M1 (+)", "DRV8833 AOUT1", "motor cable pin 6", "red"),
-    ("Motor M2", "DRV8833 AOUT2", "motor cable pin 5", "black"),
-    ("Motor encoder A", "GPIO 21", "motor cable pin 3", "yellow"),
-    ("Motor encoder B", "GPIO 4", "motor cable pin 2", "green"),
-    ("Motor encoder power", "3V3 row", "motor cable pin 4", "red"),
-    ("Motor encoder ground", "GND row", "motor cable pin 1", "black"),
-    ("Bolt locked (DRV5032 OUT)", "GPIO 22", "hall_locked OUT", "blue"),
-    ("Bolt unlocked (DRV5032 OUT)", "GPIO 23", "hall_unlocked OUT", "blue"),
-    ("Door (DRV5032 OUT)", "GPIO 2", "hall_door OUT", "blue"),
-    ("Hall switch power (x3)", "3V3 row", "each adapter's VCC", "red"),
-    ("Hall switch ground (x3)", "GND row (door: DRV8833 power-row GND)", "each adapter's GND", "black"),
-    ("Battery + (6 V)", "4xAA + contact", "DRV8833 VIN (power row)", "red"),
-    ("Battery -", "4xAA - contact", "DRV8833 GND (power row)", "black"),
-]
+
+# --- the wires: one per entry of wire_plan(), connecting what wiring/netlist.py DEVKIT says ---
+
+@dataclass(frozen=True)
+class Hole:
+    board: str
+    row: int
+    col: str
+
+    def xyz(self) -> tuple[float, float, float]:
+        return hole(self.board, self.row, self.col)
+
+    def strip(self) -> tuple[str, int, str]:
+        """The five holes joined under the breadboard's surface."""
+        return self.board, self.row, "a-e" if self.col in "abcde" else "f-j"
+
+
+@dataclass(frozen=True)
+class Term:
+    """A wire end off the breadboards: a Hall adapter's hole, a motor cable pin, a battery contact."""
+    ref: str
+    pin: str
+
+
+@dataclass(frozen=True)
+class Wire:
+    net: str
+    colour: str
+    a: Hole | Term
+    b: Hole | Term
+    route: str  # 'jumper' (hole to hole), 'cable', 'hall', 'battery'
+    lift: float  # mm above the breadboard (jumpers, Hall wires) or the cable's index
+    desc: str
+
+
+def board_hole(ref: str, pin: str, col: str = "") -> Hole:
+    """The hole a DevKit or carrier pin sits in, or another hole (col) of its strip. By
+    default the free hole beside the header: DevKit J1 in column j, J3 in a; the carrier's
+    power row from column c, its control row from i."""
+    if ref == "devkit":
+        hdr, k = pin.split("-")
+        return Hole("bb_mcu", 17 - int(k), col or ("j" if hdr == "J1" else "a"))
+    if ref == "drv8833":
+        side, name = pin.split("-", 1)
+        names = P.POLOLU_2130_PWR if side == "P" else P.POLOLU_2130_CTL
+        return Hole("bb_drv", DRV_ROW_GND - names.index(name), col or ("c" if side == "P" else "i"))
+    raise KeyError(ref)
+
+
+def board_pins() -> dict[tuple[str, int, str], list[tuple[str, str]]]:
+    """Strip -> the board pins in it (the DevKit's on bb_mcu, the carrier's on bb_drv)."""
+    out: dict = {}
+    for ref, part in DEVKIT.parts.items():
+        if ref in ("devkit", "drv8833"):
+            for pin in part.pins:
+                out.setdefault(board_hole(ref, pin).strip(), []).append((ref, pin))
+    return out
+
+
+RAIL_ROW = {"+3V3": RAIL_3V3, "GND": RAIL_GND}
+
+
+def rail_hole(net: str, col: str) -> Hole:
+    return Hole("bb_drv", RAIL_ROW[net], col)
+
+
+def _end(pin: tuple[str, str], col: str = "") -> Hole | Term:
+    return board_hole(*pin, col) if pin[0] in ("devkit", "drv8833") else Term(*pin)
+
+
+def wire_plan() -> list[Wire]:
+    """Every wire on the dev kit. The pins come from the net list; this picks the holes (none
+    takes two wires), the colours and the 3D routes. tests/test_wiring.py checks that what
+    these wires join is exactly DEVKIT's nets."""
+    nets = DEVKIT.nets()
+    net_of = {pin: net for net, pins in nets.items() for pin in pins}
+    blocks = DEVKIT.blocks
+
+    def gpio_to(net):  # (MCU end, other end) of a signal net
+        a, b = nets[net]
+        return _end(a), _end(b), PIN_MAP[net][0], b
+
+    w = []
+    for net, colour, lift in (("MOT_IN1", "yellow", 6.0), ("MOT_IN2", "orange", 7.0),
+                              ("DRV_nSLEEP", "white", 9.0), ("DRV_nFAULT", "purple", 11.0)):
+        a, b, gpio, (_, pin) = gpio_to(net)
+        w.append(Wire(net, colour, a, b, "jumper", lift, f"GPIO {gpio} to DRV8833 {pin.split('-')[1]}"))
+    w.append(Wire("+3V3", "red", _end(blocks[("MCU", "3V3")]), rail_hole("+3V3", "f"), "jumper", 10.0,
+                  "3V3 to the 3V3 row"))
+    w.append(Wire("GND", "black", _end(blocks[("MCU", "GND")]), rail_hole("GND", "f"), "jumper", 8.0,
+                  "J3 GND to the GND row"))
+    w.append(Wire("GND", "black", rail_hole("GND", "g"), _end(blocks[("DRIVER", "GND")], "h"), "jumper", 3.0,
+                  "GND row to the DRV8833 GND"))
+
+    # Motor + encoder: the 6-pin cable, its bare ends into the breadboards.
+    rail_cols = {"+3V3": "h", "GND": "i"}
+    for k, pin in enumerate("654132"):
+        net = DEVKIT.net_of(net_of[("motor", pin)])
+        if net in RAIL_ROW:
+            src = rail_hole(net, rail_cols[net])
+        else:
+            src = _end(next(p for p in nets[net] if p != ("motor", pin)))
+        name = P.MOTOR_PINS[int(pin) - 1].replace("enc ", "encoder ")
+        colour = {"M1": "red", "M2": "black", "encoder VCC": "red", "encoder GND": "black",
+                  "encoder A": "yellow", "encoder B": "green"}[name]
+        w.append(Wire(net, colour, src, Term("motor", pin), "cable", k, f"motor cable pin {pin}, {name}"))
+
+    # Hall switches: OUT to a GPIO; VCC from the 3V3 row; GND from the GND row, which has
+    # five holes (f-j), so the door switch takes the carrier's power-row GND instead.
+    vcc_col = {"hall_locked": "g", "hall_unlocked": "i", "hall_door": "j"}
+    gnd = {"hall_locked": rail_hole("GND", "j"), "hall_unlocked": rail_hole("GND", "h"),
+           "hall_door": board_hole("drv8833", "P-GND", "b")}
+    for k, ref in enumerate(HALL_PARTS.values()):
+        for j, sig in enumerate(("OUT", "VCC", "GND")):
+            end = Term(ref, HALL_HOLE[sig])
+            if sig == "OUT":
+                src = _end(nets[net_of[(ref, end.pin)]][0])
+            elif sig == "VCC":
+                src = rail_hole("+3V3", vcc_col[ref])
+            else:
+                src = gnd[ref]
+            colour = {"OUT": "blue", "VCC": "red", "GND": "black"}[sig]
+            w.append(Wire(net_of[(ref, end.pin)], colour, src, end, "hall", 3.0 + (3 * k + j), f"{ref} {sig}"))
+
+    for sign, block_pin, colour, col in (("+", ("DRIVER", "VM"), "red", "b"), ("-", ("BATTERY", "-"), "black", "a")):
+        drv = blocks[block_pin] if sign == "+" else ("drv8833", "P-GND")
+        w.append(Wire(net_of[("battery", sign)], colour, Term("battery", sign), _end(drv, col), "battery", 0.0,
+                      f"battery {sign} to the DRV8833 {drv[1].split('-')[1]}"))
+    return w
+
+
+def plan_connectivity(plan: list[Wire] | None = None) -> set[frozenset[tuple[str, str]]]:
+    """What the wires, the breadboard strips and the boards' own copper join: the nets a
+    continuity tester would find on the built dev kit."""
+    from wiring.netlist import merge
+    groups = [set(pins) | {strip} for strip, pins in board_pins().items()]
+    for wr in plan or wire_plan():
+        groups.append({e.strip() if isinstance(e, Hole) else (e.ref, e.pin) for e in (wr.a, wr.b)})
+    groups += [set(t) for t in DEVKIT.ties]
+    nets = {frozenset(p for p in g if len(p) == 2) for g in merge(groups)}
+    return {n for n in nets if len(n) > 1}  # a board pin alone in its strip is no net
+
+
+def end_label(e: Hole | Term) -> str:
+    """Where a wire end goes, in words, with its breadboard hole."""
+    if isinstance(e, Term):
+        if e.ref == "motor":
+            return f"motor cable pin {e.pin}"
+        if e.ref == "battery":
+            return f"4xAA {e.pin} contact"
+        return f"{e.ref} hole {e.pin} ({next(s for s, h in HALL_HOLE.items() if h == e.pin)})"
+    where = f"{'DRV' if e.board == 'bb_drv' else 'MCU'} breadboard {e.row}{e.col}"
+    pins = board_pins().get(e.strip(), [])
+    if pins:
+        ref, pin = pins[0]
+        name = (P.DEVKITM_J1 + P.DEVKITM_J3)[(int(pin[3:]) - 1) + (15 if pin.startswith("J3") else 0)] \
+            if ref == "devkit" else pin.split("-", 1)[1]
+        name = f"GPIO {name}" if name.isdigit() else name
+        return f"{'DevKit' if ref == 'devkit' else 'DRV8833'} {name} ({where})"
+    return f"{'3V3' if e.row == RAIL_3V3 else 'GND'} row ({where})"
+
+
+# (signal, from, to, colour), for WIRING.md
+WIRING = [(NET_TITLES[DEVKIT.net_of(wr.net)], end_label(wr.a), end_label(wr.b), wr.colour) for wr in wire_plan()]
 WIRE_COLORS = {"red": Color(0.85, 0.1, 0.1), "black": Color(0.1, 0.1, 0.1), "yellow": Color(0.95, 0.85, 0.1),
                "orange": Color(0.95, 0.5, 0.1), "white": Color(0.95, 0.95, 0.95), "blue": Color(0.15, 0.35, 0.9),
                "purple": Color(0.55, 0.2, 0.75), "green": Color(0.15, 0.7, 0.25)}
@@ -250,7 +390,7 @@ def rig(p: DeadboltParams = GENERIC_US, locked: bool = True) -> tuple[Unit, dict
         u.add(name, adapter.at(loc), BOUGHT,
               "SparkFun BOB-00717 SOT-23 adapter with a DRV5032FADBZR and 2x 1x3 header, worn chip-down")
         u.joint(name, "hall_carrier")
-        hall_pin[name] = {sig: adapter.pin(loc, h) for sig, h in HALL_HOLE.items()}
+        hall_pin[name] = {h: adapter.pin(loc, h) for h in HALL_HOLE.values()}
     u.add("hall_carrier", carrier, PRINTED,
           "Hall carrier: holds the three adapters chip-down (glued in its slots), PETG")
     for i, (x, y) in enumerate(carrier_posts):
@@ -298,55 +438,30 @@ def rig(p: DeadboltParams = GENERIC_US, locked: bool = True) -> tuple[Unit, dict
     knob_on_shaft(u, "knob", "Manual knob, PETG/ASA", zcyl(40.0, DEPTH + 0.5, DEPTH + 12.5),
                   DEPTH + 0.5, L.shaft_top)
 
-    # --- wires ---
-    def jumper(a, b, colour, desc, ends, h=5.0):
-        _wire(u, [a, _lift(a, h), _lift(b, h), b], colour, desc, ends)
-
-    def run(a, b, colour, desc, ends, via):
-        _wire(u, [a, *via, b], colour, desc, ends)
-
-    drv_bb = ("bb_mcu", "bb_drv")
-    jumper(devkit_pin("18"), drv_pin("AIN1"), "yellow", "GPIO 18 to DRV8833 AIN1", drv_bb, 6.0)
-    jumper(devkit_pin("19"), drv_pin("AIN2"), "orange", "GPIO 19 to DRV8833 AIN2", drv_bb, 7.0)
-    jumper(devkit_pin("20"), drv_pin("nSLEEP"), "white", "GPIO 20 to DRV8833 nSLEEP", drv_bb, 9.0)
-    jumper(devkit_pin("3"), drv_pin("nFAULT"), "purple", "GPIO 3 to DRV8833 nFAULT", drv_bb, 11.0)
-    jumper(devkit_pin("3V3"), rail("3V3", "f"), "red", "3V3 to the 3V3 row", drv_bb, 10.0)
-    jumper(devkit_pin("G", "J3"), rail("GND", "f"), "black", "J3 GND to the GND row", drv_bb, 8.0)
-    jumper(rail("GND", "g"), hole("bb_drv", DRV_ROW_GND, "h"), "black", "GND row to the DRV8833 GND",
-           ("bb_drv", "bb_drv"), 3.0)
-
-    # Motor + encoder: one 6-pin cable from the side connector on the encoder.
+    # --- wires: the net list's, routed over the boards ---
     mx, my = u.motor_xy
     conn = P.micro_gearmotor().pin(Pos(mx, my, b1), "connector")
-    cable = {"pin 6, M1": (drv_pin("AOUT1"), "red", "bb_drv"), "pin 5, M2": (drv_pin("AOUT2"), "black", "bb_drv"),
-             "pin 4, encoder VCC": (rail("3V3", "h"), "red", "bb_drv"),
-             "pin 1, encoder GND": (rail("GND", "i"), "black", "bb_drv"),
-             "pin 3, encoder A": (devkit_pin("21"), "yellow", "bb_mcu"),
-             "pin 2, encoder B": (devkit_pin("4"), "green", "bb_mcu")}
-    for k, (sig, (src, colour, bb)) in enumerate(cable.items()):
-        end = (conn[0] - 3.125 + k * 1.25, conn[1], conn[2])
-        run(src, end, colour, f"motor cable {sig}", (bb, "motor"),
-            [_lift(src, 8.0 + k), (end[0], conn[1] + 4.0, BB_TOP + 8.0 + k), (end[0], conn[1] + 3.0, conn[2])])
-
-    # Hall switches: OUT to a GPIO; VCC from the 3V3 row; GND from the GND row, which has
-    # five holes (f-j), so the door switch takes the driver's power-row GND instead.
-    vcc = {"hall_locked": rail("3V3", "g"), "hall_unlocked": rail("3V3", "i"), "hall_door": rail("3V3", "j")}
-    gnd = {"hall_locked": rail("GND", "j"), "hall_unlocked": rail("GND", "h"),
-           "hall_door": hole("bb_drv", DRV_ROW_GND, "b")}
-    for k, (name, gpio) in enumerate(HALLS.items()):
-        for j, (sig, src, colour, bb) in enumerate((("OUT", devkit_pin(gpio), "blue", "bb_mcu"),
-                                                    ("VCC", vcc[name], "red", "bb_drv"),
-                                                    ("GND", gnd[name], "black", "bb_drv"))):
-            e = hall_pin[name][sig]
-            lift = 3.0 + 1.0 * (3 * k + j)  # all under the cover (inner face at DEPTH - 2)
-            run(src, e, colour, f"{name} {sig}", (bb, name),
-                [_lift(src, lift), (e[0], 30.0, BB_TOP + lift), _lift(e, 6.0)])
-
-    for name, sign, pin, colour in (("contact_pos", "+", "VIN", "red"), ("contact_neg", "-", "GND", "black")):
-        c = u.items[name].part.bounding_box()
-        a = ((c.min.X + c.max.X) / 2, c.min.Y + 0.25, c.max.Z)  # the tab; any spring runs +Y from it
-        b = drv_pin(pin, "b" if pin == "VIN" else "a")
-        run(a, b, colour, f"battery {sign} to the DRV8833 {pin}", (name, "bb_drv"),
-            [_lift(a, 6.0), (a[0], 39.25, BB_TOP + 4.0), _lift(b, 4.0)])
+    contact = {"+": "contact_pos", "-": "contact_neg"}
+    for wr in wire_plan():
+        if wr.route == "jumper":
+            a, b = wr.a.xyz(), wr.b.xyz()
+            pts, ends = [a, _lift(a, wr.lift), _lift(b, wr.lift), b], (wr.a.board, wr.b.board)
+        elif wr.route == "cable":  # from the connector on the encoder, over to the breadboards
+            k, src = int(wr.lift), wr.a.xyz()
+            end = (conn[0] - 3.125 + k * 1.25, conn[1], conn[2])
+            pts = [src, _lift(src, 8.0 + k), (end[0], conn[1] + 4.0, BB_TOP + 8.0 + k),
+                   (end[0], conn[1] + 3.0, conn[2]), end]
+            ends = (wr.a.board, "motor")
+        elif wr.route == "hall":  # all under the cover (inner face at DEPTH - 2)
+            src, e = wr.a.xyz(), hall_pin[wr.b.ref][wr.b.pin]
+            pts = [src, _lift(src, wr.lift), (e[0], 30.0, BB_TOP + wr.lift), _lift(e, 6.0), e]
+            ends = (wr.a.board, wr.b.ref)
+        else:  # battery: from the end contact's tab; any spring runs +Y from it
+            c = u.items[contact[wr.a.pin]].part.bounding_box()
+            a, b = ((c.min.X + c.max.X) / 2, c.min.Y + 0.25, c.max.Z), wr.b.xyz()
+            pts = [a, _lift(a, 6.0), (a[0], 39.25, BB_TOP + 4.0), _lift(b, 4.0), b]
+            ends = (contact[wr.a.pin], wr.b.board)
+        _wire(u, pts, wr.colour, wr.desc, ends)
+        u.items[[n for n in u.items if n.startswith("wire_")][-1]].plan = wr
 
     return u, build_fixture(p, locked)

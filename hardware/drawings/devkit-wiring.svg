@@ -1,0 +1,861 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220.0 126.0" width="2200" height="1260" font-family="Helvetica, Arial, sans-serif">
+<rect width="220.0" height="126.0" fill="#fbfaf7"/>
+<rect x="16.0" y="6.0" width="60.0" height="90.0" rx="3.0" fill="#e7e3da" stroke="#b8b2a4" stroke-width="0.3" fill-opacity="1.0"/>
+<rect x="22.5" y="44.0" width="47.0" height="35.0" rx="1.0" fill="#ffffff" stroke="#c9c5bd" stroke-width="0.3" fill-opacity="1.0"/>
+<line x1="25.68" y1="75.47" x2="25.68" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="25.68" y1="57.69" x2="25.68" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="25.23" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="25.68" y="78.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">1</text>
+<line x1="28.22" y1="75.47" x2="28.22" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="28.22" y1="57.69" x2="28.22" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="27.77" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="30.76" y1="75.47" x2="30.76" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="30.76" y1="57.69" x2="30.76" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="30.310000000000002" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="30.76" y="78.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">3</text>
+<line x1="33.3" y1="75.47" x2="33.3" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="33.3" y1="57.69" x2="33.3" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="32.849999999999994" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="35.84" y1="75.47" x2="35.84" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="35.84" y1="57.69" x2="35.84" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="35.39" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="35.84" y="78.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">5</text>
+<line x1="38.38" y1="75.47" x2="38.38" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="38.38" y1="57.69" x2="38.38" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="37.93" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="40.92" y1="75.47" x2="40.92" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="40.92" y1="57.69" x2="40.92" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="40.47" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="40.92" y="78.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">7</text>
+<line x1="43.46" y1="75.47" x2="43.46" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="43.46" y1="57.69" x2="43.46" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="43.01" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="46.0" y1="75.47" x2="46.0" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="46.0" y1="57.69" x2="46.0" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="45.55" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="46.0" y="78.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">9</text>
+<line x1="48.54" y1="75.47" x2="48.54" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="48.54" y1="57.69" x2="48.54" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="48.089999999999996" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="51.08" y1="75.47" x2="51.08" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="51.08" y1="57.69" x2="51.08" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="50.629999999999995" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="51.08" y="78.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">11</text>
+<line x1="53.62" y1="75.47" x2="53.62" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="53.62" y1="57.69" x2="53.62" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="53.169999999999995" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="56.16" y1="75.47" x2="56.16" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="56.16" y1="57.69" x2="56.16" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="55.709999999999994" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="56.16" y="78.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">13</text>
+<line x1="58.7" y1="75.47" x2="58.7" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="58.7" y1="57.69" x2="58.7" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="58.25" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="61.24" y1="75.47" x2="61.24" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="61.24" y1="57.69" x2="61.24" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="60.79" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="61.24" y="78.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">15</text>
+<line x1="63.78" y1="75.47" x2="63.78" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="63.78" y1="57.69" x2="63.78" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="63.33" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="63.78" y="78.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">16</text>
+<line x1="66.32" y1="75.47" x2="66.32" y2="65.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="66.32" y1="57.69" x2="66.32" y2="47.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="65.86999999999999" y="75.02" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="72.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="69.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="67.39999999999999" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="64.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="57.239999999999995" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="54.699999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="52.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="49.62" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="47.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="66.32" y="78.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">17</text>
+<text x="23.08" y="75.87" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">a</text>
+<text x="23.08" y="73.33000000000001" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">b</text>
+<text x="23.08" y="70.79" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">c</text>
+<text x="23.08" y="68.25" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">d</text>
+<text x="23.08" y="65.71000000000001" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">e</text>
+<text x="23.08" y="58.089999999999996" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">f</text>
+<text x="23.08" y="55.55" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">g</text>
+<text x="23.08" y="53.01" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">h</text>
+<text x="23.08" y="50.47" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">i</text>
+<text x="23.08" y="47.93" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">j</text>
+<text x="70.5" y="45.0" font-size="1.5" text-anchor="start" fill="#8a8476" font-weight="normal" transform="rotate(90 70.5 45.0)">DRV breadboard</text>
+<rect x="22.5" y="7.0" width="47.0" height="35.0" rx="1.0" fill="#ffffff" stroke="#c9c5bd" stroke-width="0.3" fill-opacity="1.0"/>
+<line x1="25.68" y1="38.47" x2="25.68" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="25.68" y1="20.69" x2="25.68" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="25.23" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="25.23" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="25.68" y="41.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">1</text>
+<line x1="28.22" y1="38.47" x2="28.22" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="28.22" y1="20.69" x2="28.22" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="27.77" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="27.77" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="30.76" y1="38.47" x2="30.76" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="30.76" y1="20.69" x2="30.76" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="30.310000000000002" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="30.310000000000002" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="30.76" y="41.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">3</text>
+<line x1="33.3" y1="38.47" x2="33.3" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="33.3" y1="20.69" x2="33.3" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="32.849999999999994" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="32.849999999999994" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="35.84" y1="38.47" x2="35.84" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="35.84" y1="20.69" x2="35.84" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="35.39" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="35.39" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="35.84" y="41.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">5</text>
+<line x1="38.38" y1="38.47" x2="38.38" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="38.38" y1="20.69" x2="38.38" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="37.93" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="37.93" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="40.92" y1="38.47" x2="40.92" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="40.92" y1="20.69" x2="40.92" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="40.47" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="40.47" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="40.92" y="41.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">7</text>
+<line x1="43.46" y1="38.47" x2="43.46" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="43.46" y1="20.69" x2="43.46" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="43.01" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="43.01" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="46.0" y1="38.47" x2="46.0" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="46.0" y1="20.69" x2="46.0" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="45.55" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="45.55" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="46.0" y="41.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">9</text>
+<line x1="48.54" y1="38.47" x2="48.54" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="48.54" y1="20.69" x2="48.54" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="48.089999999999996" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="48.089999999999996" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="51.08" y1="38.47" x2="51.08" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="51.08" y1="20.69" x2="51.08" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="50.629999999999995" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="50.629999999999995" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="51.08" y="41.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">11</text>
+<line x1="53.62" y1="38.47" x2="53.62" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="53.62" y1="20.69" x2="53.62" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="53.169999999999995" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="53.169999999999995" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="56.16" y1="38.47" x2="56.16" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="56.16" y1="20.69" x2="56.16" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="55.709999999999994" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="55.709999999999994" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="56.16" y="41.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">13</text>
+<line x1="58.7" y1="38.47" x2="58.7" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="58.7" y1="20.69" x2="58.7" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="58.25" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="58.25" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<line x1="61.24" y1="38.47" x2="61.24" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="61.24" y1="20.69" x2="61.24" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="60.79" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="60.79" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="61.24" y="41.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">15</text>
+<line x1="63.78" y1="38.47" x2="63.78" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="63.78" y1="20.69" x2="63.78" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="63.33" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="63.33" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="63.78" y="41.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">16</text>
+<line x1="66.32" y1="38.47" x2="66.32" y2="28.31" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="66.32" y1="20.69" x2="66.32" y2="10.53" stroke="#e3e0d8" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="65.86999999999999" y="38.019999999999996" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="35.48" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="32.94" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="30.400000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="27.86" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="20.240000000000002" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="17.7" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="15.16" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="12.620000000000001" width="0.9" height="0.9" fill="#7d7a73"/>
+<rect x="65.86999999999999" y="10.08" width="0.9" height="0.9" fill="#7d7a73"/>
+<text x="66.32" y="41.37" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">17</text>
+<text x="23.08" y="38.87" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">a</text>
+<text x="23.08" y="36.33" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">b</text>
+<text x="23.08" y="33.79" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">c</text>
+<text x="23.08" y="31.25" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">d</text>
+<text x="23.08" y="28.709999999999997" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">e</text>
+<text x="23.08" y="21.09" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">f</text>
+<text x="23.08" y="18.549999999999997" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">g</text>
+<text x="23.08" y="16.009999999999998" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">h</text>
+<text x="23.08" y="13.47" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">i</text>
+<text x="23.08" y="10.93" font-size="1.1" text-anchor="middle" fill="#aaa" font-weight="normal">j</text>
+<text x="70.5" y="8.0" font-size="1.5" text-anchor="start" fill="#8a8476" font-weight="normal" transform="rotate(90 70.5 8.0)">MCU breadboard</text>
+<line x1="61.24" y1="57.69" x2="61.24" y2="47.53" stroke="#d62828" stroke-width="1.7" stroke-opacity="0.18" stroke-linecap="round"/>
+<text x="61.64" y="56.489999999999995" font-size="1.1" text-anchor="start" fill="#d62828" font-weight="bold" transform="rotate(-90 61.64 56.489999999999995)">3V3 row</text>
+<line x1="63.78" y1="57.69" x2="63.78" y2="47.53" stroke="#222" stroke-width="1.7" stroke-opacity="0.18" stroke-linecap="round"/>
+<text x="64.18" y="56.489999999999995" font-size="1.1" text-anchor="start" fill="#222" font-weight="bold" transform="rotate(-90 64.18 56.489999999999995)">GND row</text>
+<rect x="17.095" y="11.8" width="48.26" height="25.4" rx="0.6" fill="#2b2b2b" stroke="#111" stroke-width="0.3" fill-opacity="0.18"/>
+<rect x="65.355" y="17.9" width="5.37" height="13.2" rx="0.3" fill="#c9a227" stroke="#9c7d16" stroke-width="0.2" fill-opacity="0.35"/>
+<text x="18.0" y="24.8" font-size="2.0" text-anchor="start" fill="#111" font-weight="bold">ESP32-C6-DevKitM-1</text>
+<text x="18.0" y="27.5" font-size="1.2" text-anchor="start" fill="#444" font-weight="normal">USB end (cover slot) at left, antenna at right</text>
+<rect x="34.59" y="53.88" width="20.3" height="12.7" rx="0.5" fill="#1d4fa8" stroke="#123" stroke-width="0.3" fill-opacity="0.18"/>
+<text x="35.0" y="58.98" font-size="1.4" text-anchor="start" fill="#123" font-weight="bold">Pololu #2130</text>
+<text x="35.0" y="61.18" font-size="1.4" text-anchor="start" fill="#123" font-weight="bold">DRV8833</text>
+<circle cx="63.78" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="64.08" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 64.08 11.97)">3V3</text>
+<circle cx="61.24" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="61.54" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 61.54 11.97)">RST</text>
+<circle cx="58.7" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="59.0" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 59.0 11.97)">2</text>
+<circle cx="56.16" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="56.459999999999994" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 56.459999999999994 11.97)">3</text>
+<circle cx="53.62" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="53.919999999999995" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 53.919999999999995 11.97)">4</text>
+<circle cx="51.08" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="51.379999999999995" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 51.379999999999995 11.97)">5</text>
+<circle cx="48.54" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="48.839999999999996" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 48.839999999999996 11.97)">0</text>
+<circle cx="46.0" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="46.3" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 46.3 11.97)">1</text>
+<circle cx="43.46" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="43.76" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 43.76 11.97)">8</text>
+<circle cx="40.92" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="41.22" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 41.22 11.97)">6</text>
+<circle cx="38.38" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="38.68" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 38.68 11.97)">7</text>
+<circle cx="35.84" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="36.14" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 36.14 11.97)">14</text>
+<circle cx="33.3" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="33.599999999999994" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 33.599999999999994 11.97)">G</text>
+<circle cx="30.76" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="31.060000000000002" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 31.060000000000002 11.97)">5V</text>
+<circle cx="28.22" cy="13.07" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="28.52" y="11.97" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 28.52 11.97)">G</text>
+<circle cx="63.78" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="64.08" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 64.08 37.03)">G</text>
+<circle cx="61.24" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="61.54" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 61.54 37.03)">TX</text>
+<circle cx="58.7" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="59.0" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 59.0 37.03)">RX</text>
+<circle cx="56.16" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="56.459999999999994" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 56.459999999999994 37.03)">23</text>
+<circle cx="53.62" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="53.919999999999995" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 53.919999999999995 37.03)">22</text>
+<circle cx="51.08" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="51.379999999999995" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 51.379999999999995 37.03)">21</text>
+<circle cx="48.54" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="48.839999999999996" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 48.839999999999996 37.03)">20</text>
+<circle cx="46.0" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="46.3" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 46.3 37.03)">19</text>
+<circle cx="43.46" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="43.76" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 43.76 37.03)">18</text>
+<circle cx="40.92" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="41.22" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 41.22 37.03)">15</text>
+<circle cx="38.38" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="38.68" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 38.68 37.03)">9</text>
+<circle cx="35.84" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="36.14" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 36.14 37.03)">G</text>
+<circle cx="33.3" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="33.599999999999994" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 33.599999999999994 37.03)">13</text>
+<circle cx="30.76" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="31.060000000000002" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 31.060000000000002 37.03)">12</text>
+<circle cx="28.22" cy="35.93" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="28.52" y="37.03" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 28.52 37.03)">G</text>
+<circle cx="53.62" cy="65.31" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="53.919999999999995" y="66.41" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 53.919999999999995 66.41)">GND</text>
+<circle cx="51.08" cy="65.31" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="51.379999999999995" y="66.41" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 51.379999999999995 66.41)">VIN</text>
+<circle cx="48.54" cy="65.31" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="48.839999999999996" y="66.41" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 48.839999999999996 66.41)">BOUT1</text>
+<circle cx="46.0" cy="65.31" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="46.3" y="66.41" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 46.3 66.41)">BOUT2</text>
+<circle cx="43.46" cy="65.31" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="43.76" y="66.41" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 43.76 66.41)">AOUT2</text>
+<circle cx="40.92" cy="65.31" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="41.22" y="66.41" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 41.22 66.41)">AOUT1</text>
+<circle cx="38.38" cy="65.31" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="38.68" y="66.41" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 38.68 66.41)">AISEN</text>
+<circle cx="35.84" cy="65.31" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="36.14" y="66.41" font-size="0.95" text-anchor="end" fill="#111" font-weight="normal" transform="rotate(-90 36.14 66.41)">BISEN</text>
+<circle cx="53.62" cy="55.15" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="53.919999999999995" y="54.05" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 53.919999999999995 54.05)">GND</text>
+<circle cx="51.08" cy="55.15" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="51.379999999999995" y="54.05" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 51.379999999999995 54.05)">VMM</text>
+<circle cx="48.54" cy="55.15" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="48.839999999999996" y="54.05" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 48.839999999999996 54.05)">BIN1</text>
+<circle cx="46.0" cy="55.15" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="46.3" y="54.05" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 46.3 54.05)">BIN2</text>
+<circle cx="43.46" cy="55.15" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="43.76" y="54.05" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 43.76 54.05)">AIN2</text>
+<circle cx="40.92" cy="55.15" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="41.22" y="54.05" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 41.22 54.05)">AIN1</text>
+<circle cx="38.38" cy="55.15" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="38.68" y="54.05" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 38.68 54.05)">nSLEEP</text>
+<circle cx="35.84" cy="55.15" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<text x="36.14" y="54.05" font-size="0.95" text-anchor="start" fill="#111" font-weight="normal" transform="rotate(-90 36.14 54.05)">nFAULT</text>
+<circle cx="39.75" cy="92.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="42.25" cy="92.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="44.75" cy="92.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="47.25" cy="92.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="49.75" cy="92.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="52.25" cy="92.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="16.19" cy="107.46" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="16.19" cy="110.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="16.19" cy="112.54" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="23.81" cy="112.54" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="23.81" cy="110.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="23.81" cy="107.46" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="42.19" cy="107.46" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="42.19" cy="110.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="42.19" cy="112.54" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="49.81" cy="112.54" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="49.81" cy="110.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="49.81" cy="107.46" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="68.19" cy="107.46" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="68.19" cy="110.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="68.19" cy="112.54" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="75.81" cy="112.54" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="75.81" cy="110.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="75.81" cy="107.46" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="68.0" cy="92.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<circle cx="24.0" cy="92.0" r="0.7" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>
+<rect x="14.92" y="106.19" width="10.16" height="7.62" rx="0.4" fill="#c0392b" stroke="#7b241c" stroke-width="0.25" fill-opacity="0.22"/>
+<text x="20.0" y="115.4" font-size="1.25" text-anchor="middle" fill="#333" font-weight="bold">hall_locked (BOB-00717, pins up)</text>
+<text x="14.990000000000002" y="107.91" font-size="0.9" text-anchor="end" fill="#333" font-weight="normal">1 VCC</text>
+<text x="14.990000000000002" y="112.99000000000001" font-size="0.9" text-anchor="end" fill="#333" font-weight="normal">3 OUT</text>
+<text x="22.61" y="110.45" font-size="0.9" text-anchor="end" fill="#333" font-weight="normal">5 GND</text>
+<rect x="40.92" y="106.19" width="10.16" height="7.62" rx="0.4" fill="#c0392b" stroke="#7b241c" stroke-width="0.25" fill-opacity="0.22"/>
+<text x="46.0" y="115.4" font-size="1.25" text-anchor="middle" fill="#333" font-weight="bold">hall_unlocked (BOB-00717, pins up)</text>
+<text x="40.989999999999995" y="107.91" font-size="0.9" text-anchor="end" fill="#333" font-weight="normal">1 VCC</text>
+<text x="40.989999999999995" y="112.99000000000001" font-size="0.9" text-anchor="end" fill="#333" font-weight="normal">3 OUT</text>
+<text x="48.61" y="110.45" font-size="0.9" text-anchor="end" fill="#333" font-weight="normal">5 GND</text>
+<rect x="66.92" y="106.19" width="10.16" height="7.62" rx="0.4" fill="#c0392b" stroke="#7b241c" stroke-width="0.25" fill-opacity="0.22"/>
+<text x="72.0" y="115.4" font-size="1.25" text-anchor="middle" fill="#333" font-weight="bold">hall_door (BOB-00717, pins up)</text>
+<text x="66.99" y="107.91" font-size="0.9" text-anchor="end" fill="#333" font-weight="normal">1 VCC</text>
+<text x="66.99" y="112.99000000000001" font-size="0.9" text-anchor="end" fill="#333" font-weight="normal">3 OUT</text>
+<text x="74.61" y="110.45" font-size="0.9" text-anchor="end" fill="#333" font-weight="normal">5 GND</text>
+<text x="46.0" y="104.5" font-size="1.2" text-anchor="middle" fill="#7b241c" font-weight="normal">Hall carrier, under the deck: holes VCC 1, OUT 3, GND 5 ASSUMED (check the silkscreen)</text>
+<rect x="38.0" y="90.4" width="16.0" height="3.2" rx="0.4" fill="#f2f2f2" stroke="#888" stroke-width="0.25" fill-opacity="1.0"/>
+<text x="46.0" y="95.4" font-size="1.2" text-anchor="middle" fill="#333" font-weight="bold">motor cable (JST SH, pins 1-6)</text>
+<text x="39.75" y="94.6" font-size="0.9" text-anchor="middle" fill="#333" font-weight="normal">1</text>
+<text x="42.25" y="94.6" font-size="0.9" text-anchor="middle" fill="#333" font-weight="normal">2</text>
+<text x="44.75" y="94.6" font-size="0.9" text-anchor="middle" fill="#333" font-weight="normal">3</text>
+<text x="47.25" y="94.6" font-size="0.9" text-anchor="middle" fill="#333" font-weight="normal">4</text>
+<text x="49.75" y="94.6" font-size="0.9" text-anchor="middle" fill="#333" font-weight="normal">5</text>
+<text x="52.25" y="94.6" font-size="0.9" text-anchor="middle" fill="#333" font-weight="normal">6</text>
+<text x="68.0" y="94.4" font-size="1.2" text-anchor="middle" fill="#333" font-weight="bold">4xAA +</text>
+<text x="24.0" y="94.4" font-size="1.2" text-anchor="middle" fill="#333" font-weight="bold">4xAA -</text>
+<path d="M43.46,38.47 Q43.58,44.57 40.92,50.07" fill="none" stroke="#555" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M43.46,38.47 Q43.58,44.57 40.92,50.07" fill="none" stroke="#e9c40a" stroke-width="0.6" stroke-linecap="round"><title>GPIO 18 to DRV8833 AIN1</title></path>
+<circle cx="43.46" cy="38.47" r="0.5" fill="#e9c40a" stroke="#555" stroke-width="0.15"/>
+<circle cx="40.92" cy="50.07" r="0.5" fill="#e9c40a" stroke="#555" stroke-width="0.15"/>
+<path d="M46.00,38.47 Q42.60,43.80 43.46,50.07" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M46.00,38.47 Q42.60,43.80 43.46,50.07" fill="none" stroke="#f08a1c" stroke-width="0.6" stroke-linecap="round"><title>GPIO 19 to DRV8833 AIN2</title></path>
+<circle cx="46.0" cy="38.47" r="0.5" fill="#f08a1c" stroke="#fff" stroke-width="0.15"/>
+<circle cx="43.46" cy="50.07" r="0.5" fill="#f08a1c" stroke="#fff" stroke-width="0.15"/>
+<path d="M48.54,38.47 Q46.34,46.79 38.38,50.07" fill="none" stroke="#555" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M48.54,38.47 Q46.34,46.79 38.38,50.07" fill="none" stroke="#f4f4f4" stroke-width="0.6" stroke-linecap="round"><title>GPIO 20 to DRV8833 nSLEEP</title></path>
+<circle cx="48.54" cy="38.47" r="0.5" fill="#f4f4f4" stroke="#555" stroke-width="0.15"/>
+<circle cx="38.38" cy="50.07" r="0.5" fill="#f4f4f4" stroke="#555" stroke-width="0.15"/>
+<path d="M56.16,10.53 Q39.06,26.73 35.84,50.07" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M56.16,10.53 Q39.06,26.73 35.84,50.07" fill="none" stroke="#8b3fc1" stroke-width="0.6" stroke-linecap="round"><title>GPIO 3 to DRV8833 nFAULT</title></path>
+<circle cx="56.16" cy="10.53" r="0.5" fill="#8b3fc1" stroke="#fff" stroke-width="0.15"/>
+<circle cx="35.84" cy="50.07" r="0.5" fill="#8b3fc1" stroke="#fff" stroke-width="0.15"/>
+<path d="M63.78,10.53 Q71.90,34.62 61.24,57.69" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M63.78,10.53 Q71.90,34.62 61.24,57.69" fill="none" stroke="#d62828" stroke-width="0.6" stroke-linecap="round"><title>3V3 to the 3V3 row</title></path>
+<circle cx="63.78" cy="10.53" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<circle cx="61.24" cy="57.69" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<path d="M63.78,38.47 Q61.47,48.08 63.78,57.69" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M63.78,38.47 Q61.47,48.08 63.78,57.69" fill="none" stroke="#222" stroke-width="0.6" stroke-linecap="round"><title>J3 GND to the GND row</title></path>
+<circle cx="63.78" cy="38.47" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<circle cx="63.78" cy="57.69" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<path d="M63.78,55.15 Q58.23,55.75 53.62,52.61" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M63.78,55.15 Q58.23,55.75 53.62,52.61" fill="none" stroke="#222" stroke-width="0.6" stroke-linecap="round"><title>GND row to the DRV8833 GND</title></path>
+<circle cx="63.78" cy="55.15" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<circle cx="53.62" cy="52.61" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<path d="M40.92,70.39 Q41.23,84.00 52.25,92.00" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M40.92,70.39 Q41.23,84.00 52.25,92.00" fill="none" stroke="#d62828" stroke-width="0.6" stroke-linecap="round"><title>motor cable pin 6, M1</title></path>
+<circle cx="40.92" cy="70.39" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<circle cx="52.25" cy="92.0" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<path d="M43.46,70.39 Q53.35,79.23 49.75,92.00" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M43.46,70.39 Q53.35,79.23 49.75,92.00" fill="none" stroke="#222" stroke-width="0.6" stroke-linecap="round"><title>motor cable pin 5, M2</title></path>
+<circle cx="43.46" cy="70.39" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<circle cx="49.75" cy="92.0" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<path d="M61.24,52.61 Q45.39,69.16 47.25,92.00" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M61.24,52.61 Q45.39,69.16 47.25,92.00" fill="none" stroke="#d62828" stroke-width="0.6" stroke-linecap="round"><title>motor cable pin 4, encoder VCC</title></path>
+<circle cx="61.24" cy="52.61" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<circle cx="47.25" cy="92.0" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<path d="M63.78,50.07 Q54.37,72.53 39.75,92.00" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M63.78,50.07 Q54.37,72.53 39.75,92.00" fill="none" stroke="#222" stroke-width="0.6" stroke-linecap="round"><title>motor cable pin 1, encoder GND</title></path>
+<circle cx="63.78" cy="50.07" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<circle cx="39.75" cy="92.0" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<path d="M51.08,38.47 Q43.35,64.69 44.75,92.00" fill="none" stroke="#555" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M51.08,38.47 Q43.35,64.69 44.75,92.00" fill="none" stroke="#e9c40a" stroke-width="0.6" stroke-linecap="round"><title>motor cable pin 3, encoder A</title></path>
+<circle cx="51.08" cy="38.47" r="0.5" fill="#e9c40a" stroke="#555" stroke-width="0.15"/>
+<circle cx="44.75" cy="92.0" r="0.5" fill="#e9c40a" stroke="#555" stroke-width="0.15"/>
+<path d="M53.62,10.53 Q54.08,52.12 42.25,92.00" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M53.62,10.53 Q54.08,52.12 42.25,92.00" fill="none" stroke="#26a641" stroke-width="0.6" stroke-linecap="round"><title>motor cable pin 2, encoder B</title></path>
+<circle cx="53.62" cy="10.53" r="0.5" fill="#26a641" stroke="#fff" stroke-width="0.15"/>
+<circle cx="42.25" cy="92.0" r="0.5" fill="#26a641" stroke="#fff" stroke-width="0.15"/>
+<path d="M53.62,38.47 Q27.94,71.99 16.19,112.54" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M53.62,38.47 Q27.94,71.99 16.19,112.54" fill="none" stroke="#2557d6" stroke-width="0.6" stroke-linecap="round"><title>hall_locked OUT</title></path>
+<circle cx="53.62" cy="38.47" r="0.5" fill="#2557d6" stroke="#fff" stroke-width="0.15"/>
+<circle cx="16.19" cy="112.54" r="0.5" fill="#2557d6" stroke="#fff" stroke-width="0.15"/>
+<path d="M61.24,55.15 Q45.84,87.44 16.19,107.46" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M61.24,55.15 Q45.84,87.44 16.19,107.46" fill="none" stroke="#d62828" stroke-width="0.6" stroke-linecap="round"><title>hall_locked VCC</title></path>
+<circle cx="61.24" cy="55.15" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<circle cx="16.19" cy="107.46" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<path d="M63.78,47.53 Q41.27,77.15 23.81,110.00" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M63.78,47.53 Q41.27,77.15 23.81,110.00" fill="none" stroke="#222" stroke-width="0.6" stroke-linecap="round"><title>hall_locked GND</title></path>
+<circle cx="63.78" cy="47.53" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<circle cx="23.81" cy="110.0" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<path d="M56.16,38.47 Q53.70,76.36 42.19,112.54" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M56.16,38.47 Q53.70,76.36 42.19,112.54" fill="none" stroke="#2557d6" stroke-width="0.6" stroke-linecap="round"><title>hall_unlocked OUT</title></path>
+<circle cx="56.16" cy="38.47" r="0.5" fill="#2557d6" stroke="#fff" stroke-width="0.15"/>
+<circle cx="42.19" cy="112.54" r="0.5" fill="#2557d6" stroke="#fff" stroke-width="0.15"/>
+<path d="M61.24,50.07 Q45.83,76.81 42.19,107.46" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M61.24,50.07 Q45.83,76.81 42.19,107.46" fill="none" stroke="#d62828" stroke-width="0.6" stroke-linecap="round"><title>hall_unlocked VCC</title></path>
+<circle cx="61.24" cy="50.07" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<circle cx="42.19" cy="107.46" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<path d="M63.78,52.61 Q64.37,83.15 49.81,110.00" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M63.78,52.61 Q64.37,83.15 49.81,110.00" fill="none" stroke="#222" stroke-width="0.6" stroke-linecap="round"><title>hall_unlocked GND</title></path>
+<circle cx="63.78" cy="52.61" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<circle cx="49.81" cy="110.0" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<path d="M58.70,10.53 Q54.09,62.41 68.19,112.54" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M58.70,10.53 Q54.09,62.41 68.19,112.54" fill="none" stroke="#2557d6" stroke-width="0.6" stroke-linecap="round"><title>hall_door OUT</title></path>
+<circle cx="58.7" cy="10.53" r="0.5" fill="#2557d6" stroke="#fff" stroke-width="0.15"/>
+<circle cx="68.19" cy="112.54" r="0.5" fill="#2557d6" stroke="#fff" stroke-width="0.15"/>
+<path d="M61.24,47.53 Q67.70,77.15 68.19,107.46" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M61.24,47.53 Q67.70,77.15 68.19,107.46" fill="none" stroke="#d62828" stroke-width="0.6" stroke-linecap="round"><title>hall_door VCC</title></path>
+<circle cx="61.24" cy="47.53" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<circle cx="68.19" cy="107.46" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<path d="M53.62,72.93 Q60.77,93.83 75.81,110.00" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M53.62,72.93 Q60.77,93.83 75.81,110.00" fill="none" stroke="#222" stroke-width="0.6" stroke-linecap="round"><title>hall_door GND</title></path>
+<circle cx="53.62" cy="72.93" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<circle cx="75.81" cy="110.0" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<path d="M68.00,92.00 Q54.90,86.58 51.08,72.93" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M68.00,92.00 Q54.90,86.58 51.08,72.93" fill="none" stroke="#d62828" stroke-width="0.6" stroke-linecap="round"><title>battery + to the DRV8833 VIN</title></path>
+<circle cx="68.0" cy="92.0" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<circle cx="51.08" cy="72.93" r="0.5" fill="#d62828" stroke="#fff" stroke-width="0.15"/>
+<path d="M24.00,92.00 Q42.61,90.55 53.62,75.47" fill="none" stroke="#fff" stroke-width="0.95" stroke-linecap="round" opacity="0.9"/>
+<path d="M24.00,92.00 Q42.61,90.55 53.62,75.47" fill="none" stroke="#222" stroke-width="0.6" stroke-linecap="round"><title>battery - to the DRV8833 GND</title></path>
+<circle cx="24.0" cy="92.0" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<circle cx="53.62" cy="75.47" r="0.5" fill="#222" stroke="#fff" stroke-width="0.15"/>
+<text x="95.0" y="6.0" font-size="3.0" text-anchor="start" fill="#111" font-weight="bold">lochness dev kit wiring (stage 2)</text>
+<text x="95.0" y="9.5" font-size="1.3" text-anchor="start" fill="#555" font-weight="normal">Generated by build_wiring.py from wiring/netlist.py (DEVKIT) and devkit/rig.py wire_plan(). Holes: board, row 1-17, column a-j.</text>
+<text x="95.0" y="11.5" font-size="1.3" text-anchor="start" fill="#555" font-weight="normal">DevKit from USB (its 3V3 feeds the rows). 4xAA into the carrier&#x27;s VIN. All grounds common.</text>
+<text x="95.0" y="15.5" font-size="1.4" text-anchor="start" fill="#333" font-weight="bold">#</text>
+<text x="99.0" y="15.5" font-size="1.4" text-anchor="start" fill="#333" font-weight="bold">Signal</text>
+<text x="129.0" y="15.5" font-size="1.4" text-anchor="start" fill="#333" font-weight="bold">From</text>
+<text x="177.0" y="15.5" font-size="1.4" text-anchor="start" fill="#333" font-weight="bold">To</text>
+<rect x="94.0" y="16.5" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="18.2" x2="98.2" y2="18.2" stroke="#e9c40a" stroke-width="1.2"/>
+<text x="95.4" y="18.7" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">1</text>
+<text x="99.0" y="18.7" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Motor A in 1 (PWM)</text>
+<text x="129.0" y="18.7" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit GPIO 18 (MCU breadboard 8a)</text>
+<text x="177.0" y="18.7" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DRV8833 AIN1 (DRV breadboard 7i)</text>
+<rect x="94.0" y="19.7" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="21.4" x2="98.2" y2="21.4" stroke="#f08a1c" stroke-width="1.2"/>
+<text x="95.4" y="21.9" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">2</text>
+<text x="99.0" y="21.9" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Motor A in 2 (PWM)</text>
+<text x="129.0" y="21.9" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit GPIO 19 (MCU breadboard 9a)</text>
+<text x="177.0" y="21.9" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DRV8833 AIN2 (DRV breadboard 8i)</text>
+<rect x="94.0" y="22.9" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="24.599999999999998" x2="98.2" y2="24.599999999999998" stroke="#f4f4f4" stroke-width="1.2"/>
+<text x="95.4" y="25.099999999999998" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">3</text>
+<text x="99.0" y="25.099999999999998" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Driver enable</text>
+<text x="129.0" y="25.099999999999998" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit GPIO 20 (MCU breadboard 10a)</text>
+<text x="177.0" y="25.099999999999998" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DRV8833 nSLEEP (DRV breadboard 6i)</text>
+<rect x="94.0" y="26.099999999999998" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="27.799999999999997" x2="98.2" y2="27.799999999999997" stroke="#8b3fc1" stroke-width="1.2"/>
+<text x="95.4" y="28.299999999999997" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">4</text>
+<text x="99.0" y="28.299999999999997" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Driver fault (open drain)</text>
+<text x="129.0" y="28.299999999999997" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit GPIO 3 (MCU breadboard 13j)</text>
+<text x="177.0" y="28.299999999999997" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DRV8833 nFAULT (DRV breadboard 5i)</text>
+<rect x="94.0" y="29.299999999999997" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="30.999999999999996" x2="98.2" y2="30.999999999999996" stroke="#d62828" stroke-width="1.2"/>
+<text x="95.4" y="31.499999999999996" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">5</text>
+<text x="99.0" y="31.499999999999996" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">3.3 V</text>
+<text x="129.0" y="31.499999999999996" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit 3V3 (MCU breadboard 16j)</text>
+<text x="177.0" y="31.499999999999996" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">3V3 row (DRV breadboard 15f)</text>
+<rect x="94.0" y="32.49999999999999" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="34.199999999999996" x2="98.2" y2="34.199999999999996" stroke="#222" stroke-width="1.2"/>
+<text x="95.4" y="34.699999999999996" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">6</text>
+<text x="99.0" y="34.699999999999996" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Ground</text>
+<text x="129.0" y="34.699999999999996" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit G (MCU breadboard 16a)</text>
+<text x="177.0" y="34.699999999999996" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">GND row (DRV breadboard 16f)</text>
+<rect x="94.0" y="35.699999999999996" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="37.4" x2="98.2" y2="37.4" stroke="#222" stroke-width="1.2"/>
+<text x="95.4" y="37.9" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">7</text>
+<text x="99.0" y="37.9" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Ground</text>
+<text x="129.0" y="37.9" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">GND row (DRV breadboard 16g)</text>
+<text x="177.0" y="37.9" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DRV8833 GND (DRV breadboard 12h)</text>
+<rect x="94.0" y="38.9" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="40.6" x2="98.2" y2="40.6" stroke="#d62828" stroke-width="1.2"/>
+<text x="95.4" y="41.1" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">8</text>
+<text x="99.0" y="41.1" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Motor M1</text>
+<text x="129.0" y="41.1" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DRV8833 AOUT1 (DRV breadboard 7c)</text>
+<text x="177.0" y="41.1" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">motor cable pin 6</text>
+<rect x="94.0" y="42.1" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="43.800000000000004" x2="98.2" y2="43.800000000000004" stroke="#222" stroke-width="1.2"/>
+<text x="95.4" y="44.300000000000004" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">9</text>
+<text x="99.0" y="44.300000000000004" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Motor M2</text>
+<text x="129.0" y="44.300000000000004" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DRV8833 AOUT2 (DRV breadboard 8c)</text>
+<text x="177.0" y="44.300000000000004" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">motor cable pin 5</text>
+<rect x="94.0" y="45.300000000000004" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="47.00000000000001" x2="98.2" y2="47.00000000000001" stroke="#d62828" stroke-width="1.2"/>
+<text x="95.4" y="47.50000000000001" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">10</text>
+<text x="99.0" y="47.50000000000001" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">3.3 V</text>
+<text x="129.0" y="47.50000000000001" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">3V3 row (DRV breadboard 15h)</text>
+<text x="177.0" y="47.50000000000001" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">motor cable pin 4</text>
+<rect x="94.0" y="48.50000000000001" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="50.20000000000001" x2="98.2" y2="50.20000000000001" stroke="#222" stroke-width="1.2"/>
+<text x="95.4" y="50.70000000000001" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">11</text>
+<text x="99.0" y="50.70000000000001" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Ground</text>
+<text x="129.0" y="50.70000000000001" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">GND row (DRV breadboard 16i)</text>
+<text x="177.0" y="50.70000000000001" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">motor cable pin 1</text>
+<rect x="94.0" y="51.70000000000001" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="53.40000000000001" x2="98.2" y2="53.40000000000001" stroke="#e9c40a" stroke-width="1.2"/>
+<text x="95.4" y="53.90000000000001" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">12</text>
+<text x="99.0" y="53.90000000000001" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Motor encoder A</text>
+<text x="129.0" y="53.90000000000001" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit GPIO 21 (MCU breadboard 11a)</text>
+<text x="177.0" y="53.90000000000001" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">motor cable pin 3</text>
+<rect x="94.0" y="54.90000000000001" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="56.600000000000016" x2="98.2" y2="56.600000000000016" stroke="#26a641" stroke-width="1.2"/>
+<text x="95.4" y="57.100000000000016" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">13</text>
+<text x="99.0" y="57.100000000000016" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Motor encoder B</text>
+<text x="129.0" y="57.100000000000016" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit GPIO 4 (MCU breadboard 12j)</text>
+<text x="177.0" y="57.100000000000016" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">motor cable pin 2</text>
+<rect x="94.0" y="58.100000000000016" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="59.80000000000002" x2="98.2" y2="59.80000000000002" stroke="#2557d6" stroke-width="1.2"/>
+<text x="95.4" y="60.30000000000002" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">14</text>
+<text x="99.0" y="60.30000000000002" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Bolt locked (DRV5032 OUT)</text>
+<text x="129.0" y="60.30000000000002" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit GPIO 22 (MCU breadboard 12a)</text>
+<text x="177.0" y="60.30000000000002" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">hall_locked hole 3 (OUT)</text>
+<rect x="94.0" y="61.30000000000002" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="63.00000000000002" x2="98.2" y2="63.00000000000002" stroke="#d62828" stroke-width="1.2"/>
+<text x="95.4" y="63.50000000000002" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">15</text>
+<text x="99.0" y="63.50000000000002" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">3.3 V</text>
+<text x="129.0" y="63.50000000000002" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">3V3 row (DRV breadboard 15g)</text>
+<text x="177.0" y="63.50000000000002" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">hall_locked hole 1 (VCC)</text>
+<rect x="94.0" y="64.50000000000001" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="66.20000000000002" x2="98.2" y2="66.20000000000002" stroke="#222" stroke-width="1.2"/>
+<text x="95.4" y="66.70000000000002" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">16</text>
+<text x="99.0" y="66.70000000000002" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Ground</text>
+<text x="129.0" y="66.70000000000002" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">GND row (DRV breadboard 16j)</text>
+<text x="177.0" y="66.70000000000002" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">hall_locked hole 5 (GND)</text>
+<rect x="94.0" y="67.70000000000002" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="69.40000000000002" x2="98.2" y2="69.40000000000002" stroke="#2557d6" stroke-width="1.2"/>
+<text x="95.4" y="69.90000000000002" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">17</text>
+<text x="99.0" y="69.90000000000002" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Bolt unlocked (DRV5032 OUT)</text>
+<text x="129.0" y="69.90000000000002" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit GPIO 23 (MCU breadboard 13a)</text>
+<text x="177.0" y="69.90000000000002" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">hall_unlocked hole 3 (OUT)</text>
+<rect x="94.0" y="70.90000000000002" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="72.60000000000002" x2="98.2" y2="72.60000000000002" stroke="#d62828" stroke-width="1.2"/>
+<text x="95.4" y="73.10000000000002" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">18</text>
+<text x="99.0" y="73.10000000000002" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">3.3 V</text>
+<text x="129.0" y="73.10000000000002" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">3V3 row (DRV breadboard 15i)</text>
+<text x="177.0" y="73.10000000000002" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">hall_unlocked hole 1 (VCC)</text>
+<rect x="94.0" y="74.10000000000002" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="75.80000000000003" x2="98.2" y2="75.80000000000003" stroke="#222" stroke-width="1.2"/>
+<text x="95.4" y="76.30000000000003" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">19</text>
+<text x="99.0" y="76.30000000000003" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Ground</text>
+<text x="129.0" y="76.30000000000003" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">GND row (DRV breadboard 16h)</text>
+<text x="177.0" y="76.30000000000003" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">hall_unlocked hole 5 (GND)</text>
+<rect x="94.0" y="77.30000000000003" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="79.00000000000003" x2="98.2" y2="79.00000000000003" stroke="#2557d6" stroke-width="1.2"/>
+<text x="95.4" y="79.50000000000003" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">20</text>
+<text x="99.0" y="79.50000000000003" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Door (DRV5032 OUT)</text>
+<text x="129.0" y="79.50000000000003" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DevKit GPIO 2 (MCU breadboard 14j)</text>
+<text x="177.0" y="79.50000000000003" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">hall_door hole 3 (OUT)</text>
+<rect x="94.0" y="80.50000000000003" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="82.20000000000003" x2="98.2" y2="82.20000000000003" stroke="#d62828" stroke-width="1.2"/>
+<text x="95.4" y="82.70000000000003" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">21</text>
+<text x="99.0" y="82.70000000000003" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">3.3 V</text>
+<text x="129.0" y="82.70000000000003" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">3V3 row (DRV breadboard 15j)</text>
+<text x="177.0" y="82.70000000000003" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">hall_door hole 1 (VCC)</text>
+<rect x="94.0" y="83.70000000000003" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="85.40000000000003" x2="98.2" y2="85.40000000000003" stroke="#222" stroke-width="1.2"/>
+<text x="95.4" y="85.90000000000003" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">22</text>
+<text x="99.0" y="85.90000000000003" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Ground</text>
+<text x="129.0" y="85.90000000000003" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DRV8833 GND (DRV breadboard 12b)</text>
+<text x="177.0" y="85.90000000000003" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">hall_door hole 5 (GND)</text>
+<rect x="94.0" y="86.90000000000003" width="124.0" height="3.2" fill="#f1eee7"/>
+<line x1="96.5" y1="88.60000000000004" x2="98.2" y2="88.60000000000004" stroke="#d62828" stroke-width="1.2"/>
+<text x="95.4" y="89.10000000000004" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">23</text>
+<text x="99.0" y="89.10000000000004" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Battery + (4xAA, 6 V)</text>
+<text x="129.0" y="89.10000000000004" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">4xAA + contact</text>
+<text x="177.0" y="89.10000000000004" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DRV8833 VIN (DRV breadboard 11b)</text>
+<rect x="94.0" y="90.10000000000004" width="124.0" height="3.2" fill="none"/>
+<line x1="96.5" y1="91.80000000000004" x2="98.2" y2="91.80000000000004" stroke="#222" stroke-width="1.2"/>
+<text x="95.4" y="92.30000000000004" font-size="1.2" text-anchor="end" fill="#333" font-weight="normal">24</text>
+<text x="99.0" y="92.30000000000004" font-size="1.25" text-anchor="start" fill="#333" font-weight="normal">Ground</text>
+<text x="129.0" y="92.30000000000004" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">4xAA - contact</text>
+<text x="177.0" y="92.30000000000004" font-size="1.2" text-anchor="start" fill="#333" font-weight="normal">DRV8833 GND (DRV breadboard 12a)</text>
+<text x="95.0" y="98.30000000000004" font-size="1.2" text-anchor="start" fill="#7b241c" font-weight="normal">Check before powering: the Hall adapter holes (VCC/OUT/GND) depend on how each chip is soldered;</text>
+<text x="95.0" y="100.50000000000004" font-size="1.2" text-anchor="start" fill="#7b241c" font-weight="normal">the DevKitM-1 board thickness and mini breadboard size are UNCONFIRMED (fit only, not wiring).</text>
+<text x="95.0" y="102.70000000000005" font-size="1.2" text-anchor="start" fill="#7b241c" font-weight="normal">The dev kit powers the motor encoder all the time; the product switches it (ENC_nEN, GPIO 5).</text>
+</svg>

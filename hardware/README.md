@@ -143,7 +143,7 @@ The tall slab (B), opened up for firmware work on a real door. It mounts the sam
 - **Hall switches:** the three DRV5032s are on SOT-23 adapters, glued chip-down into a printed carrier on three spacers. The chips' faces are where the product PCB's underside is, so they see the bolt flag's magnet exactly as on the product. Their header pins come up through the carrier for jumper wires.
 - **Open cover:** the slab's shape with a big front window, so the wiring stays in view, and a side slot for the DevKit's USB cable. It's 17 mm taller than the slab, to fit the second breadboard. Clear PETG works well for it.
 - **Changing cells:** there's no battery door. Remove the cover (two screws, two snaps) and the deck (four screws).
-- **Wiring:** all 24 jumper wires are modelled, coloured by signal, including the motor's 6-wire cable. `WIRING` in `devkit/rig.py` is the proposed pin map: motor PWM on GPIO 18/19, driver enable 20, driver fault 3, motor encoder A/B on 21/4, bolt locked/unlocked switches on 22/23, door switch on 2. It avoids the strapping, USB and UART pins. 3V3 and GND are shared along two spare rows of the driver's breadboard. The 4xAA pack feeds the carrier's VIN and the DevKit runs from USB. A test checks that no breadboard hole takes two wires.
+- **Wiring:** all 24 jumper wires are modelled, coloured by signal, including the motor's 6-wire cable. The pin map is the net list's (`wiring/netlist.py`, see Wiring below); `wire_plan()` in `devkit/rig.py` picks the holes and routes: motor PWM on GPIO 18/19, driver enable 20, driver fault 3, motor encoder A/B on 21/4, bolt locked/unlocked switches on 22/23, door switch on 2. It avoids the strapping, USB and UART pins. 3V3 and GND are shared along two spare rows of the driver's breadboard. The 4xAA pack feeds the carrier's VIN and the DevKit runs from USB. A test checks that no breadboard hole takes two wires.
 - **Regulator:** the TPS629206 is the one product chip not in the kit. The DevKit makes its own 3.3 V from USB, and its USB-serial chip and power LED would swamp a sleep-current measurement anyway, so battery life is measured on the first product PCB.
 
 ```sh
@@ -153,6 +153,74 @@ uv run python -m devkit.check         # the same checks as the concepts
 ```
 
 UNMEASURED or UNCONFIRMED: mini breadboard size (47 x 35 mm here; they vary); the DevKitM-1's board thickness (1.6 assumed; Espressif's drawing gives the outline, headers, module and USB positions); the SOT-23 adapter's size (SparkFun's Eagle file says 10.16 x 7.62, its product page 8.6 x 11.7) and which holes carry VCC, OUT and GND; the motor's output shaft length (10 mm on Pololu's drawing, 9 on its product page).
+
+## Wiring (`wiring/`)
+
+One net list drives the dev kit model, the breadboard drawings and the main PCB's KiCad schematic, so they can't disagree. `wiring/netlist.py` has three layers:
+
+- `PIN_MAP`: which GPIO does what. Point the firmware's pin table here.
+- `CORE`: the circuit as function blocks (MCU, driver, motor, three Hall switches, battery) and the nets between them, the same in every stage.
+- One `Stage` per build, mapping each block pin to a real part pin: `BENCH` (the parts on hand), `DEVKIT` (the breakouts) and `PRODUCT` in `wiring/product.py` (the chips, plus the regulator and passives). A stage can leave a block pin out or move it to another net, but only with a stated reason; only the bench does.
+
+| Stage | Source | Output |
+|---|---|---|
+| 1. Bench (parts on hand) | `BENCH` in `wiring/bench.py` | `drawings/bench-wiring.svg`: one 830-point breadboard, every hole, every wire, and a table |
+| 2. Printed dev kit | `DEVKIT` + `wire_plan()` in `devkit/rig.py` | `drawings/devkit-wiring.svg`: every hole as modelled, every wire, and a table |
+| 3. Product main PCB | `PRODUCT` | `pcb/main/`: a KiCad 10 project (open `lochness-main.kicad_pro`) |
+
+```sh
+uv run build_wiring.py                # drawings/, pcb/main/, out/wiring/lochness-main.pdf; checks the nets and ERC
+uv run pytest tests/test_wiring.py    # stage consistency, dev kit wires = net list, schematic = net list, ERC
+```
+
+The tests check that the dev kit's wires (through the breadboard strips and the boards' own ground copper) join exactly `DEVKIT`'s nets, and that every 3D wire follows the plan. They also check that KiCad's own net list for the committed schematic equals `PRODUCT`'s, so a schematic edited by hand in KiCad is held to the net list too. The schematic is label-connected: each pin has a stub and its net's label, laid out by group. It's a generated first draft, so expect to rearrange it in KiCad before layout. Every part has a `Why` field giving its purpose and the datasheet section its value comes from.
+
+The bench (stage 1) builds the same circuit from the parts on hand. It keeps the dev kit's GPIO map, so the same firmware runs on both:
+
+| Block | Bench part | Difference |
+|---|---|---|
+| MCU | Espressif ESP32-C6 DevKit | Drawn as the DevKitM-1. A DevKitC-1 has the same GPIO numbers on different rows. |
+| Motor driver | TB6612FNG breakout | STBY on GPIO 20 (where nSLEEP was), and PWMA tied to 3.3 V so PWM on AIN1/AIN2 works as on the DRV8833. No fault output, so GPIO 3 is unused. |
+| Motor | N20, no encoder | GPIO 21 and 4 are unused; the bolt Hall switches and timeouts stand in for the encoder. |
+| Hall switches | 3x A3144 | They need 4.5 V or more, so they run from the DevKit's 5 V. The outputs are open collector, so enable the GPIO pull-ups. They respond only to a south pole on the branded face. |
+| Motor supply | 2x 18650 in series, then an MP1584EN set to 6.0 V | Set the MP1584 before connecting it. Charge the cells one at a time with the TP4056 (a 1-cell charger). The pack has no protection: stop at 3.0 V per cell. |
+
+The XIAO ESP32C6, the PN532 and the ELEGOO kit's power module aren't used. The dev kit's BOM and `WIRING` are unchanged: these substitutions are bench-only.
+
+### Electrical rule check (`wiring/erc.py`)
+
+Every stage's net list is checked before anything is drawn. `build_wiring.py` stops on a failure, and `tests/test_erc.py` runs the same check. Each part pin has an electrical model taken from its datasheet: source, follower (a switched FET), ground, supply input with its range, logic input, GPIO, open-drain or push-pull output, resistor, or passive. From those the checker works out each net's voltage range, then checks:
+
+| Rule | Catches |
+|---|---|
+| one-driver | two supplies or push-pull outputs fighting on one net |
+| short-to-ground | a supply or output on GND |
+| over-voltage | a net above any of its pins' maximum (5 V on a 3.3 V GPIO, the pack on logic VCC) |
+| under-voltage | a supply pin below its minimum (an A3144 on 3.3 V), or with nothing supplying it |
+| pull-up | an open-drain output with no resistor and no GPIO pull-up on its net |
+| ground | a powered part with no ground, or a ground pin on another net |
+| strapping | GPIO 8 or 9 pulled low, or driven by another part, at boot |
+
+Some things the inference can't work out alone, so they're declared per stage with a reason:
+
+- GPIO pull-ups the firmware must enable: bench GPIO 2, 22 and 23; dev kit GPIO 3. `build_wiring.py` prints these.
+- The battery-sense divider's range.
+
+The tests seed one mistake per rule and check that it's caught. Examples: GPIO 22 on the 5 V rail, the 18650 pack on the TB6612's VCC, the DevKit's 3V3 shorted to GND, and the nFAULT pull-up removed.
+
+It checks the parts as their datasheets describe them. A board whose silkscreen differs from the pin order a model assumes still needs checking by eye.
+
+What the product adds beyond the dev kit:
+
+- **Power:** P-FET reverse-battery protection, then the TPS629206. It runs in VSET mode with FB/VSET open for 3.3 V and a 27.4k MODE resistor for auto PFM/PWM. PG is left open.
+- **Encoder supply:** a P-FET switches the encoder's power from GPIO 5, active low. The dev kit leaves it on, but the product's 60 uA sleep budget can't.
+- **Battery voltage:** a 4.7M/3.3M divider with 100 nF into GPIO 6 (ADC1), drawing 0.9 uA.
+- **Status LED:** the RGB LED's anode is on the cells, because green and blue need 3.3 V forward. Three N-FETs on GPIO 7/14/15 switch the cathodes.
+- **Pairing button:** on GPIO 9 (BOOT).
+- **Sleep clock:** a 32.768 kHz crystal on GPIO 0/1.
+- **Programming:** a 1x8 header with USB D-/D+, EN, BOOT, UART0 and power.
+
+Open items, also listed on the schematic: D1 (Kingbright APTF1616) has no footprint yet. Check L1's 1008 footprint against Murata's DFE252012PD land pattern, and which J2 pin the battery lead's red wire lands on. Size C1 on the dev kit. The Hall adapter holes (VCC 1, OUT 3, GND 5) are still assumed, and so is the Pololu cable's fit in a genuine SM06B-SRSS-TB.
 
 ## License
 
