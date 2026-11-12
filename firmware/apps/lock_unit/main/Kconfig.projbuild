@@ -59,6 +59,26 @@ menu "Lochness lock unit"
             string "Product URL (empty = none)"
             default ""
 
+        config LOCHNESS_SUBSCRIPTION_MAX_INTERVAL_S
+            int "Longest silence on a subscription (s, 0 = controller's choice)"
+            range 0 3600
+            default 60
+            help
+                Caps the max interval the lock grants a subscribing
+                controller. The lock must report at least this often, even
+                with nothing changed, and the controller treats a missed
+                report as a dead subscription and resubscribes. Apple Home
+                asks for 600 s, so a subscription lost to radio trouble left
+                Home showing stale state (stuck on "Unlocking") for up to
+                about 10 minutes; 60 s bounds that to about a minute, at the
+                cost of one small keep-alive report per minute.
+
+                TODO(production): 60 s is a development value. A battery lock
+                (sleepy end device / Matter ICD) wakes its radio for every
+                keep-alive, so measure the power cost and choose a production
+                value with the power work. An ICD also cannot grant less than
+                its idle mode duration, so revisit this then.
+
     endmenu
 
 endmenu

@@ -13,6 +13,7 @@
  */
 #include "matter_lock.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -22,6 +23,8 @@
 
 #include <app-common/zap-generated/attributes/Accessors.h>
 #include <app-common/zap-generated/callback.h>
+#include <app/InteractionModelEngine.h>
+#include <app/ReadHandler.h>
 #include <app/clusters/door-lock-server/door-lock-server.h>
 #include <app/data-model/Nullable.h>
 #include <app/server/CommissioningWindowManager.h>
@@ -52,9 +55,11 @@
 #include <platform/ThreadStackManager.h>
 #include <platform/internal/BLEManager.h>
 #include <protocols/interaction_model/StatusCode.h>
+#include <sdkconfig.h>
 #include <setup_payload/OnboardingCodesUtil.h>
 #include <setup_payload/SetupPayload.h>
 #include <system/SystemClock.h>
+#include <transport/SecureSession.h>
 
 #include "ble_server.h"
 #include "device_info.h"
@@ -294,6 +299,45 @@ void on_lock_config(const lc_config_t *cfg)
     (void)chip::DeviceLayer::PlatformMgr().ScheduleWork(apply_auto_relock, static_cast<intptr_t>(cfg->auto_relock_s));
 }
 
+/* ---- subscriptions --------------------------------------------------------- */
+
+/* A controller only learns that a subscription died when the lock's next
+ * report is overdue, so the max interval bounds how long it shows stale
+ * state. Cap it (never raise it) at CONFIG_LOCHNESS_SUBSCRIPTION_MAX_INTERVAL_S.
+ * TODO(production): 60 s is a development value; see the Kconfig help. */
+class subscription_cap_t : public chip::app::ReadHandler::ApplicationCallback {
+public:
+    CHIP_ERROR OnSubscriptionRequested(chip::app::ReadHandler &handler,
+                                       chip::Transport::SecureSession & /*session*/) override
+    {
+        uint16_t min_s = 0;
+        uint16_t max_s = 0;
+        handler.GetReportingIntervals(min_s, max_s);
+        const auto cap = static_cast<uint16_t>(CONFIG_LOCHNESS_SUBSCRIPTION_MAX_INTERVAL_S);
+        if (cap == 0 || max_s <= cap) {
+            return CHIP_NO_ERROR;
+        }
+        /* Must stay at or above the controller's min interval floor. */
+        const uint16_t target = std::max(min_s, cap);
+        const CHIP_ERROR err = handler.SetMaxReportingInterval(target);
+        if (err != CHIP_NO_ERROR) {
+            /* Keep the controller's interval rather than refuse the subscription. */
+            ESP_LOGW(TAG, "could not cap subscription max interval %us to %us: %" CHIP_ERROR_FORMAT,
+                     static_cast<unsigned>(max_s), static_cast<unsigned>(target), err.Format());
+            return CHIP_NO_ERROR;
+        }
+        ESP_LOGI(TAG, "subscription max interval %us -> %us", static_cast<unsigned>(max_s),
+                 static_cast<unsigned>(target));
+        return CHIP_NO_ERROR;
+    }
+};
+
+void register_subscription_cap(intptr_t /*arg*/)
+{
+    static subscription_cap_t cap;
+    chip::app::InteractionModelEngine::GetInstance()->RegisterReadHandlerAppCallback(&cap);
+}
+
 /* ---- node ------------------------------------------------------------------ */
 
 void app_event_cb(const ChipDeviceEvent *event, intptr_t /*arg*/)
@@ -494,6 +538,10 @@ extern "C" esp_err_t matter_lock_start(void)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "failed to start Matter: %s", esp_err_to_name(err));
         return err;
+    }
+    /* On the CHIP thread, before any controller can subscribe over CASE. */
+    if (chip::DeviceLayer::PlatformMgr().ScheduleWork(register_subscription_cap, 0) != CHIP_NO_ERROR) {
+        ESP_LOGW(TAG, "subscription max interval not capped");
     }
     lock_task_set_state_observer(on_lock_state);
     lock_task_set_config_observer(on_lock_config);
