@@ -14,8 +14,8 @@ main PCB, each on a breakout (concepts/parts.py), so what is learned on it carri
 - the cover has a big front window (the wiring stays in view) and a slot for the
   DevKit's USB cables; it is 17 mm taller than the slab's to fit the second breadboard
 - no battery door: lift the cover and the deck (four screws) to change cells
-- the TPS629206 regulator is the one chip not on the deck: its EVM is for bench
-  battery-life runs, with the DevKit unplugged from USB
+- the TPS629206 regulator is the one product chip not in the kit: the DevKit makes its
+  own 3.3 V from USB, so battery life is measured on the first product PCB
 
 Frame: the fixture's (deadbolt/fixture.py). WIRING is the proposed pin map;
 build_devkit.py writes it to WIRING.md.

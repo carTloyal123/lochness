@@ -35,9 +35,8 @@ def bom(u) -> str:
              "same chips as the product's main PCB, each on a breakout: the ESP32-C6-DevKitM-1 and "
              "the Pololu DRV8833 carrier on two mini breadboards on a deck, and the three DRV5032 Hall "
              "switches on SOT-23 adapters in a carrier over the bolt flag. See WIRING.md for the pin "
-             "map.\n",
-             "Bench only, not mounted: TI TPS629206EVM (the product's 3.3 V buck), for battery-life "
-             "runs from the cells with the DevKit off USB.\n"]
+             "map. The product's TPS629206 regulator isn't in the kit: the DevKit makes its own "
+             "3.3 V from USB.\n"]
     for kind, title in SECTIONS + [(WIRE, "Wires")]:
         counts = Counter(i.desc for i in u.items.values() if i.kind == kind)
         if counts:

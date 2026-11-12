@@ -8,7 +8,7 @@ the dev kit uses a breakout of each.
 | MCU, Thread + BLE | ESP32-C6-MINI-1-N4 | ESP32-C6-DevKitM-1 (the same module) |
 | Motor driver | DRV8833PWPR | Pololu #2130 carrier |
 | Bolt and door position | DRV5032FADBZR | SparkFun BOB-00717 SOT-23 adapter |
-| 3.3 V from the cells | TPS629206DRLR | TPS629206EVM (bench only) |
+| 3.3 V from the cells | TPS629206DRLR | none: the DevKit makes its own 3.3 V |
 | Motor + encoder | Pololu #5193 (150:1) / #5185 (30:1, worm) | the same |
 
 Each model is built in its own frame (see each function), as coloured solids plus named
@@ -29,7 +29,6 @@ SOURCES = {
     "DRV8833": "https://www.ti.com/lit/ds/symlink/drv8833.pdf",
     "DRV5032": "https://www.ti.com/lit/ds/symlink/drv5032.pdf",
     "TPS629206": "https://www.ti.com/lit/ds/symlink/tps629206.pdf",
-    "TPS629206EVM": "https://www.ti.com/lit/pdf/slvucc4",
     "Pololu 2130": "https://www.pololu.com/file/0J1615/drv8833-dual-motor-driver-carrier-dimensions.pdf",
     "Pololu 5193": "https://www.pololu.com/file/0J949/micro-metal-gearmotors-dimensions.pdf",
     "SparkFun BOB-00717": "https://cdn.sparkfun.com/datasheets/BreakoutBoards/SparkFun_SOT23-DIP-Adapter-v10.zip",
@@ -232,16 +231,6 @@ def sot23_adapter_with_hall() -> Model:
             for x, names in ((-3.81, (1, 2, 3)), (3.81, (6, 5, 4))) for n, k in zip(names, (-1, 0, 1))}
     pins["sensor"] = (0, 0, -0.65)
     return Model(s, pins)
-
-
-def tps629206_evm() -> Model:
-    """TI TPS629206EVM. UNCONFIRMED outline: the user guide gives none; ~54 x 39 scaled from
-    its layout image, 4 corner holes. J1 (VIN, S+/S-, GND) on the left edge, J2 (VOUT, sense,
-    GND) on the right. Bench only: it is not mounted in the dev kit."""
-    s = [_box(0, 54, 0, 39, 0, 1.6, FR4_GREEN), _box(26, 28.1, 19, 20.2, 1.6, 2.2, EPOXY)]
-    s.append(_header_row(2.54, 12.0, 6, 1.6, 1.6 + HEADER_H))
-    s.append(_header_row(51.46, 12.0, 6, 1.6, 1.6 + HEADER_H))
-    return Model(s)
 
 
 # --- the motor --------------------------------------------------------------------------

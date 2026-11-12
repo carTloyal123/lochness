@@ -78,6 +78,7 @@ Three layouts built from real parts on the fixture, so they can be compared and 
 ```sh
 uv run build_concepts.py              # per concept: STEP, STLs of printed parts, BOM.md, renders -> out/concepts/<key>/
 uv run python -m concepts.check       # assembly problems, listed
+uv run bom.py                         # costed BOM CSVs for A, B, C and the dev kit -> bom/<key>.csv
 uv run pytest tests/test_concepts.py
 ```
 
@@ -96,7 +97,7 @@ The product and the dev kit use the same chips. `concepts/parts.py` models each 
 | MCU, Thread + BLE | ESP32-C6-MINI-1-N4 (13.2 x 16.6 x 2.4) | ESP32-C6-DevKitM-1 (25.4 x 48.26, the same module) |
 | Motor driver | DRV8833PWPR, HTSSOP-16 | Pololu #2130 carrier (12.7 x 20.3) |
 | Bolt and door switches (3) | DRV5032FADBZR, SOT-23 | SparkFun BOB-00717 SOT-23 adapters, chip-down |
-| 3.3 V from the cells | TPS629206DRLR, SOT-583 (3-17 V in, 4 uA) | TPS629206EVM, bench only |
+| 3.3 V from the cells | TPS629206DRLR, SOT-583 (3-17 V in, 4 uA) | none: the DevKit makes its own 3.3 V |
 | Motor + encoder | Pololu #5193 (150:1); #5185 (30:1) in the worm drive | the same |
 | Motor cable socket | JST SM06B-SRSS-TB (6-pin SH, side entry) | the motor cable's own plug, to the breadboards |
 
@@ -143,7 +144,7 @@ The tall slab (B), opened up for firmware work on a real door. It mounts the sam
 - **Open cover:** the slab's shape with a big front window, so the wiring stays in view, and a side slot for the DevKit's USB cable. It's 17 mm taller than the slab, to fit the second breadboard. Clear PETG works well for it.
 - **Changing cells:** there's no battery door. Remove the cover (two screws, two snaps) and the deck (four screws).
 - **Wiring:** all 24 jumper wires are modelled, coloured by signal, including the motor's 6-wire cable. `WIRING` in `devkit/rig.py` is the proposed pin map: motor PWM on GPIO 18/19, driver enable 20, driver fault 3, motor encoder A/B on 21/4, bolt locked/unlocked switches on 22/23, door switch on 2. It avoids the strapping, USB and UART pins. 3V3 and GND are shared along two spare rows of the driver's breadboard. The 4xAA pack feeds the carrier's VIN and the DevKit runs from USB. A test checks that no breadboard hole takes two wires.
-- **Regulator:** the TPS629206 is the one product chip not on the deck. Its EVM is for bench battery-life runs from the cells, with the DevKit off USB (feeding the DevKit's 3V3 pin while USB is in would fight its own regulator).
+- **Regulator:** the TPS629206 is the one product chip not in the kit. The DevKit makes its own 3.3 V from USB, and its USB-serial chip and power LED would swamp a sleep-current measurement anyway, so battery life is measured on the first product PCB.
 
 ```sh
 uv run view.py devkit                 # in the viewer, on the door (or Cmd+Shift+B -> devkit)
@@ -151,7 +152,7 @@ uv run build_devkit.py                # STEP, printed-part STLs, BOM.md, WIRING.
 uv run python -m devkit.check         # the same checks as the concepts
 ```
 
-UNMEASURED or UNCONFIRMED: mini breadboard size (47 x 35 mm here; they vary); the DevKitM-1's board thickness (1.6 assumed; Espressif's drawing gives the outline, headers, module and USB positions); the SOT-23 adapter's size (SparkFun's Eagle file says 10.16 x 7.62, its product page 8.6 x 11.7) and which holes carry VCC, OUT and GND; the motor's output shaft length (10 mm on Pololu's drawing, 9 on its product page); the TPS629206EVM's outline (no drawing; about 54 x 39).
+UNMEASURED or UNCONFIRMED: mini breadboard size (47 x 35 mm here; they vary); the DevKitM-1's board thickness (1.6 assumed; Espressif's drawing gives the outline, headers, module and USB positions); the SOT-23 adapter's size (SparkFun's Eagle file says 10.16 x 7.62, its product page 8.6 x 11.7) and which holes carry VCC, OUT and GND; the motor's output shaft length (10 mm on Pololu's drawing, 9 on its product page).
 
 ## License
 
