@@ -229,7 +229,7 @@ def rows(key: str, u: Unit) -> list[dict]:
         if b and b.on_pcb:
             note = f"On the PCB; cost in the PCB line (${b.usd:.2f} each loose). {b.note}".strip()
         out.append({"Category": CATEGORY[cat], "Qty": qty, "Part": desc,
-                    "Manufacturer": b.mfr if b else "printed", "MPN": b.mpn if b else "",
+                    "Manufacturer": b.mfr if b else ("printed" if cat == PRINTED else "kit"), "MPN": b.mpn if b else "",
                     "Supplier": b.supplier if b else "", "Supplier SKU": b.sku if b else "",
                     "Unit USD": f"{unit:.2f}", "Extended USD": f"{unit * qty:.2f}",
                     "Required": "yes" if required else "optional", "In model": "yes" if in_model else "no",

@@ -3,8 +3,11 @@
     uv run build_wiring.py
 
 Writes (committed, so they show on GitHub):
-  drawings/bench-wiring.svg    stage 1: the parts on hand on one 830-point breadboard
-  drawings/devkit-wiring.svg   stage 2: the printed dev kit's breadboards, every wire and hole
+  SETUP.md                     the build guide for stages 1 and 2: parts, layout, wiring, setup steps
+  drawings/bench-layout.svg    stage 1: where the parts go on one 830-point breadboard
+  drawings/bench-wiring.svg    stage 1: every wire and hole
+  drawings/devkit-layout.svg   stage 2: where the parts go on the printed dev kit's breadboards
+  drawings/devkit-wiring.svg   stage 2: every wire and hole
   pcb/main/                    stage 3: KiCad 10 project for the main PCB (open lochness-main.kicad_pro)
 and, not committed, out/wiring/lochness-main.pdf, a PDF of the schematic.
 
@@ -21,7 +24,7 @@ from pathlib import Path
 
 from wiring import erc
 from wiring import kicad as K
-from wiring import schematic
+from wiring import guide, schematic
 from wiring.bench import BENCH, bench_svg, plan_connectivity as bench_connectivity
 from wiring.breadboard import devkit_svg
 from wiring.netlist import DEVKIT
@@ -31,6 +34,13 @@ HERE = Path(__file__).resolve().parent
 DRAWINGS = HERE / "drawings"
 PCB = HERE / "pcb" / "main"
 OUT = HERE / "out" / "wiring"
+DRAWN = {  # generated text files, committed; tests/test_wiring.py checks each is current
+    DRAWINGS / "bench-layout.svg": lambda: bench_svg(wires=False),
+    DRAWINGS / "bench-wiring.svg": bench_svg,
+    DRAWINGS / "devkit-layout.svg": lambda: devkit_svg(wires=False),
+    DRAWINGS / "devkit-wiring.svg": devkit_svg,
+    HERE / "SETUP.md": guide.setup_md,
+}
 
 
 def main() -> int:
@@ -50,10 +60,9 @@ def main() -> int:
             print(f"  {stage.key} firmware must: {req}")
 
     DRAWINGS.mkdir(exist_ok=True)
-    (DRAWINGS / "bench-wiring.svg").write_text(bench_svg())
-    print(f"wrote {(DRAWINGS / 'bench-wiring.svg').relative_to(HERE)}")
-    (DRAWINGS / "devkit-wiring.svg").write_text(devkit_svg())
-    print(f"wrote {(DRAWINGS / 'devkit-wiring.svg').relative_to(HERE)}")
+    for path, text in DRAWN.items():
+        path.write_text(text())
+        print(f"wrote {path.relative_to(HERE)}")
 
     sch = schematic.build(PCB)
     print(f"wrote {sch.relative_to(HERE)}")

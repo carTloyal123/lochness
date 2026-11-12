@@ -140,11 +140,35 @@ def merge(groups: list[set]) -> set[frozenset]:
 # ('J1-1' .. 'J3-15'); carrier pins are 'P-<name>' (power row) and 'C-<name>' (control row);
 # adapter pins are its six holes; the motor's are its cable's pins.
 
-def _devkit_pin(name: str) -> str:
-    for hdr, pins in (("J1", DEVKITM_J1), ("J3", DEVKITM_J3)):
+def _devkit_pin(name: str, j1: list[str] = DEVKITM_J1, j3: list[str] = DEVKITM_J3) -> str:
+    for hdr, pins in (("J1", j1), ("J3", j3)):
         if name in pins:
             return f"{hdr}-{pins.index(name) + 1}"
     raise KeyError(name)
+
+
+def devkit_part(name: str, j1: list[str], j3: list[str]) -> Part:
+    """An Espressif DevKit as a part: its pins are header positions, J1-1 .. J3-n."""
+    return Part("devkit", name, [f"J1-{k + 1}" for k in range(len(j1))] + [f"J3-{k + 1}" for k in range(len(j3))])
+
+
+def devkit_blocks(j1: list[str], j3: list[str]) -> dict[Pin, Pin]:
+    """The MCU block's pins on a DevKit's headers, found by GPIO number."""
+    return {("MCU", "3V3"): ("devkit", _devkit_pin("3V3", j1, j3)),
+            ("MCU", "GND"): ("devkit", "J3-1"),
+            **{("MCU", f"GPIO{g}"): ("devkit", _devkit_pin(str(g), j1, j3)) for g, _, _ in PIN_MAP.values()}}
+
+
+def devkit_ground_tie(j1: list[str], j3: list[str]) -> tuple[Pin, ...]:
+    """A DevKit's G pins, joined by its own ground copper."""
+    return tuple(("devkit", f"{hdr}-{k + 1}") for hdr, pins in (("J1", j1), ("J3", j3))
+                 for k, n in enumerate(pins) if n == "G")
+
+
+def devkit_pin_name(pin: str, j1: list[str], j3: list[str]) -> str:
+    """'J3-10' -> what the silkscreen says there ('18', 'G', '3V3')."""
+    hdr, k = pin.split("-")
+    return (j1 if hdr == "J1" else j3)[int(k) - 1]
 
 
 # Which adapter holes carry the DRV5032's pins depends on how it sits on the SOT-23-6 pads;
@@ -156,8 +180,7 @@ HALL_PARTS = {"HALL_LOCKED": "hall_locked", "HALL_UNLOCKED": "hall_unlocked", "H
 DEVKIT = Stage(
     key="devkit", title="Stage 2: printed dev kit",
     parts={
-        "devkit": Part("devkit", "ESP32-C6-DevKitM-1",
-                       [f"J1-{k + 1}" for k in range(15)] + [f"J3-{k + 1}" for k in range(15)]),
+        "devkit": devkit_part("ESP32-C6-DevKitM-1", DEVKITM_J1, DEVKITM_J3),
         "drv8833": Part("drv8833", "Pololu #2130 DRV8833 carrier",
                         [f"P-{n}" for n in POLOLU_2130_PWR] + [f"C-{n}" for n in POLOLU_2130_CTL]),
         **{r: Part(r, f"DRV5032FA on SparkFun BOB-00717 ({r.split('_')[1]})", list("123456"))
@@ -166,9 +189,7 @@ DEVKIT = Stage(
         "battery": Part("battery", "4xAA lithium, end contacts", ["+", "-"]),
     },
     blocks={
-        ("MCU", "3V3"): ("devkit", _devkit_pin("3V3")),
-        ("MCU", "GND"): ("devkit", "J3-1"),
-        **{("MCU", f"GPIO{g}"): ("devkit", _devkit_pin(str(g))) for g, _, _ in PIN_MAP.values()},
+        **devkit_blocks(DEVKITM_J1, DEVKITM_J3),
         ("DRIVER", "VM"): ("drv8833", "P-VIN"),
         ("DRIVER", "GND"): ("drv8833", "C-GND"),
         **{("DRIVER", n): ("drv8833", f"C-{n}") for n in ("AIN1", "AIN2", "nSLEEP", "nFAULT")},
@@ -183,6 +204,5 @@ DEVKIT = Stage(
     # The DevKit runs from USB and its 3.3 V is always on, so the encoder is too.
     aliases={"ENC_VCC": "+3V3"},
     ties=[(("drv8833", "P-GND"), ("drv8833", "C-GND")),
-          tuple(("devkit", f"{hdr}-{k + 1}") for hdr, pins in (("J1", DEVKITM_J1), ("J3", DEVKITM_J3))
-                for k, n in enumerate(pins) if n == "G")],
+          devkit_ground_tie(DEVKITM_J1, DEVKITM_J3)],
 )

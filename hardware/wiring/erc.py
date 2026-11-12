@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 
 from concepts.parts import DEVKITM_J1, DEVKITM_J3
 
-from .netlist import DEVKIT, Pin, Stage
+from .netlist import DEVKIT, Pin, Stage, devkit_pin_name
 
 GND_NET = "GND"
 STRAPS_HIGH = {8: "GPIO8 must be 1 for download mode", 9: "GPIO9 must be 1 for SPI boot"}
@@ -63,13 +63,17 @@ GND, PAS, NC, RES = E("gnd"), E("passive"), E("nc"), E("res")
 
 # --- part models: pin name -> E ---------------------------------------------------------------
 
-def devkitm1(pin: str) -> E:
-    """ESP32-C6-DevKitM-1: 3V3 from its LDO; 5V is USB VBUS behind a diode; GPIOs take
-    VDD + 0.3 = 3.6 V (ESP32-C6 datasheet, absolute maximum ratings)."""
-    hdr, k = pin.split("-")
-    name = (DEVKITM_J1 if hdr == "J1" else DEVKITM_J3)[int(k) - 1]
-    return {"3V3": SRC(3.2, 3.4), "5V": SRC(4.7, 5.25), "G": GND, "RST": IN(3.6),
-            "TX": IO(16), "RX": IO(17)}.get(name) or IO(int(name))
+def espressif_devkit(j1: list[str], j3: list[str]) -> Callable[[str], E]:
+    """An ESP32-C6 DevKit (M-1 or C-1): 3V3 from its LDO; 5V is USB VBUS behind a diode; GPIOs
+    take VDD + 0.3 = 3.6 V (ESP32-C6 datasheet, absolute maximum ratings)."""
+    def model(pin: str) -> E:
+        name = devkit_pin_name(pin, j1, j3)
+        return {"3V3": SRC(3.2, 3.4), "5V": SRC(4.7, 5.25), "G": GND, "RST": IN(3.6), "NC": NC,
+                "TX": IO(16), "RX": IO(17)}.get(name) or IO(int(name))
+    return model
+
+
+devkitm1 = espressif_devkit(DEVKITM_J1, DEVKITM_J3)
 
 
 def pololu_2130(pin: str) -> E:
@@ -206,7 +210,7 @@ def configs() -> dict[str, Config]:
             else (lambda pin: PAS))
     return {
         "bench": Config(
-            models={"devkit": devkitm1, "tb6612": tb6612, **{h: a3144 for h in halls}, "motor": lambda p: PAS,
+            models={"devkit": espressif_devkit(bench.DEVKITC_J1, bench.DEVKITC_J3), "tb6612": tb6612, **{h: a3144 for h in halls}, "motor": lambda p: PAS,
                     "buck": mp1584, "battery": pack_2s},
             pullups={_gpio_pin(bench.BENCH, g) for g in (22, 23, 2)}),
         "devkit": Config(

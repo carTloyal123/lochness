@@ -39,30 +39,30 @@ Printed,1,"Manual knob, PETG/ASA",printed,,,,0.36,0.36,yes,yes,yes,,"Filament, 1
 Printed,1,"Motor pinion, m1 10T (or brass, pressed)",printed,,,,0.01,0.01,yes,yes,yes,,"Filament, 0.4 cm3 solid each (PETG 1.27 g/cm3 at $20/kg)."
 Printed,1,"Open cover with a front window and USB slot, PETG (clear works)",printed,,,,1.37,1.37,yes,yes,yes,,"Filament, 53.9 cm3 solid each (PETG 1.27 g/cm3 at $20/kg)."
 Printed,1,"Output gear, m1 40T, lost-motion pocket 132 deg",printed,,,,0.13,0.13,yes,yes,yes,,"Filament, 5.3 cm3 solid each (PETG 1.27 g/cm3 at $20/kg)."
-Wire,1,"Jumper wire, black: GND row to the DRV8833 GND",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, black: J3 GND to the GND row",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, black: battery - to the DRV8833 GND",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, black: hall_door GND",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, black: hall_locked GND",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, black: hall_unlocked GND",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, black: motor cable pin 1, encoder GND",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, black: motor cable pin 5, M2",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, blue: hall_door OUT",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, blue: hall_locked OUT",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, blue: hall_unlocked OUT",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, green: motor cable pin 2, encoder B",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, orange: GPIO 19 to DRV8833 AIN2",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, purple: GPIO 3 to DRV8833 nFAULT",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, red: 3V3 to the 3V3 row",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, red: battery + to the DRV8833 VIN",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, red: hall_door VCC",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, red: hall_locked VCC",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, red: hall_unlocked VCC",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, red: motor cable pin 4, encoder VCC",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, red: motor cable pin 6, M1",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, white: GPIO 20 to DRV8833 nSLEEP",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, yellow: GPIO 18 to DRV8833 AIN1",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
-Wire,1,"Jumper wire, yellow: motor cable pin 3, encoder A",printed,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, black: GND row to the DRV8833 GND",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, black: J3 GND to the GND row",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, black: battery - to the DRV8833 GND",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, black: hall_door GND",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, black: hall_locked GND",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, black: hall_unlocked GND",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, black: motor cable pin 1, encoder GND",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, black: motor cable pin 5, M2",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, blue: hall_door OUT",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, blue: hall_locked OUT",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, blue: hall_unlocked OUT",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, green: motor cable pin 2, encoder B",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, orange: GPIO 19 to DRV8833 AIN2",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, purple: GPIO 3 to DRV8833 nFAULT",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, red: 3V3 to the 3V3 row",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, red: battery + to the DRV8833 VIN",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, red: hall_door VCC",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, red: hall_locked VCC",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, red: hall_unlocked VCC",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, red: motor cable pin 4, encoder VCC",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, red: motor cable pin 6, M1",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, white: GPIO 20 to DRV8833 nSLEEP",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, yellow: GPIO 18 to DRV8833 AIN1",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
+Wire,1,"Jumper wire, yellow: motor cable pin 3, encoder A",kit,,,,0.00,0.00,yes,yes,yes,,From the jumper wire kit.
 Wire,1,"Jumper wire kit, 22 AWG solid, pre-bent, 140 pieces (covers the jumper wires)",SparkFun,PRT-00124,SparkFun,PRT-00124,8.95,8.95,yes,no,yes,https://www.sparkfun.com/products/124,
 Wire,1,"Hookup wire, 26 AWG silicone, 2 m (battery contacts to the breadboard)",Adafruit,1881,Adafruit,1881,0.95,0.95,yes,no,yes,https://www.adafruit.com/product/1881,
 Total,,Required parts,,,,,,125.51,,,,,

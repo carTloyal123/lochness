@@ -3,7 +3,7 @@ on hand (2026-11-11), with the dev kit's pin map so the same firmware runs on bo
 
 | Block | Bench part | Dev kit / product part |
 |---|---|---|
-| MCU | Espressif ESP32-C6 DevKit (drawn as the DevKitM-1) | the same / ESP32-C6-MINI-1 |
+| MCU | ESP32-C6-DevKitC-1 | ESP32-C6-DevKitM-1 / ESP32-C6-MINI-1 |
 | Motor driver | TB6612FNG breakout | DRV8833 |
 | Motor | N20 gearmotor, no encoder | Pololu #5193 with encoder |
 | Bolt and door switches | 3x A3144 (TO-92) | DRV5032FA |
@@ -26,9 +26,14 @@ import math
 from dataclasses import dataclass
 from html import escape
 
-from concepts.parts import DEVKITM_J1, DEVKITM_J3
 from .breadboard import INK, Svg
-from .netlist import DEVKIT, HALL_PARTS, NET_TITLES, PIN_MAP, Part, Stage, merge
+from .netlist import (HALL_PARTS, NET_TITLES, PIN_MAP, Part, Stage, devkit_blocks, devkit_ground_tie,
+                      devkit_part, devkit_pin_name, merge)
+
+# ESP32-C6-DevKitC-1 headers, pin 1 at the antenna end (Espressif's user guide, "Header Block";
+# rows 0.9" apart, 2.54 mm pitch, per its v1.2 dimension drawing). USB-C ports beyond pin 16.
+DEVKITC_J1 = ["3V3", "RST", "4", "5", "6", "7", "0", "1", "8", "10", "11", "2", "3", "5V", "G", "NC"]
+DEVKITC_J3 = ["G", "TX", "RX", "15", "23", "22", "21", "20", "19", "18", "9", "G", "13", "12", "G", "NC"]
 
 TB_CTL = ["PWMA", "AIN2", "AIN1", "STBY", "BIN1", "BIN2", "PWMB", "GND"]
 TB_PWR = ["VM", "VCC", "GND", "AO1", "AO2", "BO2", "BO1", "GND2"]  # SparkFun ROB-14451 order
@@ -37,7 +42,7 @@ A3144 = {"VCC": "1", "GND": "2", "OUT": "3"}  # branded face towards you, legs d
 BENCH = Stage(
     key="bench", title="Stage 1: bench breadboard",
     parts={
-        "devkit": DEVKIT.parts["devkit"],
+        "devkit": devkit_part("ESP32-C6-DevKitC-1", DEVKITC_J1, DEVKITC_J3),
         "tb6612": Part("tb6612", "TB6612FNG breakout", [f"C-{n}" for n in TB_CTL] + [f"P-{n}" for n in TB_PWR]),
         **{r: Part(r, f"A3144 Hall switch ({r.split('_')[1]})", list(A3144.values())) for r in HALL_PARTS.values()},
         "motor": Part("motor", "N20 gearmotor (no encoder)", ["M1", "M2"]),
@@ -45,7 +50,7 @@ BENCH = Stage(
         "battery": Part("battery", "2x 18650 in series (6.0-8.4 V)", ["+", "-"]),
     },
     blocks={
-        **{k: v for k, v in DEVKIT.blocks.items() if k[0] == "MCU"},
+        **devkit_blocks(DEVKITC_J1, DEVKITC_J3),
         ("DRIVER", "VM"): ("tb6612", "P-VM"),
         ("DRIVER", "GND"): ("tb6612", "C-GND"),
         ("DRIVER", "AIN1"): ("tb6612", "C-AIN1"),
@@ -70,7 +75,7 @@ BENCH = Stage(
            "VBAT_2S": [("battery", "+"), ("buck", "IN+")]},
     ties=[(("tb6612", "C-GND"), ("tb6612", "P-GND"), ("tb6612", "P-GND2")),
           (("buck", "IN-"), ("buck", "OUT-")),
-          DEVKIT.ties[1]],
+          devkit_ground_tie(DEVKITC_J1, DEVKITC_J3)],
 )
 TITLES = NET_TITLES | {"+5V": "5 V (DevKit 5V pin, from USB)", "VBAT_2S": "2x 18650 + (6.0-8.4 V)",
                        "VBAT": "Motor supply (MP1584 out, 6 V)",
@@ -81,6 +86,7 @@ TITLES = NET_TITLES | {"+5V": "5 V (DevKit 5V pin, from USB)", "VBAT_2S": "2x 18
 # each side: L+ and L- beside column a, R+ and R- beside column j.
 RAILS = {"L+": "+3V3", "L-": "GND", "R+": "+5V", "R-": "GND"}
 DEVKIT_ROW = 18  # DevKit pin k in row 18 - k: J3 in column b, J1 in column i, USB off the row-1 end
+# (pin 16 is in row 2; the USB-C ports overhang the board's end), antenna towards row 20
 TB_ROW = 22  # TB6612 pin k in row 21 + k: control row in column c, power row in column h (0.7")
 HALL_ROWS = {"hall_locked": 34, "hall_unlocked": 39, "hall_door": 44}  # legs in column f
 
@@ -189,8 +195,7 @@ def end_label(e: Hole | Term) -> str:
         for pin in BENCH.parts[ref].pins:
             if _seated(ref, pin).strip() == e.strip():
                 if ref == "devkit":
-                    hdr, k = pin.split("-")
-                    n = (DEVKITM_J1 if hdr == "J1" else DEVKITM_J3)[int(k) - 1]
+                    n = devkit_pin_name(pin, DEVKITC_J1, DEVKITC_J3)
                     name = f"DevKit {'GPIO ' + n if n.isdigit() else n}"
                 elif ref == "tb6612":
                     name = f"TB6612 {pin.split('-', 1)[1].replace('GND2', 'GND')}"
@@ -220,16 +225,31 @@ TERMS = {("motor", "M1"): (MX + 60.0, _BY), ("motor", "M2"): (MX + 66.0, _BY),
          ("battery", "+"): (MX + 130.0, _BY), ("battery", "-"): (MX + 130.0, _BY + 6.0)}
 
 
-def bench_svg() -> str:
+PLACEMENT = [  # (part, where it goes, how it faces): the layout drawing's table
+    ("ESP32-C6-DevKitC-1", "J1 pins in column i, J3 pins in column b; pin 1 (3V3 / G) in row 17, pin 16 (NC) "
+     "in row 2", "Antenna towards row 20, USB-C ports hanging off the row-1 end"),
+    ("TB6612FNG breakout", f"Control row (PWMA..GND) in column c, power row (VM..GND) in column h, rows {TB_ROW}-{TB_ROW + 7}",
+     "PWMA and VM in row 22; check your board's silkscreen order"),
+    *((f"A3144 {ref.split('_')[1]}", f"Legs in column f, rows {r}-{r + 2}", "Branded (flat) face towards the centre gap (column e), so VCC, GND, OUT run left to right "
+      "as you face it")
+      for ref, r in HALL_ROWS.items()),
+    ("N20 motor, MP1584EN, 2x 18650", "Off the board, on the bench", "Leads soldered on; the buck's OUT goes to "
+     "the board only after it's set to 6.0 V"),
+]
+
+
+def bench_svg(wires: bool = True) -> str:
+    """The bench drawing: with wires (the wiring diagram) or without (where the parts go)."""
     s = Svg()
-    plan = wire_plan()
+    plan = wire_plan() if wires else []
     W = MX * 2 + 64 * P
     table_y = _BY + 22.0
-    H = table_y + 8 + 3.1 * len(plan) + 30
+    H = table_y + 8 + (3.1 * len(plan) + 30 if wires else 3.1 * len(PLACEMENT) + 4)
     s.add(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:.1f} {H:.1f}" width="{W * 10:.0f}" '
           f'height="{H * 10:.0f}" font-family="Helvetica, Arial, sans-serif">')
     s.add(f'<rect width="{W:.1f}" height="{H:.1f}" fill="#fbfaf7"/>')
-    s.text(MX, 8.0, "lochness bench wiring (stage 1): parts on hand, one 830-point breadboard", 3.0, weight="bold", fill="#111")
+    s.text(MX, 8.0, f"lochness bench {'wiring' if wires else 'layout'} (stage 1): parts on hand, one 830-point "
+                    "breadboard", 3.0, weight="bold", fill="#111")
     s.text(MX, 12.5, "Generated by build_wiring.py from wiring/bench.py. Same GPIO map as the dev kit, so the same "
                      "firmware runs on both. Hole = row (1-63) + column (a-j) or rail.", 1.4, fill="#555")
     s.text(MX, 15.0, "Power: USB into the DevKit (its 3V3 and 5V feed the rails). 2x 18650 in series -> MP1584 "
@@ -268,7 +288,10 @@ def bench_svg() -> str:
         if sub:
             s.text((ax + bx) / 2, (ay + by) / 2 + 1.8, sub, 1.1, "middle", fill="#333")
 
-    outline(-2, 19, "i", "b", "#2b2b2b", "ESP32-C6 DevKit", "USB end off the board at row 1")
+    (ax, ay), (bx, by) = xy(Hole(17, "i")), xy(Hole(17, "b"))  # module antenna past pin 1, 18 mm wide
+    s.add(f'<rect x="{ax + 1.6:.2f}" y="{(ay + by) / 2 - 9:.2f}" width="6.35" height="18" fill="#c9a227" '
+          'fill-opacity="0.3" stroke="#9c7d16" stroke-width="0.2"/>')
+    outline(-2, 17, "i", "b", "#2b2b2b", "ESP32-C6-DevKitC-1", "USB-C ports off the board's end")
     outline(TB_ROW, TB_ROW + 7, "h", "c", "#c0392b", "TB6612FNG", "check the pin order on yours")
     for ref, r in HALL_ROWS.items():
         x, y = xy(Hole(r + 1, "f"))
@@ -278,8 +301,7 @@ def bench_svg() -> str:
             h = _seated(ref, pin)
             x, y = xy(h)
             if ref == "devkit":
-                hdr, k = pin.split("-")
-                name = (DEVKITM_J1 if hdr == "J1" else DEVKITM_J3)[int(k) - 1]
+                name = devkit_pin_name(pin, DEVKITC_J1, DEVKITC_J3)
             elif ref == "tb6612":
                 name = pin.split("-", 1)[1].replace("GND2", "GND")
             else:
@@ -317,6 +339,19 @@ def bench_svg() -> str:
         for x, y in ((ax, ay), (bx, by)):
             s.add(f'<circle cx="{x}" cy="{y}" r="0.5" fill="{INK[wr.colour]}" stroke="{edge}" stroke-width="0.15"/>')
 
+    if not wires:  # placement table, then done
+        y = table_y
+        for head, xo in (("Part", 0), ("Where", 38), ("Orientation", 128)):
+            s.text(MX + xo, y, head, 1.4, weight="bold")
+        for k, (part, where, how) in enumerate(PLACEMENT, 1):
+            y += 3.1
+            if k % 2:
+                s.add(f'<rect x="{MX - 1}" y="{y - 2.2:.2f}" width="{64 * P:.1f}" height="3.1" fill="#f1eee7"/>')
+            for xo, t in ((0, part), (38, where), (128, how)):
+                s.text(MX + xo, y, t, 1.15)
+        s.add("</svg>")
+        return "\n".join(s.out) + "\n"
+
     # table
     y = table_y
     for head, xo in (("#", 0), ("Signal", 4), ("From", 52), ("To", 100)):
@@ -337,8 +372,8 @@ def bench_svg() -> str:
                  "bridge each one across the split.",
                  "A3144: branded face towards you, legs 1 VCC, 2 GND, 3 OUT; needs a magnet's SOUTH pole on the branded "
                  "face. Firmware: enable the pull-up on GPIO 22, 23 and 2.",
-                 "TB6612 pin order is SparkFun's (ROB-14451); check your board's silkscreen. The DevKit is drawn as the "
-                 "DevKitM-1: GPIO numbers hold on a DevKitC-1, the rows don't."):
+                 "TB6612 pin order is SparkFun's (ROB-14451); check your board's silkscreen. The DevKit is the "
+                 "DevKitC-1 (16 pins a side); a DevKitM-1 has the same GPIOs on other rows."):
         s.text(MX, y, note, 1.25, fill="#7b241c")
         y += 2.4
     s.add("</svg>")

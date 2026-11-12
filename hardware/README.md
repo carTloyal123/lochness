@@ -156,6 +156,8 @@ UNMEASURED or UNCONFIRMED: mini breadboard size (47 x 35 mm here; they vary); th
 
 ## Wiring (`wiring/`)
 
+**To build the bench or the dev kit, follow [SETUP.md](SETUP.md)**: parts, layout and wiring diagrams, and setup steps for both, generated from the files below.
+
 One net list drives the dev kit model, the breadboard drawings and the main PCB's KiCad schematic, so they can't disagree. `wiring/netlist.py` has three layers:
 
 - `PIN_MAP`: which GPIO does what. Point the firmware's pin table here.
@@ -164,12 +166,12 @@ One net list drives the dev kit model, the breadboard drawings and the main PCB'
 
 | Stage | Source | Output |
 |---|---|---|
-| 1. Bench (parts on hand) | `BENCH` in `wiring/bench.py` | `drawings/bench-wiring.svg`: one 830-point breadboard, every hole, every wire, and a table |
-| 2. Printed dev kit | `DEVKIT` + `wire_plan()` in `devkit/rig.py` | `drawings/devkit-wiring.svg`: every hole as modelled, every wire, and a table |
+| 1. Bench (parts on hand) | `BENCH` in `wiring/bench.py` | `drawings/bench-layout.svg` and `bench-wiring.svg`: one 830-point breadboard, every hole, every wire, and a table |
+| 2. Printed dev kit | `DEVKIT` + `wire_plan()` in `devkit/rig.py` | `drawings/devkit-layout.svg` and `devkit-wiring.svg`: every hole as modelled, every wire, and a table |
 | 3. Product main PCB | `PRODUCT` | `pcb/main/`: a KiCad 10 project (open `lochness-main.kicad_pro`) |
 
 ```sh
-uv run build_wiring.py                # drawings/, pcb/main/, out/wiring/lochness-main.pdf; checks the nets and ERC
+uv run build_wiring.py                # SETUP.md, drawings/, pcb/main/, out/wiring/lochness-main.pdf; checks the nets and ERC
 uv run pytest tests/test_wiring.py    # stage consistency, dev kit wires = net list, schematic = net list, ERC
 ```
 
@@ -179,7 +181,7 @@ The bench (stage 1) builds the same circuit from the parts on hand. It keeps the
 
 | Block | Bench part | Difference |
 |---|---|---|
-| MCU | Espressif ESP32-C6 DevKit | Drawn as the DevKitM-1. A DevKitC-1 has the same GPIO numbers on different rows. |
+| MCU | ESP32-C6-DevKitC-1 | 16 pins a side, against the DevKitM-1's 15: the same GPIOs on different header pins. |
 | Motor driver | TB6612FNG breakout | STBY on GPIO 20 (where nSLEEP was), and PWMA tied to 3.3 V so PWM on AIN1/AIN2 works as on the DRV8833. No fault output, so GPIO 3 is unused. |
 | Motor | N20, no encoder | GPIO 21 and 4 are unused; the bolt Hall switches and timeouts stand in for the encoder. |
 | Hall switches | 3x A3144 | They need 4.5 V or more, so they run from the DevKit's 5 V. The outputs are open collector, so enable the GPIO pull-ups. They respond only to a south pole on the branded face. |

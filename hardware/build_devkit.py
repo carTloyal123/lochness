@@ -1,4 +1,5 @@
-"""Export the dev kit: STEP, STLs of the printed parts, BOM, wiring table, renders.
+"""Export the dev kit: STEP, STLs of the printed parts, BOM, wiring table, renders. Two renders
+are also copied to drawings/ for the build guide, SETUP.md.
 
     uv run build_devkit.py            # -> out/devkit/
     uv run build_devkit.py --no-render
@@ -80,6 +81,8 @@ def main() -> int:
         for view, (direction, up) in VIEWS.items():
             step = OUT / ("devkit-guts.step" if view == "guts" else "devkit.step")
             render(step, OUT / f"devkit-{view}.png", direction, up)
+        for view in ("guts", "door"):  # the build guide (SETUP.md) shows these two
+            shutil.copy(OUT / f"devkit-{view}.png", HERE / "drawings" / f"devkit-{view}.png")
     n = Counter(i.kind for i in u.items.values())
     print(f"{len(u.items)} parts: {n[PRINTED]} printed, {n['fastener']} fasteners, {n[WIRE]} wires")
     print(f"wrote {OUT.relative_to(HERE)}/")

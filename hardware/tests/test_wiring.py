@@ -8,8 +8,9 @@ import pytest
 from devkit.rig import Hole, plan_connectivity, wire_plan
 from wiring import bench
 from wiring import kicad as K
-from wiring.breadboard import devkit_svg
-from wiring.netlist import CORE, DEVKIT, PIN_MAP, RESERVED_GPIO
+from build_wiring import DRAWN
+from concepts.parts import DEVKITM_J1, DEVKITM_J3
+from wiring.netlist import CORE, DEVKIT, PIN_MAP, RESERVED_GPIO, devkit_pin_name
 from wiring.product import MINI1, PRODUCT, PRODUCT_PINS
 
 HERE = Path(__file__).resolve().parent.parent
@@ -40,11 +41,14 @@ def test_bench_wires_join_exactly_the_net_list():
 
 
 def test_bench_uses_the_dev_kit_pin_map():
-    """Same firmware: every GPIO the bench wires is the dev kit's GPIO for that signal."""
-    for net, pins in bench.BENCH.nets().items():
-        dev = [p for p in pins if p[0] == "devkit"]
-        if net in PIN_MAP:
-            assert dev == [d for d in DEVKIT.nets()[net] if d[0] == "devkit"]
+    """Same firmware: every GPIO the bench wires is the dev kit's GPIO for that signal, though
+    the bench's DevKitC-1 has it on another header pin than the dev kit's DevKitM-1."""
+    def gpios(stage, j1, j3, net):
+        return [devkit_pin_name(p, j1, j3) for r, p in stage.nets().get(net, []) if r == "devkit"]
+    for net, (g, _, _) in PIN_MAP.items():
+        assert gpios(DEVKIT, DEVKITM_J1, DEVKITM_J3, net) == [str(g)]
+        if ("MCU", f"GPIO{g}") not in bench.BENCH.omit:
+            assert gpios(bench.BENCH, bench.DEVKITC_J1, bench.DEVKITC_J3, net) == [str(g)]
 
 
 def test_no_bench_hole_takes_two_wires():
@@ -71,9 +75,16 @@ def test_no_breadboard_hole_takes_two_wires_in_the_plan():
     assert len(holes) == len(set(holes))
 
 
-@pytest.mark.parametrize("name,draw", [("bench", bench.bench_svg), ("devkit", devkit_svg)])
-def test_committed_drawing_is_current(name, draw):
-    assert (HERE / "drawings" / f"{name}-wiring.svg").read_text() == draw(), "run: uv run build_wiring.py"
+@pytest.mark.parametrize("path", list(DRAWN), ids=lambda p: p.name)
+def test_committed_drawing_is_current(path):
+    """The drawings and SETUP.md, as build_wiring.py would write them now."""
+    assert path.read_text() == DRAWN[path](), "run: uv run build_wiring.py"
+
+
+def test_setup_guide_images_exist():
+    import re
+    for img in re.findall(r"!\[[^]]*\]\(([^)]+)\)", (HERE / "SETUP.md").read_text()):
+        assert (HERE / img).exists(), img
 
 
 @needs_kicad
