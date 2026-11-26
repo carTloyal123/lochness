@@ -30,10 +30,16 @@ extern "C" {
 #define KP_RESULT_TIMEOUT_MS 5000
 #define KP_LINGER_MS 3000         /* keep the link briefly after a result */
 
-/* Keys: '0'-'9', KP_KEY_CLEAR, KP_KEY_ENTER (unlock), KP_KEY_LOCK. */
+/* Keys: '0'-'9', KP_KEY_CLEAR, KP_KEY_ENTER (unlock), KP_KEY_LOCK,
+ * KP_KEY_TOGGLE. Toggle takes the digits as the PIN like enter, then locks if
+ * the lock reports its bolt unlocked and unlocks otherwise. It decides once the
+ * link is up, from the bolt state the lock sent on that link (HELLO_ACK or the
+ * last ACCESS_RESULT), so a stale state from an earlier session never picks
+ * the direction. A toggle that locks sends no PIN, like KP_KEY_LOCK. */
 #define KP_KEY_CLEAR '*'
 #define KP_KEY_ENTER '#'
 #define KP_KEY_LOCK 'L'
+#define KP_KEY_TOGGLE 'T'
 
 typedef struct {
     bool paired;
@@ -81,6 +87,9 @@ typedef enum {
     KP_LINK_READY,
 } kp_link_t;
 
+/* pending_op before a toggle is resolved to LP_OP_LOCK or LP_OP_UNLOCK. */
+#define KP_OP_TOGGLE 0xFFU
+
 typedef struct {
     kp_hooks_t hooks;
     sl_keypair_t identity;
@@ -94,13 +103,14 @@ typedef struct {
     uint8_t lock_pub_candidate[SL_KEY_LEN]; /* learned during XX */
     uint8_t conn_addr[KP_ADDR_MAX];
     uint8_t conn_addr_len;
+    uint8_t bolt; /* lp_bolt_t the lock last reported on this link; UNKNOWN when down */
 
     uint8_t digits[LP_PIN_FIELD_LEN];
     uint8_t ndigits;
     bool overflow;
 
     bool pending; /* request waiting for the link */
-    uint8_t pending_op;
+    uint8_t pending_op; /* lp_op_t, or KP_OP_TOGGLE until the link is up */
     uint8_t pending_pin[LP_PIN_FIELD_LEN];
     uint8_t pending_len;
     bool awaiting_result;

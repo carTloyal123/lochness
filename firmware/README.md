@@ -138,6 +138,8 @@ keypad>   keys L                   # one-touch lock
 
 With no input hardware configured, the keypad's `keys` command stands in for the buttons. `idf.py menuconfig` → **Lochness keypad** sets the button matrix, lock/pair buttons, LEDs and buzzer pins.
 
+**Bench toggle button.** On a bare keypad DevKitC, a short press of BOOT toggles the lock: it types the bench PIN (`1234` by default, matching user 1 above) and `T`, the same as `keys *1234T`. Once connected, the keypad locks if the lock reports its bolt unlocked (no PIN sent, like `L`) and otherwise unlocks with the PIN, under the usual PIN rules, rate limit and lockout. A press while the bolt is still moving reverses it, which the lock refuses as busy; press again once it stops. Holding BOOT for 3 s still pairs. Change the PIN or turn it off (empty) in menuconfig → **Lochness keypad** → *Bench PIN*.
+
 ## Status LED
 
 The lock shows its bolt on the DevKitC-1's RGB LED (GPIO 8): red locked, green unlocked, amber moving, blinking red jammed, blinking blue while a pairing window is open. `idf.py menuconfig` → **Lochness lock unit** sets the pin (-1 turns it off) and brightness.
@@ -175,4 +177,5 @@ QEMU has no Bluetooth controller and the C3 has no Thread radio, so the QEMU pro
 ## Security notes for dev boards
 
 - `CONFIG_LOCHNESS_PIN_KEY_DEV_NVS` (default) keeps the PIN HMAC key in plaintext NVS. Anyone with the flash can brute-force PINs offline. Production uses `CONFIG_LOCHNESS_PIN_KEY_EFUSE` (HMAC peripheral, unreadable eFuse key) together with flash and NVS encryption.
+- `CONFIG_KEYPAD_BENCH_PIN` (default `1234`) keeps a PIN in the keypad's flash for the BOOT-button bench toggle. Anyone holding the keypad can unlock with it. Set it empty on any keypad that leaves the bench.
 - **Do not burn eFuses on shared dev boards.** It's irreversible. eFuse key provisioning lands with the hardening milestone.

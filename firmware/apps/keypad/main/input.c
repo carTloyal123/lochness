@@ -4,9 +4,13 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "keypad_core/kp.h"
 #include "keypad_task.h"
+#include "link_proto/lp.h"
 #include "sdkconfig.h"
+#include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 static const char *const TAG = "input";
 
@@ -32,6 +36,37 @@ typedef struct {
     uint8_t stable_count;
     bool pressed;
 } debounce_t;
+
+#if CONFIG_KEYPAD_PAIR_BUTTON_GPIO >= 0
+#define BENCH_PIN CONFIG_KEYPAD_BENCH_PIN
+
+/* The bench PIN, if set and valid: 1 to LP_PIN_FIELD_LEN digits. */
+static bool bench_pin_valid(void)
+{
+    size_t len = strlen(BENCH_PIN);
+    if (len == 0) {
+        return false;
+    }
+    if (len > LP_PIN_FIELD_LEN || strspn(BENCH_PIN, "0123456789") != len) {
+        ESP_LOGE(TAG, "bench PIN must be 1-%d digits; short press does nothing", LP_PIN_FIELD_LEN);
+        return false;
+    }
+    return true;
+}
+
+/* Short press of the pair button: type the bench PIN and toggle (unlock if
+ * locked, lock if unlocked). The keypad task sees ordinary keys, so the lock
+ * applies its usual PIN rules. */
+static void bench_toggle(void)
+{
+    ESP_LOGI(TAG, "pair button pressed: bench toggle");
+    keypad_task_post_key(KP_KEY_CLEAR); /* drop any half-typed digits */
+    for (const char *k = BENCH_PIN; *k; k++) {
+        keypad_task_post_key(*k);
+    }
+    keypad_task_post_key(KP_KEY_TOGGLE);
+}
+#endif
 
 /* Returns true on a debounced press edge. */
 static bool debounce(debounce_t *d, bool raw)
@@ -68,6 +103,7 @@ static void input_task(void *arg)
     static debounce_t pair_btn;
     uint32_t pair_held_ms = 0;
     bool pair_fired = false;
+    const bool bench_toggle_on = bench_pin_valid();
 #endif
     /* TODO(power): replace polling with GPIO wake from light/deep sleep. */
     for (;;) {
@@ -98,6 +134,10 @@ static void input_task(void *arg)
                 keypad_task_post_pair();
             }
         } else {
+            /* Released before the pairing hold: a short press. */
+            if (pair_held_ms > 0 && !pair_fired && bench_toggle_on) {
+                bench_toggle();
+            }
             pair_held_ms = 0;
             pair_fired = false;
         }

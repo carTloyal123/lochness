@@ -309,6 +309,38 @@ TEST(test_link_one_touch_lock)
     CHECK_EQ(world.lc.bolt, LC_BOLT_LOCKING);
 }
 
+TEST(test_link_toggle_unlocks_then_locks)
+{
+    world_init();
+    pair();
+    keys("1234T"); /* bolt locked: unlock, with the PIN */
+    CHECK_EQ(last_fb(), KP_FB_UNLOCKED);
+    CHECK_EQ(world.lc.bolt, LC_BOLT_UNLOCKING);
+    lc_on_motor_done(&world.lc, true);
+
+    keys("T"); /* same link: the last result said unlocking, so lock */
+    CHECK_EQ(last_fb(), KP_FB_LOCKED);
+    CHECK_EQ(world.lc.bolt, LC_BOLT_LOCKING);
+    lc_on_motor_done(&world.lc, true);
+    advance(KP_LINGER_MS);
+    CHECK(!world.connected);
+
+    world.lc.bolt = LC_BOLT_UNLOCKED; /* turned by hand while the keypad slept */
+    keys("1234T"); /* new link: HELLO_ACK says unlocked, so lock */
+    CHECK_EQ(last_fb(), KP_FB_LOCKED);
+    CHECK_EQ(world.lc.bolt, LC_BOLT_LOCKING);
+    CHECK_EQ(world.kp.pending_pin[0], 0);
+}
+
+TEST(test_link_toggle_wrong_pin_denied)
+{
+    world_init();
+    pair();
+    keys("9999T");
+    CHECK_EQ(last_fb(), KP_FB_DENIED);
+    CHECK_EQ(world.fake.motor_starts, 0);
+}
+
 TEST(test_link_unpaired_keypad_rejected)
 {
     world_init();

@@ -83,6 +83,8 @@ int test_failure_count(void) { return g_failures; }
     X(test_link_pair_then_unlock) \
     X(test_link_wrong_pin_and_lockout) \
     X(test_link_one_touch_lock) \
+    X(test_link_toggle_unlocks_then_locks) \
+    X(test_link_toggle_wrong_pin_denied) \
     X(test_link_unpaired_keypad_rejected) \
     X(test_link_removed_peer_rejected) \
     X(test_link_replay_rejected) \
