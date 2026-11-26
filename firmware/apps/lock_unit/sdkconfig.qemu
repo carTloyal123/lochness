@@ -4,3 +4,5 @@ CONFIG_BT_ENABLED=n
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="../partitions.csv"
 # QEMU's ESP32-C3 has no WS2812 on the board.
 CONFIG_LOCHNESS_STATUS_LED_GPIO=-1
+# No motor or bolt switches under QEMU (and GPIO 22/23 do not exist on the C3).
+CONFIG_LOCHNESS_MOTOR_SIM=y

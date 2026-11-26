@@ -2,6 +2,9 @@
 CONFIG_IDF_TARGET="esp32c6"
 
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+# esptool writes each board's real flash size into the bootloader when flashing (see
+# lock_unit/sdkconfig.defaults).
+CONFIG_ESPTOOLPY_HEADER_FLASHSIZE_UPDATE=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 

@@ -1,8 +1,10 @@
 idf_build_get_property(matter LOCHNESS_MATTER)
 
-set(srcs main.c lock_task.c lock_bridge.c ble_server.c console.c motor_sim.c door.c status_led.c)
-set(requires lock_core lock_link link_proto secure_link platform_esp ln_store ln_rgb bt console esp_driver_gpio esp_timer
-             freertos log)
+# motor_sim.c and motor_hbridge.c each build only when chosen (menuconfig: Motor driver).
+set(srcs main.c lock_task.c lock_bridge.c ble_server.c console.c motor_sim.c motor_hbridge.c bolt_sense.c door.c
+         status_led.c)
+set(requires lock_core lock_link link_proto secure_link platform_esp ln_store ln_rgb bt console esp_driver_gpio
+             esp_driver_ledc esp_timer freertos log)
 if(matter)
     list(APPEND srcs matter_lock.cpp device_info.cpp)
     list(APPEND requires esp_matter esp_hw_support)

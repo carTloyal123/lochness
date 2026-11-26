@@ -33,6 +33,8 @@ static void IRAM_ATTR door_isr(void *arg)
     portYIELD_FROM_ISR(woken);
 }
 
+int door_level(void) { return gpio_get_level(DOOR_PIN); }
+
 lc_door_t door_init(void)
 {
     s_debounce = xTimerCreate("door", pdMS_TO_TICKS(DEBOUNCE_MS), pdFALSE, NULL, debounce_expired);
@@ -44,7 +46,10 @@ lc_door_t door_init(void)
         .intr_type = GPIO_INTR_ANYEDGE,
     };
     ESP_ERROR_CHECK(gpio_config(&io));
-    ESP_ERROR_CHECK(gpio_install_isr_service(0));
+    esp_err_t err = gpio_install_isr_service(0);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) { /* the bolt switches may have installed it */
+        ESP_ERROR_CHECK(err);
+    }
     ESP_ERROR_CHECK(gpio_isr_handler_add(DOOR_PIN, door_isr, NULL));
     return read_door();
 }
@@ -52,5 +57,6 @@ lc_door_t door_init(void)
 #else
 
 lc_door_t door_init(void) { return LC_DOOR_UNKNOWN; }
+int door_level(void) { return -1; }
 
 #endif

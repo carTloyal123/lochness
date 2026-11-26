@@ -31,11 +31,13 @@ def gpio(stage, g):
 B, D, P = bench.BENCH, DEVKIT, PRODUCT
 FAULTS = [  # (what's wrong, stage, mutation, rule, net it must be reported on)
     ("GPIO 22 wired to the 5 V rail", B, lambda n: move(n, gpio(B, 22), "+5V"), "over-voltage", "+5V"),
-    ("18650 pack on the TB6612's logic VCC", B, lambda n: move(n, ("tb6612", "P-VCC"), "VBAT_2S"),
-     "over-voltage", "VBAT_2S"),
-    ("A3144 on 3.3 V instead of 5 V", B, lambda n: move(n, ("hall_door", "1"), "+3V3"), "under-voltage", "+3V3"),
-    ("5 V rail not fed from the DevKit", B, lambda n: move(n, ("devkit", "J1-14")), "under-voltage", "+5V"),
-    ("A3144 ground pin left out", B, lambda n: move(n, ("hall_locked", "2")), "ground", "hall_locked"),
+    ("DevKit 3V3 wired to the BreadVolt's 3.3 V rail", B, lambda n: move(n, ("devkit", "J1-1"), "+3V3"),
+     "one-driver", "+3V3"),
+    ("DevKit 5V wired to the BreadVolt's 5 V rail", B, lambda n: move(n, ("devkit", "J1-14"), "+5V"),
+     "one-driver", "+5V"),
+    ("KY-003 on 3.3 V instead of 5 V", B, lambda n: move(n, ("hall_door", "+"), "+3V3"), "under-voltage", "+3V3"),
+    ("5 V rail not fed (BreadVolt R side off)", B, lambda n: move(n, ("breadvolt", "R+")), "under-voltage", "+5V"),
+    ("KY-003 ground pin left out", B, lambda n: move(n, ("hall_locked", "-")), "ground", "hall_locked"),
     ("DevKit 3V3 shorted to GND", D, lambda n: move(n, ("devkit", "J1-1"), "GND"), "short-to-ground", "GND"),
     ("4xAA + on the 3.3 V row", D, lambda n: move(n, ("battery", "+"), "+3V3"), "one-driver", "+3V3"),
     ("Hall OUT wired to the motor's M1", D, lambda n: move(n, ("hall_door", "3"), "MOT_M1"), "one-driver", "MOT_M1"),
@@ -56,6 +58,21 @@ def test_rule_catches_seeded_fault(what, stage, mutate, rule, net):
 def test_missing_gpio_pullup_is_caught():
     cfg = replace(erc.configs()["devkit"], pullups=set())
     assert any(f.rule == "pull-up" and f.net == "DRV_nFAULT" for f in erc.check(DEVKIT.nets(), cfg))
+
+
+def test_ky003_without_its_divider_puts_5v_on_the_gpio():
+    """The module pulls S up to 5 V: without the declared divider level, the GPIO sees it."""
+    cfg = replace(erc.configs()["bench"], levels={})
+    found = erc.check(bench.BENCH.nets(), cfg)
+    assert {f.net for f in found if f.rule == "over-voltage"} == {"HALL_LOCKED", "HALL_UNLOCKED", "HALL_DOOR"}
+
+
+def test_bench_dividers_are_wired():
+    """Each declared S level rests on a real 20k from that S net to GND."""
+    nets = bench.BENCH.nets()
+    for h, r in bench.R_DIV.items():
+        net = next(n for n, ps in nets.items() if (h, "S") in ps)
+        assert (r, "1") in nets[net] and (r, "2") in nets["GND"]
 
 
 def test_divider_level_is_what_keeps_the_adc_safe():
