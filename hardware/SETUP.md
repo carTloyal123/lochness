@@ -11,8 +11,8 @@ Two ways to build the lock's electronics before the main PCB exists:
 | Motor driver | TB6612FNG breakout | Pololu #2130 (DRV8833) |
 | Motor | N20, 6 V, no encoder | Pololu #5193, 150:1, 12 CPR encoder |
 | Bolt and door switches | 3x A3144 | 3x DRV5032FA on SOT-23 adapters |
-| Motor supply | 2x 18650, MP1584EN at 6.0 V | 4x AA lithium |
-| Wires | 26 | 24 |
+| Power | ELEGOO power module (5 V and 3.3 V rails); DevKit on USB | 4x AA lithium; DevKit on USB |
+| Wires | 20 | 24 |
 
 Both run the same firmware: the GPIO map is the same, and the bench leaves out only what its parts don't have.
 
@@ -22,7 +22,7 @@ Both run the same firmware: the GPIO map is the same, and the bench leaves out o
 - [Firmware](#firmware)
 - [Checks behind this guide](#checks-behind-this-guide)
 
-> **Safety:** the 18650 pack has no protection circuit. Charge each cell alone on the TP4056, set the MP1584 to 6.0 V before connecting it, and stop at 3.0 V per cell. Connect motor power last, and only after checking the logic side on USB alone.
+> **Safety:** on the bench, never wire the DevKit's 3V3 or 5V pin to a rail; the power module feeds them and the DevKit has its own USB. Connect the motor last, after checking the rails. In the dev kit, connect the battery last.
 
 ## Pin map
 
@@ -48,8 +48,8 @@ The lock's circuit on one breadboard, from the parts on hand. It differs from th
 
 - **Motor driver:** a TB6612FNG instead of the DRV8833. Its STBY pin is on GPIO 20, where the DRV8833's nSLEEP was. PWMA is tied to 3.3 V, so PWM on AIN1/AIN2 drives it the same way. It has no fault output, so GPIO 3 is unused.
 - **Motor:** the N20 has no encoder, so GPIO 21 and 4 are unused.
-- **Hall switches:** A3144s instead of DRV5032s. They need 4.5 V or more, so they run from the DevKit's 5 V. Their outputs are open collector, so the firmware turns on the GPIO pull-ups.
-- **Motor supply:** 2x 18650 through an MP1584EN set to 6.0 V, instead of 4xAA.
+- **Hall switches:** A3144s instead of DRV5032s. They need 4.5 V or more, so they run from the 5 V rail. Their outputs are open collector, so the firmware turns on the GPIO pull-ups.
+- **Power:** the ELEGOO power module feeds the rails, 5 V on R+ and 3.3 V on L+, instead of 4xAA. The motor runs from the 5 V rail, so it is a little slower and weaker than at the dev kit's 6 V. The DevKit runs from its own USB: only its GND is wired to the board. Its 3V3 and 5V pins stay unconnected, since either one on a rail would put two supplies on one net.
 
 ### Parts
 
@@ -59,37 +59,36 @@ The lock's circuit on one breadboard, from the parts on hand. It differs from th
 | 1 | TB6612FNG dual motor driver breakout | yes | Solder its two 1x8 headers, pins down. |
 | 1 | N20 gearmotor, 6 V, no encoder | yes | Solder a red and a black lead to its tabs. |
 | 3 | A3144 Hall switch (TO-92) | yes | Locked, unlocked and door. Needs 4.5 V or more. |
-| 1 | MP1584EN buck module | yes | Solder leads or pins to IN+, IN-, OUT+ and OUT-. Set to 6.0 V before use. |
-| 2 | 18650 Li-ion cell | yes | Charged one at a time on the TP4056. |
-| 1 | TP4056 1-cell charger module | yes | For charging only. It is not in the circuit. |
+| 1 | ELEGOO breadboard power module (MB102 type) | yes (ELEGOO kit) | Each side has a 5V / OFF / 3.3V jumper: 5V on the side by column j, 3.3V on the side by column a. |
+| 1 | Supply for the power module: 6.5-12 V DC on its barrel jack | **check** | A 7.5-9 V, 1 A wall adapter with a 5.5 mm barrel, centre positive. Below about 7 V the 5 V side sags under load (a diode and the AMS1117-5.0 drop about 2 V); above 9 V its regulator runs hot. |
 | 1 | 830-point breadboard with power rails | yes (ELEGOO kit) |  |
-| 26 | Jumper wires | yes (ELEGOO kit) |  |
-| 1 | 2-cell 18650 holder, in series, with leads | **no** | Not in your inventory. Any 2S holder. |
+| 20 | Jumper wires | yes (ELEGOO kit) |  |
 | 1 | Small neodymium magnet | **check** | To trigger the A3144s (south pole to the branded face). |
-| 1 | USB-C data cable | **check** | Powers and programs the DevKit. |
+| 1 | USB-C data cable | **check** | Powers and programs the DevKit. It is the DevKit's only supply. |
 
-Jumper wires by colour: 10 black, 6 red, 4 orange, 3 blue, 1 yellow, 1 green, 1 white.
+Jumper wires by colour: 7 black, 4 orange, 3 red, 3 blue, 1 yellow, 1 green, 1 white.
 
-Tools: Multimeter (to set the MP1584 and check the rails), soldering iron.
+Tools: Multimeter (to check the rails), soldering iron (the TB6612's headers and the motor's leads).
 
-Not used: Seeed XIAO ESP32C6, PN532 NFC, and the ELEGOO kit's power module.
+Not used: Seeed XIAO ESP32C6, PN532 NFC, the MP1584EN buck, the 18650 cells and the TP4056 charger.
 
 ### Layout
 
-Where each part sits. Holes are row (1-63) and column (a-j), or a rail: L+ and L- run along column a's side, R+ and R- along column j's.
+Where each part sits. Holes are row (1-63) and column (a-j), or a rail: L+ and L- run along column a's side, R+ and R- along column j's. Across the board the rails go + - (strips) + -: R+ is the outer rail on column j's side, and L+ is the inner rail on column a's side, next to column a.
 
 ![Bench layout](drawings/bench-layout.svg)
 
 | Part | Where | Orientation |
 |---|---|---|
 | ESP32-C6-DevKitC-1 | J1 pins in column i, J3 pins in column b; pin 1 (3V3 / G) in row 17, pin 16 (NC) in row 2 | Antenna towards row 20, USB-C ports hanging off the row-1 end |
-| TB6612FNG breakout | Control row (PWMA..GND) in column c, power row (VM..GND) in column h, rows 22-29 | PWMA and VM in row 22; check your board's silkscreen order |
+| TB6612FNG breakout | Control row (PWMA..GND) in column h, power row (VM..GND) in column c, rows 22-29 | PWMA and VM in row 22; check your board's silkscreen order |
 | A3144 locked | Legs in column f, rows 34-36 | Branded (flat) face towards the centre gap (column e), so VCC, GND, OUT run left to right as you face it |
-| A3144 unlocked | Legs in column f, rows 39-41 | Branded (flat) face towards the centre gap (column e), so VCC, GND, OUT run left to right as you face it |
-| A3144 door | Legs in column f, rows 44-46 | Branded (flat) face towards the centre gap (column e), so VCC, GND, OUT run left to right as you face it |
-| N20 motor, MP1584EN, 2x 18650 | Off the board, on the bench | Leads soldered on; the buck's OUT goes to the board only after it's set to 6.0 V |
+| A3144 unlocked | Legs in column f, rows 41-43 | Branded (flat) face towards the centre gap (column e), so VCC, GND, OUT run left to right as you face it |
+| A3144 door | Legs in column f, rows 48-50 | Branded (flat) face towards the centre gap (column e), so VCC, GND, OUT run left to right as you face it |
+| ELEGOO power module | Pins in the four rails at the row-63 end; keep rows 52-63 clear | Barrel jack off the board's end; jumper on the j side at 5 V, on the a side at 3.3 V |
+| N20 motor | Off the board, on the bench | Leads soldered to its tabs |
 
-Rails: L+ is 3.3 V, R+ is 5 V, and both minus rails are ground. On some 830-point boards each rail is split halfway along. If yours are, bridge each one across the split.
+Rails: the power module plugs into all four at the row-63 end. L+ is 3.3 V, R+ is 5 V, and both minus rails are ground (the module joins them). On some 830-point boards each rail is split halfway along. If yours are, bridge each one across the split, or nothing before the split gets power.
 
 ### Wiring
 
@@ -97,49 +96,42 @@ Rails: L+ is 3.3 V, R+ is 5 V, and both minus rails are ground. On some 830-poin
 
 | # | Colour | Signal | From | To |
 |---|---|---|---|---|
-| 1 | yellow | Motor A in 1 (PWM): GPIO 18 to TB6612 AIN1 | DevKit GPIO 18 (8a) | TB6612 AIN1 (24a) |
-| 2 | green | Motor A in 2 (PWM): GPIO 19 to TB6612 AIN2 | DevKit GPIO 19 (9a) | TB6612 AIN2 (23a) |
-| 3 | white | Driver enable: GPIO 20 to TB6612 STBY | DevKit GPIO 20 (10a) | TB6612 STBY (25a) |
-| 4 | red | 3.3 V: DevKit 3V3 to the 3V3 rail | DevKit 3V3 (17j) | 3V3 rail (L+, row 17) |
-| 5 | black | Ground: DevKit GND to the GND rail | DevKit G (17a) | GND rail (L-, row 17) |
-| 6 | orange | 5 V (DevKit 5V pin, from USB): DevKit 5V to the 5V rail | DevKit 5V (4j) | 5V rail (R+, row 4) |
-| 7 | black | Ground: joins the two GND rails | GND rail (L-, row 20) | GND rail (R-, row 20) |
-| 8 | red | 3.3 V: TB6612 PWMA held high | TB6612 PWMA (22a) | 3V3 rail (L+, row 22) |
-| 9 | black | Ground: TB6612 GND (control side) | TB6612 GND (29a) | GND rail (L-, row 29) |
-| 10 | red | 3.3 V: TB6612 VCC (logic 3.3 V) | TB6612 VCC (23j) | 3V3 rail (L+, row 23) |
-| 11 | black | Ground: TB6612 GND (power side) | TB6612 GND (24j) | GND rail (R-, row 24) |
-| 12 | red | Motor supply (MP1584 out, 6 V): MP1584 OUT+ (6 V) to TB6612 VM | MP1584 OUT+ | TB6612 VM (22j) |
-| 13 | black | Ground: MP1584 OUT- to the GND rail | MP1584 OUT- | GND rail (R-, row 30) |
-| 14 | red | Motor M1: TB6612 AO1 to the motor | TB6612 AO1 (25j) | motor M1 |
-| 15 | black | Motor M2: TB6612 AO2 to the motor | TB6612 AO2 (26j) | motor M2 |
-| 16 | orange | 5 V (DevKit 5V pin, from USB): hall_locked VCC to the 5V rail | hall_locked VCC (34j) | 5V rail (R+, row 34) |
-| 17 | black | Ground: hall_locked GND to the GND rail | hall_locked GND (35j) | GND rail (R-, row 35) |
-| 18 | blue | Bolt locked (A3144 OUT): hall_locked OUT to GPIO 22 | hall_locked OUT (36g) | DevKit GPIO 22 (12a) |
-| 19 | orange | 5 V (DevKit 5V pin, from USB): hall_unlocked VCC to the 5V rail | hall_unlocked VCC (39j) | 5V rail (R+, row 39) |
-| 20 | black | Ground: hall_unlocked GND to the GND rail | hall_unlocked GND (40j) | GND rail (R-, row 40) |
-| 21 | blue | Bolt unlocked (A3144 OUT): hall_unlocked OUT to GPIO 23 | hall_unlocked OUT (41g) | DevKit GPIO 23 (13a) |
-| 22 | orange | 5 V (DevKit 5V pin, from USB): hall_door VCC to the 5V rail | hall_door VCC (44j) | 5V rail (R+, row 44) |
-| 23 | black | Ground: hall_door GND to the GND rail | hall_door GND (45j) | GND rail (R-, row 45) |
-| 24 | blue | Door (A3144 OUT): hall_door OUT to GPIO 2 | hall_door OUT (46g) | DevKit GPIO 2 (6j) |
-| 25 | red | 2x 18650 + (6.0-8.4 V): 18650 pack + to MP1584 IN+ | 18650 pack + | MP1584 IN+ |
-| 26 | black | Ground: 18650 pack - to MP1584 IN- | 18650 pack - | MP1584 IN- |
+| 1 | yellow | Motor A in 1 (PWM): GPIO 18 to TB6612 AIN1 | DevKit GPIO 18 (8a) | TB6612 AIN1 (24j) |
+| 2 | green | Motor A in 2 (PWM): GPIO 19 to TB6612 AIN2 | DevKit GPIO 19 (9a) | TB6612 AIN2 (23j) |
+| 3 | white | Driver enable: GPIO 20 to TB6612 STBY | DevKit GPIO 20 (10a) | TB6612 STBY (25j) |
+| 4 | black | Ground: DevKit GND to the GND rail (common ground) | DevKit G (17a) | GND rail (L-, row 17) |
+| 5 | red | 3.3 V (power module): TB6612 PWMA held high | TB6612 PWMA (22j) | 3V3 rail (L+, row 22) |
+| 6 | black | Ground: TB6612 GND (control side) | TB6612 GND (29j) | GND rail (R-, row 29) |
+| 7 | red | 3.3 V (power module): TB6612 VCC (logic 3.3 V) | TB6612 VCC (23a) | 3V3 rail (L+, row 23) |
+| 8 | black | Ground: TB6612 GND (power side) | TB6612 GND (24a) | GND rail (L-, row 24) |
+| 9 | orange | 5 V (power module): TB6612 VM (motor supply) from the 5V rail | TB6612 VM (22a) | 5V rail (R+, row 21) |
+| 10 | red | Motor M1: TB6612 AO1 to the motor | TB6612 AO1 (25a) | motor M1 |
+| 11 | black | Motor M2: TB6612 AO2 to the motor | TB6612 AO2 (26a) | motor M2 |
+| 12 | orange | 5 V (power module): hall_locked VCC to the 5V rail | hall_locked VCC (34j) | 5V rail (R+, row 34) |
+| 13 | black | Ground: hall_locked GND to the GND rail | hall_locked GND (35j) | GND rail (R-, row 35) |
+| 14 | blue | Bolt locked (A3144 OUT): hall_locked OUT to GPIO 22 | hall_locked OUT (36g) | DevKit GPIO 22 (12a) |
+| 15 | orange | 5 V (power module): hall_unlocked VCC to the 5V rail | hall_unlocked VCC (41j) | 5V rail (R+, row 41) |
+| 16 | black | Ground: hall_unlocked GND to the GND rail | hall_unlocked GND (42j) | GND rail (R-, row 42) |
+| 17 | blue | Bolt unlocked (A3144 OUT): hall_unlocked OUT to GPIO 23 | hall_unlocked OUT (43g) | DevKit GPIO 23 (13a) |
+| 18 | orange | 5 V (power module): hall_door VCC to the 5V rail | hall_door VCC (48j) | 5V rail (R+, row 48) |
+| 19 | black | Ground: hall_door GND to the GND rail | hall_door GND (49j) | GND rail (R-, row 49) |
+| 20 | blue | Door (A3144 OUT): hall_door OUT to GPIO 2 | hall_door OUT (50g) | DevKit GPIO 2 (6j) |
 
 ### Setup
 
-Do these in order. The motor supply goes on last, after the logic side has been checked on USB alone.
+Do these in order. The motor goes on last, after the logic side has been checked.
 
-1. **Charge the cells, one at a time.** Use the TP4056 on each 18650 alone. It is a 1-cell charger, so never charge the pair in series. Each cell should read 4.1-4.2 V when charged.
-2. **Make the pack.** Put both cells in the 2S holder and check the leads read 6.0-8.4 V.
-3. **Set the MP1584 to 6.0 V.** Connect the pack to IN+ and IN- (wires 25 and 26), with nothing on OUT. Turn its trimmer until a meter on OUT+/OUT- reads 6.0 V. Then disconnect the pack.
-4. **Place the parts** as in the layout, with no power connected.
-5. **Wire the rails:** wires 4, 5, 6, 7, 8, 9, 10 and 11.
-6. **Wire the motor control signals:** wires 1, 2 and 3.
-7. **Wire the Hall switches:** wires 16, 17, 18, 19, 20, 21, 22, 23 and 24.
-8. **Check on USB alone.** Plug in the DevKit's USB, with the pack still disconnected. Measure 3.2-3.4 V on the L+ rail and 4.7-5.25 V on the R+ rail, both against ground. Nothing should get warm.
-9. **Flash and test the switches.** The firmware must enable the internal pull-ups on GPIO 2, 22 and 23; without them, the A3144 inputs float. Each switch reads 1 with no magnet and 0 with a magnet's south pole against its branded face. See [Firmware](#firmware) below.
-10. **Connect the motor supply.** Unplug USB. Connect the pack to the MP1584 again, then its OUT to the board and the motor leads (wires 12, 13, 14 and 15). Plug USB back in.
-11. **Test the motor.** With STBY (GPIO 20) high: AIN1 (GPIO 18) high and AIN2 (GPIO 19) low turns it one way, and the reverse turns it the other. Both low lets it coast; both high brakes it. PWM on the high pin sets the speed.
-12. **When you're done,** disconnect the pack. It has no protection circuit: stop using it when either cell reaches 3.0 V (6.0 V for the pack), and recharge.
+1. **Set and check the power module on its own.** Each side has a three-position jumper (5V, OFF, 3.3V). Set the side that will sit on column j's rails to 5V and the other to 3.3V. Power it from the barrel jack, press its switch on (the LED lights), and check each side's + pin against - reads 4.75-5.25 V and 3.2-3.4 V. Switch it off.
+2. **Place the parts** as in the layout, with nothing powered. Plug the module into the rails at the row-63 end, with its 5 V side on column j's rails and each + pin in a + (red) rail.
+3. **Wire the grounds and logic supply:** wires 4, 5, 6, 7 and 8. Wire 4, the DevKit's GND to the board, is its only power connection: without it the TB6612 and the switches can't read the DevKit's signals.
+4. **Wire the motor control signals:** wires 1, 2 and 3.
+5. **Wire the Hall switches:** wires 12, 13, 14, 15, 16, 17, 18, 19 and 20.
+6. **Check the rails.** Switch the module on, with the DevKit unplugged. Measure 3.2-3.4 V on the L+ rail and 4.75-5.25 V on the R+ rail, both against ground. Nothing should get warm.
+7. **Flash and test the switches.** With the module on, plug in the DevKit's USB. The firmware must enable the internal pull-ups on GPIO 2, 22 and 23; without them, the A3144 inputs float. Each switch reads 1 with no magnet and 0 with a magnet's south pole against its branded face. See [Firmware](#firmware) below.
+8. **Connect the motor.** Unplug USB and switch the module off. Wire the TB6612's VM to the 5 V rail and the motor's leads (wires 9, 10 and 11). Switch the module on, then plug USB back in.
+9. **Test the motor.** With STBY (GPIO 20) high: AIN1 (GPIO 18) high and AIN2 (GPIO 19) low turns it one way, and the reverse turns it the other. Both low lets it coast; both high brakes it. PWM on the high pin sets the speed.
+10. **Check the 5 V rail under load.** Measure R+ while the motor starts and while you hold its shaft for a moment (a stall, as at the end of the bolt's travel). The module gives about 700 mA at most. If R+ drops below 4.5 V, the A3144s can drop out just when the bolt reaches them. If it does, put a 100-470 uF capacitor across VM and GND by the TB6612 (+ leg on VM), or use a stronger supply.
+11. **Power order:** switch the module on before plugging in the DevKit, and unplug the DevKit before switching the module off. That way the DevKit never drives the TB6612's inputs while the TB6612 has no supply.
 
 ## Stage 2: the printed dev kit
 
@@ -147,7 +139,7 @@ The tall slab (concept B), opened up, on a real door. It has the product's drive
 
 ### Parts
 
-The electronics and wiring. The full list (printed parts, 4 metal and 11 fastener lines, prices and suppliers) is in [bom/devkit.csv](bom/devkit.csv): $125.51 in all.
+The electronics and wiring. The full list (printed parts, 3 metal and 1 fastener lines, prices and suppliers) is in [bom/devkit.csv](bom/devkit.csv): $106.44 in all.
 
 | Qty | Part | Supplier | Notes |
 |---|---|---|---|
@@ -168,13 +160,13 @@ The electronics and wiring. The full list (printed parts, 4 metal and 11 fastene
 
 Jumper wires (24, from the kit) by colour: 8 black, 7 red, 3 blue, 2 yellow, 1 orange, 1 white, 1 purple, 1 green.
 
-Printed parts: 1x Bolt flag on the coupler's D-shaft; 4x Breadboard clamp bar; 1x Breadboard deck; 1x Bridge: gear retainer, motor mount; 3x Carrier spacer tube, 5 mm OD; 1x Chassis tray; 1x Coupler / tailpiece adapter; 2x Deck spacer tube, 5 mm OD; 1x Hall carrier: holds the three adapters chip-down; 1x Manual knob; 1x Motor pinion; 1x Open cover with a front window and USB slot; 1x Output gear. `uv run build_devkit.py` writes their STLs to `out/devkit/`.
+Printed parts: 1x Back plate: a bar on the deadbolt's two screws, 2 keyhole pegs; 1x Bolt flag on the coupler's D-shaft; 1x Breadboard deck; 1x Bridge: gear retainer, motor sleeve and clips, deck and carrier standoffs; 1x Chassis tray, hangs on the back plate; 1x Coupler / tailpiece adapter; 1x Hall carrier: holds the three adapters chip-down; 1x Manual knob, snaps onto the coupler's shaft; 1x Motor pinion; 1x Open cover with a front window and USB slot; 1x Output gear. `uv run build_devkit.py` writes their STLs to `out/devkit/`.
 
-Tools: soldering iron (Hall adapters, headers), heat-set insert tip, multimeter, hex keys for the M2 and M3 screws.
+Tools: soldering iron (Hall adapters, headers, battery leads), multimeter, a screwdriver for the deadbolt's screws, and a drop of CA glue (magnet, Hall adapters). Everything else snaps together.
 
 ### Layout
 
-The model with the cover off. The upper breadboard holds the DevKit, the lower one the DRV8833 carrier. The Hall carrier sits under the lower breadboard, over the bolt flag.
+The model with the cover off. The upper breadboard holds the DevKit, the lower one the DRV8833 carrier. The Hall carrier sits below the lower breadboard, over the bolt flag.
 
 ![Dev kit, cover off](drawings/devkit-guts.png)
 
@@ -186,13 +178,13 @@ The breadboards from above, at true scale, with every part where the model puts 
 
 | Part | Where |
 |---|---|
-| Deck | on the chassis spacers and the two tall posts, over the cells |
-| MCU breadboard (170 points) | upper, held by two clamp bars; strips run across the deck |
+| Deck | over the cells, on two standoffs on the bridge and two tall posts; four edge tabs click into the chassis walls |
+| MCU breadboard (170 points) | upper, in its pocket on the deck, an arm hooked over each end; strips run across the deck |
 | ESP32-C6-DevKitM-1 | on the MCU breadboard: J1 in column i, J3 in column b; USB end at the left, towards the cover's slot; antenna past the right edge |
-| DRV breadboard (170 points) | lower, held by two clamp bars |
+| DRV breadboard (170 points) | lower, in its pocket on the deck, an arm hooked over each end |
 | Pololu #2130 DRV8833 carrier | on the DRV breadboard: control row in column g, power row in column e |
 | 3V3 and GND rows | DRV breadboard rows 15 and 16, columns f-j: shared supply rows |
-| 3x DRV5032 on BOB-00717 adapters | glued chip-down in the Hall carrier, under the deck, pins up |
+| 3x DRV5032 on BOB-00717 adapters | glued chip-down under the Hall carrier, below the deck's lower end, pins up |
 | Motor cable | from the motor's side connector, through the notch, bare ends into the breadboard |
 | 4xAA cells | in the chassis under the deck; leads from the end contacts |
 
@@ -229,15 +221,15 @@ The breadboards from above, at true scale, with every part where the model puts 
 
 ### Setup
 
-1. **Print the parts** (PETG; the coupler in PA12 or PETG-CF) and fit the heat-set inserts.
+1. **Print the parts** (PETG; the coupler in PA12 or PETG-CF). `out/devkit/PRINT.md` gives each part's pose on the bed; the STLs are already in it.
 2. **Make the Hall switches.** Solder a DRV5032FA and two 1x3 headers to each SOT-23 adapter. Then check with a meter which holes the chip's VCC, OUT and GND reach. The drawings assume holes 1, 3 and 5; if yours differ, change `HALL_HOLE` in `wiring/netlist.py` and run `uv run build_wiring.py` before wiring. Glue the adapters chip-down into the Hall carrier.
-3. **Fit the chassis to the door** with the deadbolt's through-screws, then the coupler, gears, motor and bridge (see the README's Dev kit section).
-4. **Place the breadboards and boards** as in the layout, and clamp the breadboards down.
+3. **Fit the back plate to the door** with the deadbolt's through-screws, hang the chassis on it, then fit the drive, the Hall carrier, the cells and the deck: `out/devkit/ASSEMBLY.md` has every step, in an order the model checks can be done.
+4. **Place the breadboards and boards** as in the layout: each breadboard clicks into its pocket on the deck.
 5. **Wire it** from the table, with the cells out and USB unplugged. Wire 3V3 and GND first, then the signals, then the motor cable and battery leads.
 6. **Check on USB alone,** with no cells: 3.2-3.4 V on the 3V3 row, and nothing warm.
 7. **Flash and test.** The firmware must enable the internal pull-up on GPIO 3 (nFAULT is open drain). Each DRV5032 drives its output itself, so its GPIO needs no pull-up: it reads 0 with a magnet near it and 1 without.
 8. **Fit the cells** (4x AA lithium) and test the motor as on the bench: nSLEEP (GPIO 20) high, then PWM on AIN1 or AIN2. The encoder counts on GPIO 21 and 4.
-9. **Close up:** fit the deck's screws and the cover.
+9. **Close up:** click the cover on (four latches) and push the knob onto the shaft. To change cells, press the cover's latches in through its side windows, then squeeze the deck's four edge tabs and lift it, boards and wires and all.
 
 ## Firmware
 

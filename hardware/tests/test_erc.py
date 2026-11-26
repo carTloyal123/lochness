@@ -31,10 +31,13 @@ def gpio(stage, g):
 B, D, P = bench.BENCH, DEVKIT, PRODUCT
 FAULTS = [  # (what's wrong, stage, mutation, rule, net it must be reported on)
     ("GPIO 22 wired to the 5 V rail", B, lambda n: move(n, gpio(B, 22), "+5V"), "over-voltage", "+5V"),
-    ("18650 pack on the TB6612's logic VCC", B, lambda n: move(n, ("tb6612", "P-VCC"), "VBAT_2S"),
-     "over-voltage", "VBAT_2S"),
+    ("DevKit 3V3 pin on the power module's 3.3 V rail", B, lambda n: move(n, ("devkit", "J1-1"), "+3V3"),
+     "one-driver", "+3V3"),
+    ("DevKit 5V pin on the power module's 5 V rail", B, lambda n: move(n, ("devkit", "J1-14"), "+5V"),
+     "one-driver", "+5V"),
     ("A3144 on 3.3 V instead of 5 V", B, lambda n: move(n, ("hall_door", "1"), "+3V3"), "under-voltage", "+3V3"),
-    ("5 V rail not fed from the DevKit", B, lambda n: move(n, ("devkit", "J1-14")), "under-voltage", "+5V"),
+    ("5 V rail not fed (module's 5 V side off)", B, lambda n: move(n, ("psu", "R+")), "under-voltage", "+5V"),
+    ("DevKit ground not joined to the board", B, lambda n: move(n, ("devkit", "J3-1")), "ground", "devkit"),
     ("A3144 ground pin left out", B, lambda n: move(n, ("hall_locked", "2")), "ground", "hall_locked"),
     ("DevKit 3V3 shorted to GND", D, lambda n: move(n, ("devkit", "J1-1"), "GND"), "short-to-ground", "GND"),
     ("4xAA + on the 3.3 V row", D, lambda n: move(n, ("battery", "+"), "+3V3"), "one-driver", "+3V3"),

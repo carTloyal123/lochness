@@ -1,11 +1,14 @@
-"""The dev kit must assemble, fit the door and wire up, like a concept does."""
+"""The dev kit must assemble, fit the door and wire up, like a concept does; and, since it is
+built from printed snap-fit parts, go together step by step with no screws but the deadbolt's."""
 
 import pytest
 
+from concepts import assembly
 from concepts.check import collisions, fasteners, fit, joint_gaps, snaps, unattached
+from concepts.kit import FASTENER, PRINTED
 from deadbolt.fixture import PRESETS
 from concepts.parts import DEVKITM_J1, DEVKITM_J3
-from devkit.rig import BB_TOP, HALLS, Hole, devkit_pin, rig, wire_plan
+from devkit.rig import BB_TOP, HALLS, PRINT, Hole, devkit_pin, rig, wire_plan
 from wiring.netlist import PIN_MAP, RESERVED_GPIO
 
 
@@ -49,6 +52,39 @@ def test_fits_the_door(built):
 def test_snaps_within_strain(built):
     u, _, _ = built
     assert snaps(u) == []
+
+
+@pytest.fixture(scope="module")
+def assembled(built):
+    u, fixture, _ = built
+    return assembly.check(u, fixture)
+
+
+def test_assembly_sequence_covers_every_part(assembled):
+    assert assembled["sequence"] == []
+
+
+def test_every_step_can_be_done(assembled):
+    assert assembled["insertion"] == []
+
+
+def test_no_printed_fit_is_line_to_line(assembled):
+    assert assembled["clearance"] == []
+
+
+def test_only_the_deadbolts_screws(built):
+    u, _, _ = built
+    assert sorted(n for n, i in u.items.items() if i.kind == FASTENER) == ["screw_door_l", "screw_door_r"]
+
+
+def test_every_snap_states_its_print_direction(built):
+    u, _, _ = built
+    assert u.snaps and all(s.layers in ("along", "across") for s in u.snaps)
+
+
+def test_every_printed_part_has_a_print_pose():
+    u, _ = rig()
+    assert sorted(n for n, i in u.items.items() if i.kind == PRINTED) == sorted(PRINT)
 
 
 def test_pin_map_avoids_reserved_pins():

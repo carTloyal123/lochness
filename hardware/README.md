@@ -105,6 +105,8 @@ The puck can't fit the MINI-1 module in its ring-shaped PCB, so it uses the bare
 
 ### How the parts fasten
 
+The concepts are screwed together, as below. The dev kit snaps together instead (see [How the dev kit fastens](#how-the-dev-kit-fastens)).
+
 | Joint | Fastener | Threads into |
 |---|---|---|
 | Back plate to door | the deadbolt's own 2 flat-head through-screws | the exterior half's posts |
@@ -136,23 +138,56 @@ Approximations: gear teeth are true involutes; the worm is drawn as rings, not a
 
 ## Dev kit (`devkit/`)
 
-The tall slab (B), opened up for firmware work on a real door. It mounts the same way and has the same drive, motor, battery bay and chips (each on a breakout), so what you learn on it carries over. The differences:
+The tall slab (B), opened up for firmware work on a real door, and built to print and snap together: the only screws are the deadbolt's own two through-screws. It has the same drive, motor, battery bay and chips (each on a breakout), so what you learn on it carries over. The differences:
 
-- **Deck instead of the main PCB:** a removable printed deck carries two 170-point mini breadboards. The upper one holds the ESP32-C6-DevKitM-1 (USB end at the cover's side slot, antenna overhanging the far clamp bar) and the lower one the Pololu DRV8833 carrier. The deck is 4.5 mm thick so it can hold M2 inserts. It sits on the slab's PCB spacers at one edge and on two tall posts beyond the cells at the other.
-- **Breadboard mounting:** each breadboard is held down by two printed clamp bars, with a lip over each end's margin, plus its adhesive back. Each bar has two M2 screws. Most go into inserts in the deck; the upper breadboard's top two go through the deck into the tall chassis posts, so they hold the deck down too.
-- **Hall switches:** the three DRV5032s are on SOT-23 adapters, glued chip-down into a printed carrier on three spacers. The chips' faces are where the product PCB's underside is, so they see the bolt flag's magnet exactly as on the product. Their header pins come up through the carrier for jumper wires.
+- **Deck instead of the main PCB:** a removable printed deck carries two 170-point mini breadboards. The upper one holds the ESP32-C6-DevKitM-1 (USB end at the cover's side slot, antenna overhanging the far end) and the lower one the Pololu DRV8833 carrier. Each breadboard sits in a fenced pocket, held by an arm hooked over each end's margin (its adhesive back is optional).
+- **Hall switches:** the three DRV5032s are on SOT-23 adapters, glued chip-down under a printed carrier on three standoffs. The chips' faces are where the product PCB's underside is, so they see the bolt flag's magnet exactly as on the product. Their header pins come up through the carrier for jumper wires.
 - **Open cover:** the slab's shape with a big front window, so the wiring stays in view, and a side slot for the DevKit's USB cable. It's 17 mm taller than the slab, to fit the second breadboard. Clear PETG works well for it.
-- **Changing cells:** there's no battery door. Remove the cover (two screws, two snaps) and the deck (four screws).
+- **Changing cells:** there's no battery door. Press the cover's four latches in through its side windows and lift it off, then squeeze the deck's four edge tabs and lift the deck out, boards and wires and all.
 - **Wiring:** all 24 jumper wires are modelled, coloured by signal, including the motor's 6-wire cable. The pin map is the net list's (`wiring/netlist.py`, see Wiring below); `wire_plan()` in `devkit/rig.py` picks the holes and routes: motor PWM on GPIO 18/19, driver enable 20, driver fault 3, motor encoder A/B on 21/4, bolt locked/unlocked switches on 22/23, door switch on 2. It avoids the strapping, USB and UART pins. 3V3 and GND are shared along two spare rows of the driver's breadboard. The 4xAA pack feeds the carrier's VIN and the DevKit runs from USB. A test checks that no breadboard hole takes two wires.
 - **Regulator:** the TPS629206 is the one product chip not in the kit. The DevKit makes its own 3.3 V from USB, and its USB-serial chip and power LED would swamp a sleep-current measurement anyway, so battery life is measured on the first product PCB.
 
+### How the dev kit fastens
+
+The snap features are in `concepts/snaps.py`. Where it can, an arm flexes in the plane it was printed in, which bends it along the layers, the strong way for a printed part.
+
+| Joint | How | To undo |
+|---|---|---|
+| Back plate to door | A printed bar on the deadbolt's 2 through-screws (no steel plate) | Unscrew |
+| Chassis to back plate | Hangs on 2 keyhole pegs: put it on 6 mm high, slide it down. A tongue in the floor drops over a bump on the plate. Gravity keeps it seated. | Lift the tongue, slide up |
+| Bridge (4), Hall carrier (2), deck (4) | Sit on pegged posts. Spring tabs on their edges click into windows in the chassis walls. | Squeeze the tabs in |
+| Motor | A sleeve on the bridge stops it turning; 2 arms hook over its encoder board | Spread the arms |
+| Pinion, bolt magnet | Pressed on (a drop of CA glue on the magnet) | |
+| Breadboards | Fenced pocket, an arm over each end | Spread the arms |
+| Cover | 4 arms in the chassis walls click into windows in its sides | Press the 4 barbs in through the windows |
+| Knob | 2 fingers in its bore click into a groove round the coupler's shaft | Pull firmly: the groove's top is a 45 deg ramp |
+
+Every printed fit has play: 0.2 mm a side where parts slide (pegs, cover, tabs, keyholes), 0.15 mm on keyed fits (the D-bores on the coupler's shaft, the motor sleeve). The back plate is a bar, not a plate under the whole chassis, so the chassis floor only bridges a 25 mm pocket when it prints skirt-down.
+
+### Checks: can it actually be put together?
+
+`devkit.check` runs the concepts' checks on the finished assembly, plus three that follow the assembly order (`assembly_steps()` in `devkit/rig.py`, written out as `out/devkit/ASSEMBLY.md`), from `concepts/assembly.py`:
+
+- **insertion:** each step's parts are pulled back out along their path (straight in, or the chassis's on-then-slide-down) in 0.5 mm steps and must hit nothing fitted earlier. Snap barbs are left out of the sweep, since their arms flex. Subassemblies (motor and pinion into the bridge, the Hall adapters into their carrier, the magnet into the flag) are checked on the bench, then carried in as one.
+- **clearance:** each part, shifted 0.1 mm square to its path both ways, must hit nothing. A line-to-line fit fails, except declared press fits (the pinion, the magnet, the screws' seats and threads, the cells against their springs).
+- **sequence:** every part is fitted by exactly one step.
+
+Every snap's strain is checked against 2.5% bending along the layers, or 1.5% across them. 1.5% assumes printed PETG is about 60% as strong between layers. The final-pose checks alone used to pass a kit that couldn't be built. On the screwed version, these checks found:
+
+- the cover was exactly the size of the chassis it slid over;
+- the breadboards were clamped line to line;
+- the bolt flag's D-bore was exactly the shaft's size;
+- the battery contacts and cells couldn't drop into their ribs (closed windows; now U-slots, in the concepts too).
+
+`out/devkit/PRINT.md` gives each part's pose on the bed and its overhangs; the STLs are exported in that pose. Only the coupler needs support, under its lug.
+
 ```sh
 uv run view.py devkit                 # in the viewer, on the door (or Cmd+Shift+B -> devkit)
-uv run build_devkit.py                # STEP, printed-part STLs, BOM.md, WIRING.md, renders -> out/devkit/
-uv run python -m devkit.check         # the same checks as the concepts
+uv run build_devkit.py                # STEP, STLs (print pose), BOM, PRINT, ASSEMBLY, WIRING, renders -> out/devkit/
+uv run python -m devkit.check         # the concepts' checks plus the assembly sequence (about 30 s)
 ```
 
-UNMEASURED or UNCONFIRMED: mini breadboard size (47 x 35 mm here; they vary); the DevKitM-1's board thickness (1.6 assumed; Espressif's drawing gives the outline, headers, module and USB positions); the SOT-23 adapter's size (SparkFun's Eagle file says 10.16 x 7.62, its product page 8.6 x 11.7) and which holes carry VCC, OUT and GND; the motor's output shaft length (10 mm on Pololu's drawing, 9 on its product page).
+UNMEASURED or UNCONFIRMED: mini breadboard size (47 x 35 x 8.5 mm here, with 1.9 mm of plain margin past the end rows for the clips; they vary); the DevKitM-1's board thickness (1.6 assumed; Espressif's drawing gives the outline, headers, module and USB positions); the SOT-23 adapter's size (SparkFun's Eagle file says 10.16 x 7.62, its product page 8.6 x 11.7) and which holes carry VCC, OUT and GND; the motor's output shaft length (10 mm on Pololu's drawing, 9 on its product page); the motor's encoder board (13.6 mm across, 0.8 mm wider than the can each side: the motor clips hook over that edge); the 1.5% across-layer strain limit. Print a test pair of snaps before the whole kit.
 
 ## Wiring (`wiring/`)
 
@@ -184,10 +219,10 @@ The bench (stage 1) builds the same circuit from the parts on hand. It keeps the
 | MCU | ESP32-C6-DevKitC-1 | 16 pins a side, against the DevKitM-1's 15: the same GPIOs on different header pins. |
 | Motor driver | TB6612FNG breakout | STBY on GPIO 20 (where nSLEEP was), and PWMA tied to 3.3 V so PWM on AIN1/AIN2 works as on the DRV8833. No fault output, so GPIO 3 is unused. |
 | Motor | N20, no encoder | GPIO 21 and 4 are unused; the bolt Hall switches and timeouts stand in for the encoder. |
-| Hall switches | 3x A3144 | They need 4.5 V or more, so they run from the DevKit's 5 V. The outputs are open collector, so enable the GPIO pull-ups. They respond only to a south pole on the branded face. |
-| Motor supply | 2x 18650 in series, then an MP1584EN set to 6.0 V | Set the MP1584 before connecting it. Charge the cells one at a time with the TP4056 (a 1-cell charger). The pack has no protection: stop at 3.0 V per cell. |
+| Hall switches | 3x A3144 | They need 4.5 V or more, so they run from the 5 V rail. The outputs are open collector, so enable the GPIO pull-ups. They respond only to a south pole on the branded face. |
+| Power | ELEGOO breadboard power module: 5 V on R+, 3.3 V on L+ | The motor runs from the 5 V rail (a little slower than at 6 V). The DevKit runs from its own USB, with only its GND wired to the board: its 3V3 or 5V pin on a rail would put two supplies on one net. |
 
-The XIAO ESP32C6, the PN532 and the ELEGOO kit's power module aren't used. The dev kit's BOM and `WIRING` are unchanged: these substitutions are bench-only.
+The XIAO ESP32C6, the PN532, the MP1584EN, the 18650 cells and the TP4056 aren't used. The dev kit's BOM and `WIRING` are unchanged: these substitutions are bench-only.
 
 ### Electrical rule check (`wiring/erc.py`)
 
@@ -200,7 +235,7 @@ Every stage's net list is checked before anything is drawn. `build_wiring.py` st
 | over-voltage | a net above any of its pins' maximum (5 V on a 3.3 V GPIO, the pack on logic VCC) |
 | under-voltage | a supply pin below its minimum (an A3144 on 3.3 V), or with nothing supplying it |
 | pull-up | an open-drain output with no resistor and no GPIO pull-up on its net |
-| ground | a powered part with no ground, or a ground pin on another net |
+| ground | a powered part, or one driving signals, with no ground; or a ground pin on another net |
 | strapping | GPIO 8 or 9 pulled low, or driven by another part, at boot |
 
 Some things the inference can't work out alone, so they're declared per stage with a reason:
@@ -208,7 +243,7 @@ Some things the inference can't work out alone, so they're declared per stage wi
 - GPIO pull-ups the firmware must enable: bench GPIO 2, 22 and 23; dev kit GPIO 3. `build_wiring.py` prints these.
 - The battery-sense divider's range.
 
-The tests seed one mistake per rule and check that it's caught. Examples: GPIO 22 on the 5 V rail, the 18650 pack on the TB6612's VCC, the DevKit's 3V3 shorted to GND, and the nFAULT pull-up removed.
+The tests seed one mistake per rule and check that it's caught. Examples: GPIO 22 on the 5 V rail, the DevKit's 3V3 pin on the power module's 3.3 V rail, the DevKit's ground left off the board, the DevKit's 3V3 shorted to GND, and the nFAULT pull-up removed.
 
 It checks the parts as their datasheets describe them. A board whose silkscreen differs from the pin order a model assumes still needs checking by eye.
 

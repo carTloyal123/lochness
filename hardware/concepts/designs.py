@@ -54,8 +54,8 @@ def _ycyl(d, y0, y1, x, z) -> Part:
 
 # --- battery bay: cells in series between two slotted ribs ---
 # Each rib is a 0.8 mm skin facing the cells, a 1.0 mm slot the contact drops into from
-# above, and a 1.2 mm back. A window in the skin lets the cell's + nub or the - spring
-# through to the contact. Cells alternate direction so link contacts join them in series
+# above, and a 1.2 mm back. A U-shaped window in the skin, open at the top, lets the cell's
+# + nub or the - spring through to the contact. Cells alternate direction so link contacts join them in series
 # (the usual 4xAA holder layout); only the two end terminals need wires.
 SKIN, SLOT, BACK = 0.8, 1.0, 1.2
 RIB_T = SKIN + SLOT + BACK
@@ -132,8 +132,9 @@ def battery_bay(u: Unit, spec: dict, xs: list[float], y_back: float, z0: float, 
             rib += box(a, b, y0, y1, z0, rib_top)
         for a, b in slots[end]:
             rib -= box(a, b, s0, s1, zc - 5.3, rib_top + 1)
-        for x in xs:
-            rib -= _ycyl(WINDOW_D, k0 - 0.01, k1 + 0.01, x, zc)
+        for x in xs:  # open at the top, so a contact's spring and a cell's nub drop in from above
+            rib -= _ycyl(WINDOW_D, k0 - 0.01, k1 + 0.01, x, zc) \
+                + box(x - WINDOW_D / 2, x + WINDOW_D / 2, k0 - 0.01, k1 + 0.01, zc, rib_top + 1)
         ribs += rib
     return ribs
 

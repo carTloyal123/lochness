@@ -97,3 +97,9 @@ def test_committed_schematic_matches_the_net_list():
 def test_schematic_passes_erc(tmp_path):
     code, report = K.erc(SCH, tmp_path / "erc.rpt")
     assert code == 0, report
+
+
+def test_bench_hall_switches_have_room():
+    from wiring.bench import HALL_GAP, HALL_ROWS
+    rows = sorted(HALL_ROWS.values())
+    assert all(b - (a + 2) - 1 >= HALL_GAP for a, b in zip(rows, rows[1:]))

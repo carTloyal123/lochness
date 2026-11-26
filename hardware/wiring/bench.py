@@ -7,7 +7,7 @@ on hand (2026-11-11), with the dev kit's pin map so the same firmware runs on bo
 | Motor driver | TB6612FNG breakout | DRV8833 |
 | Motor | N20 gearmotor, no encoder | Pololu #5193 with encoder |
 | Bolt and door switches | 3x A3144 (TO-92) | DRV5032FA |
-| Motor supply | 2x 18650 in series -> MP1584EN buck set to 6 V | 4x AA |
+| Power | ELEGOO breadboard power module (5 V and 3.3 V rails); the DevKit on its own USB | 4x AA |
 | Breadboard | ELEGOO 830-point, with power rails | 2x 170-point minis |
 
 Differences that matter to the firmware:
@@ -15,7 +15,9 @@ Differences that matter to the firmware:
   and PWMA tied to 3.3 V, so PWM on AIN1/AIN2 drives it the same way. It has no fault output:
   GPIO 3 is unused.
 - No encoder: GPIO 21 and 4 are unused; the bolt Hall switches and timeouts stand in.
-- A3144: needs 4.5-24 V, so it runs from the DevKit's 5 V pin. Its output is open collector:
+- Motor at 5 V (the power module's 5 V rail) instead of 6 V: a little slower and weaker
+  than in the dev kit, so time-outs tuned here are on the long side.
+- A3144: needs 4.5-24 V, so it runs from the 5 V rail. Its output is open collector:
   turn on the GPIO's internal pull-up (to 3.3 V). It is unipolar: it switches only when a
   magnet's south pole faces its branded side. About 4 mA each, so it's for the bench only.
 """
@@ -46,8 +48,8 @@ BENCH = Stage(
         "tb6612": Part("tb6612", "TB6612FNG breakout", [f"C-{n}" for n in TB_CTL] + [f"P-{n}" for n in TB_PWR]),
         **{r: Part(r, f"A3144 Hall switch ({r.split('_')[1]})", list(A3144.values())) for r in HALL_PARTS.values()},
         "motor": Part("motor", "N20 gearmotor (no encoder)", ["M1", "M2"]),
-        "buck": Part("buck", "MP1584EN buck module, set to 6 V", ["IN+", "IN-", "OUT+", "OUT-"]),
-        "battery": Part("battery", "2x 18650 in series (6.0-8.4 V)", ["+", "-"]),
+        # Plugs into the four rails at one end of the board; each side's jumper picks its voltage.
+        "psu": Part("psu", "ELEGOO breadboard power module (MB102)", ["L+", "L-", "R+", "R-"]),
     },
     blocks={
         **devkit_blocks(DEVKITC_J1, DEVKITC_J3),
@@ -61,34 +63,45 @@ BENCH = Stage(
         ("MOTOR", "6"): ("motor", "M1"),
         ("MOTOR", "5"): ("motor", "M2"),
         **{(b, sig): (r, A3144[sig]) for b, r in HALL_PARTS.items() for sig in A3144},
-        # The battery as the driver sees it: after the buck, 6 V.
-        ("BATTERY", "+"): ("buck", "OUT+"),
-        ("BATTERY", "-"): ("battery", "-"),
+        # The motor supply is the power module's 5 V side (VBAT is merged into +5V below).
+        ("BATTERY", "+"): ("psu", "R+"),
+        ("BATTERY", "-"): ("psu", "R-"),
     },
     omit={("MCU", "GPIO3"): "TB6612FNG has no fault output", ("DRIVER", "nFAULT"): "TB6612FNG has no fault output",
           ("MCU", "GPIO21"): "N20 has no encoder", ("MCU", "GPIO4"): "N20 has no encoder",
-          **{("MOTOR", p): "N20 has no encoder" for p in "1234"}},
+          **{("MOTOR", p): "N20 has no encoder" for p in "1234"},
+          ("MCU", "3V3"): "the DevKit runs from its own USB; its 3V3 pin on the power module's 3.3 V "
+                          "rail would put two regulators on one net"},
     moves={(b, "VCC"): "+5V" for b in HALL_PARTS},  # A3144 needs 4.5 V or more
-    extra={"+5V": [("devkit", "J1-14")],
-           "+3V3": [("tb6612", "P-VCC"), ("tb6612", "C-PWMA")],
-           "GND": [("tb6612", "P-GND"), ("buck", "IN-"), ("buck", "OUT-")],
-           "VBAT_2S": [("battery", "+"), ("buck", "IN+")]},
+    extra={"+3V3": [("psu", "L+"), ("tb6612", "P-VCC"), ("tb6612", "C-PWMA")],
+           "GND": [("psu", "L-"), ("tb6612", "P-GND")]},
+    aliases={"VBAT": "+5V"},  # the motor runs off the 5 V rail
     ties=[(("tb6612", "C-GND"), ("tb6612", "P-GND"), ("tb6612", "P-GND2")),
-          (("buck", "IN-"), ("buck", "OUT-")),
+          (("psu", "L-"), ("psu", "R-")),
           devkit_ground_tie(DEVKITC_J1, DEVKITC_J3)],
 )
-TITLES = NET_TITLES | {"+5V": "5 V (DevKit 5V pin, from USB)", "VBAT_2S": "2x 18650 + (6.0-8.4 V)",
-                       "VBAT": "Motor supply (MP1584 out, 6 V)",
+TITLES = NET_TITLES | {"+5V": "5 V (power module)", "+3V3": "3.3 V (power module)",
                        **{n: d.replace("DRV5032", "A3144") for n, d in NET_TITLES.items() if n.startswith("HALL_")}}
 
 # --- layout on the 830-point breadboard ------------------------------------------------------
 # Rows 1-63 run along the board; columns a-e and f-j either side of the centre gap. Two rails
-# each side: L+ and L- beside column a, R+ and R- beside column j.
+# each side, in the same order across the board (+ - | strips | + -): R+ on the outside and
+# R- beside column j; L+ beside column a and L- on the outside.
 RAILS = {"L+": "+3V3", "L-": "GND", "R+": "+5V", "R-": "GND"}
+# The power module plugs into all four rails at the row-63 end (the DevKit's USB overhangs the
+# row-1 end). Its body covers the last rows: keep rows PSU_CLEAR-63 free of parts and wires.
+PSU_ROW = 62  # where its pins are drawn; it only needs to be in the rails
+PSU_CLEAR = 52
 DEVKIT_ROW = 18  # DevKit pin k in row 18 - k: J3 in column b, J1 in column i, USB off the row-1 end
 # (pin 16 is in row 2; the USB-C ports overhang the board's end), antenna towards row 20
-TB_ROW = 22  # TB6612 pin k in row 21 + k: control row in column c, power row in column h (0.7")
-HALL_ROWS = {"hall_locked": 34, "hall_unlocked": 39, "hall_door": 44}  # legs in column f
+# TB6612 pin k in row 21 + k: control row (PWMA..GND) in column h, at the top of the drawing; power
+# row (VM..GND) in column c, at the bottom; 0.7" apart. That is the board turned with its header
+# pin 1s (PWMA, VM) towards row 22: the control header then lies on the j side.
+TB_ROW = 22
+# Legs in column f, rows r..r+2. At least HALL_GAP empty rows between two switches: TO-92s
+# side by side don't fit in fewer.
+HALL_GAP = 4
+HALL_ROWS = {"hall_locked": 34, "hall_unlocked": 41, "hall_door": 48}
 
 
 @dataclass(frozen=True)
@@ -125,9 +138,11 @@ def pin_hole(ref: str, pin: str, col: str = "") -> Hole:
     if ref == "tb6612":
         side, name = pin.split("-", 1)
         names = TB_CTL if side == "C" else TB_PWR
-        return Hole(TB_ROW + names.index(name), col or ("a" if side == "C" else "j"))
+        return Hole(TB_ROW + names.index(name), col or ("j" if side == "C" else "a"))
     if ref in HALL_ROWS:
         return Hole(HALL_ROWS[ref] + int(pin) - 1, col or "j")
+    if ref == "psu":
+        return Hole(PSU_ROW, pin)
     raise KeyError(ref)
 
 
@@ -136,11 +151,13 @@ def _seated(ref: str, pin: str) -> Hole:
     if ref == "devkit":
         return pin_hole(ref, pin, "i" if pin.startswith("J1") else "b")
     if ref == "tb6612":
-        return pin_hole(ref, pin, "c" if pin.startswith("C") else "h")
+        return pin_hole(ref, pin, "h" if pin.startswith("C") else "c")
+    if ref == "psu":
+        return pin_hole(ref, pin)
     return pin_hole(ref, pin, "f")
 
 
-ON_BOARD = ("devkit", "tb6612", *HALL_ROWS)
+ON_BOARD = ("devkit", "tb6612", *HALL_ROWS, "psu")
 
 
 def wire_plan() -> list[Wire]:
@@ -153,16 +170,12 @@ def wire_plan() -> list[Wire]:
     w = [Wire("MOT_IN1", "yellow", *sig("MOT_IN1"), "GPIO 18 to TB6612 AIN1"),
          Wire("MOT_IN2", "green", *sig("MOT_IN2"), "GPIO 19 to TB6612 AIN2"),
          Wire("DRV_nSLEEP", "white", *sig("DRV_nSLEEP"), "GPIO 20 to TB6612 STBY"),
-         Wire("+3V3", "red", pin_hole("devkit", "J1-1"), Hole(17, "L+"), "DevKit 3V3 to the 3V3 rail"),
-         Wire("GND", "black", pin_hole("devkit", "J3-1"), Hole(17, "L-"), "DevKit GND to the GND rail"),
-         Wire("+5V", "orange", pin_hole("devkit", "J1-14"), Hole(4, "R+"), "DevKit 5V to the 5V rail"),
-         Wire("GND", "black", Hole(20, "L-"), Hole(20, "R-"), "joins the two GND rails"),
+         Wire("GND", "black", pin_hole("devkit", "J3-1"), Hole(17, "L-"), "DevKit GND to the GND rail (common ground)"),
          Wire("+3V3", "red", pin_hole("tb6612", "C-PWMA"), Hole(22, "L+"), "TB6612 PWMA held high"),
-         Wire("GND", "black", pin_hole("tb6612", "C-GND"), Hole(29, "L-"), "TB6612 GND (control side)"),
+         Wire("GND", "black", pin_hole("tb6612", "C-GND"), Hole(29, "R-"), "TB6612 GND (control side)"),
          Wire("+3V3", "red", pin_hole("tb6612", "P-VCC"), Hole(23, "L+"), "TB6612 VCC (logic 3.3 V)"),
-         Wire("GND", "black", pin_hole("tb6612", "P-GND"), Hole(24, "R-"), "TB6612 GND (power side)"),
-         Wire("VBAT", "red", Term("buck", "OUT+"), pin_hole("tb6612", "P-VM"), "MP1584 OUT+ (6 V) to TB6612 VM"),
-         Wire("GND", "black", Term("buck", "OUT-"), Hole(30, "R-"), "MP1584 OUT- to the GND rail"),
+         Wire("GND", "black", pin_hole("tb6612", "P-GND"), Hole(24, "L-"), "TB6612 GND (power side)"),
+         Wire("+5V", "orange", pin_hole("tb6612", "P-VM"), Hole(21, "R+"), "TB6612 VM (motor supply) from the 5V rail"),
          Wire("MOT_M1", "red", pin_hole("tb6612", "P-AO1"), Term("motor", "M1"), "TB6612 AO1 to the motor"),
          Wire("MOT_M2", "black", pin_hole("tb6612", "P-AO2"), Term("motor", "M2"), "TB6612 AO2 to the motor")]
     for ref, r in HALL_ROWS.items():
@@ -171,8 +184,7 @@ def wire_plan() -> list[Wire]:
         net = next(n for n, (_, b, _) in PIN_MAP.items() if HALL_PARTS.get(b[0]) == ref)
         mcu = pin_hole(*nets[net][0])
         w.append(Wire(net, "blue", pin_hole(ref, "3", "g"), mcu, f"{ref} OUT to GPIO {PIN_MAP[net][0]}"))
-    w += [Wire("VBAT_2S", "red", Term("battery", "+"), Term("buck", "IN+"), "18650 pack + to MP1584 IN+"),
-          Wire("GND", "black", Term("battery", "-"), Term("buck", "IN-"), "18650 pack - to MP1584 IN-")]
+    assert all(e.row < PSU_CLEAR for wr in w for e in (wr.a, wr.b) if isinstance(e, Hole))
     return w
 
 
@@ -188,7 +200,7 @@ def plan_connectivity(plan: list[Wire] | None = None) -> set[frozenset]:
 
 def end_label(e: Hole | Term) -> str:
     if isinstance(e, Term):
-        return {"buck": "MP1584", "battery": "18650 pack", "motor": "motor"}[e.ref] + f" {e.pin}"
+        return {"motor": "motor"}[e.ref] + f" {e.pin}"
     if e.col in RAILS:
         return f"{RAILS[e.col].lstrip('+')} rail ({e.col}, row {e.row})"
     for ref in ON_BOARD:
@@ -199,6 +211,8 @@ def end_label(e: Hole | Term) -> str:
                     name = f"DevKit {'GPIO ' + n if n.isdigit() else n}"
                 elif ref == "tb6612":
                     name = f"TB6612 {pin.split('-', 1)[1].replace('GND2', 'GND')}"
+                elif ref == "psu":
+                    continue
                 else:
                     name = f"{ref} {next(s for s, p in A3144.items() if p == pin)}"
                 return f"{name} ({e.row}{e.col})"
@@ -209,7 +223,7 @@ def end_label(e: Hole | Term) -> str:
 P = 2.54
 MX, MY = 12.0, 22.0  # where row 0 / the R+ rail sit on the sheet
 COL_Y = {"R+": 0.0, "R-": P, **{c: 3 * P + i * P for i, c in enumerate("jihgf")},
-         **{c: 10 * P + i * P for i, c in enumerate("edcba")}, "L-": 16 * P, "L+": 17 * P}
+         **{c: 10 * P + i * P for i, c in enumerate("edcba")}, "L+": 16 * P, "L-": 17 * P}
 
 
 def xy(e: Hole | Term) -> tuple[float, float]:
@@ -219,22 +233,20 @@ def xy(e: Hole | Term) -> tuple[float, float]:
 
 
 _BY = MY + 17 * P + 18.0  # off-board parts, under the breadboard
-TERMS = {("motor", "M1"): (MX + 60.0, _BY), ("motor", "M2"): (MX + 66.0, _BY),
-         ("buck", "IN+"): (MX + 92.0, _BY), ("buck", "IN-"): (MX + 92.0, _BY + 6.0),
-         ("buck", "OUT+"): (MX + 104.0, _BY), ("buck", "OUT-"): (MX + 104.0, _BY + 6.0),
-         ("battery", "+"): (MX + 130.0, _BY), ("battery", "-"): (MX + 130.0, _BY + 6.0)}
+TERMS = {("motor", "M1"): (MX + 60.0, _BY), ("motor", "M2"): (MX + 66.0, _BY)}
 
 
 PLACEMENT = [  # (part, where it goes, how it faces): the layout drawing's table
     ("ESP32-C6-DevKitC-1", "J1 pins in column i, J3 pins in column b; pin 1 (3V3 / G) in row 17, pin 16 (NC) "
      "in row 2", "Antenna towards row 20, USB-C ports hanging off the row-1 end"),
-    ("TB6612FNG breakout", f"Control row (PWMA..GND) in column c, power row (VM..GND) in column h, rows {TB_ROW}-{TB_ROW + 7}",
+    ("TB6612FNG breakout", f"Control row (PWMA..GND) in column h, power row (VM..GND) in column c, rows {TB_ROW}-{TB_ROW + 7}",
      "PWMA and VM in row 22; check your board's silkscreen order"),
     *((f"A3144 {ref.split('_')[1]}", f"Legs in column f, rows {r}-{r + 2}", "Branded (flat) face towards the centre gap (column e), so VCC, GND, OUT run left to right "
       "as you face it")
       for ref, r in HALL_ROWS.items()),
-    ("N20 motor, MP1584EN, 2x 18650", "Off the board, on the bench", "Leads soldered on; the buck's OUT goes to "
-     "the board only after it's set to 6.0 V"),
+    ("ELEGOO power module", f"Pins in the four rails at the row-63 end; keep rows {PSU_CLEAR}-63 clear",
+     "Barrel jack off the board's end; jumper on the j side at 5 V, on the a side at 3.3 V"),
+    ("N20 motor", "Off the board, on the bench", "Leads soldered to its tabs"),
 ]
 
 
@@ -252,8 +264,8 @@ def bench_svg(wires: bool = True) -> str:
                     "breadboard", 3.0, weight="bold", fill="#111")
     s.text(MX, 12.5, "Generated by build_wiring.py from wiring/bench.py. Same GPIO map as the dev kit, so the same "
                      "firmware runs on both. Hole = row (1-63) + column (a-j) or rail.", 1.4, fill="#555")
-    s.text(MX, 15.0, "Power: USB into the DevKit (its 3V3 and 5V feed the rails). 2x 18650 in series -> MP1584 "
-                     "(set to 6.0 V BEFORE connecting) -> TB6612 VM. All grounds common.", 1.4, fill="#555")
+    s.text(MX, 15.0, "Power: the ELEGOO power module feeds the rails (R+ 5 V: Hall switches and TB6612 VM; L+ 3.3 V: "
+                     "TB6612 logic). The DevKit runs from its own USB; only its GND joins the board.", 1.4, fill="#555")
 
     # board, strips, holes
     x0, x1 = MX - 1.5, MX + 64 * P - 1.0
@@ -293,6 +305,14 @@ def bench_svg(wires: bool = True) -> str:
           'fill-opacity="0.3" stroke="#9c7d16" stroke-width="0.2"/>')
     outline(-2, 17, "i", "b", "#2b2b2b", "ESP32-C6-DevKitC-1", "USB-C ports off the board's end")
     outline(TB_ROW, TB_ROW + 7, "h", "c", "#c0392b", "TB6612FNG", "check the pin order on yours")
+    (ax, ay), (bx, by) = xy(Hole(PSU_CLEAR, "R+")), xy(Hole(63, "L-"))
+    s.add(f'<rect x="{ax - 1.2:.2f}" y="{ay - 1.6:.2f}" width="{bx - ax + 6.0:.2f}" height="{by - ay + 3.2:.2f}" rx="0.8" '
+          'fill="#1d4fa8" fill-opacity="0.14" stroke="#333" stroke-width="0.3" stroke-dasharray="1,0.6"/>')
+    s.text((ax + bx) / 2 + 2, (ay + by) / 2 - 2.0, "ELEGOO power", 1.5, "middle", fill="#111", weight="bold")
+    s.text((ax + bx) / 2 + 2, (ay + by) / 2 + 0.2, "module", 1.5, "middle", fill="#111", weight="bold")
+    s.text((ax + bx) / 2 + 2, (ay + by) / 2 + 2.6, "j side: 5 V", 1.1, "middle", fill="#333")
+    s.text((ax + bx) / 2 + 2, (ay + by) / 2 + 4.4, "a side: 3.3 V", 1.1, "middle", fill="#333")
+    s.text((ax + bx) / 2 + 2, (ay + by) / 2 + 6.2, "barrel jack off this end", 1.0, "middle", fill="#333")
     for ref, r in HALL_ROWS.items():
         x, y = xy(Hole(r + 1, "f"))
         s.text(x, y + 3.4, ref.replace("hall_", "A3144 "), 1.1, "middle", fill="#111", weight="bold")
@@ -304,6 +324,9 @@ def bench_svg(wires: bool = True) -> str:
                 name = devkit_pin_name(pin, DEVKITC_J1, DEVKITC_J3)
             elif ref == "tb6612":
                 name = pin.split("-", 1)[1].replace("GND2", "GND")
+            elif ref == "psu":
+                s.add(f'<circle cx="{x}" cy="{y}" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>')
+                continue
             else:
                 name = next(sg for sg, p in A3144.items() if p == pin)
             s.add(f'<circle cx="{x}" cy="{y}" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>')
@@ -317,12 +340,9 @@ def bench_svg(wires: bool = True) -> str:
         s.text((x0_ + x1_) / 2, y1_ + 2.6, label, 1.3, "middle", fill="#111", weight="bold")
 
     box(MX + 56, _BY - 3, MX + 70, _BY + 3, "#999", "N20 motor")
-    box(MX + 88, _BY - 3, MX + 108, _BY + 9, "#1d4fa8", "MP1584EN (6.0 V out)")
-    box(MX + 124, _BY - 3, MX + 150, _BY + 9, "#26a641", "2x 18650 in series")
     for (ref, pin), (x, y) in TERMS.items():
         s.add(f'<circle cx="{x}" cy="{y}" r="0.75" fill="#d4af37" stroke="#7a6418" stroke-width="0.15"/>')
-        s.text(x + (1.4 if ref != "buck" or pin.startswith("OUT") else -1.4), y + 0.45, pin, 1.0,
-               "start" if ref != "buck" or pin.startswith("OUT") else "end")
+        s.text(x + 1.4, y + 0.45, pin, 1.0, "start")
 
     # wires
     for k, wr in enumerate(plan):
@@ -366,10 +386,10 @@ def bench_svg(wires: bool = True) -> str:
         s.text(MX + 52, y, end_label(wr.a), 1.2)
         s.text(MX + 100, y, end_label(wr.b), 1.2)
     y += 6
-    for note in ("Before powering: set the MP1584 to 6.0 V with a meter, unloaded. Charge each 18650 on its own with the "
-                 "TP4056 (it is a 1-cell charger), never the pair in series.",
-                 "The pack has no protection: stop at 3.0 V per cell (6.0 V pack). If your rails are split halfway along, "
-                 "bridge each one across the split.",
+    for note in ("Before switching on: set the power module's jumpers (j side 5 V, a side 3.3 V) and check its + pins sit "
+                 "in the red rails. Never wire the DevKit's 3V3 or 5V pin to a rail: it has its own USB supply.",
+                 "The module feeds the rails from the row-63 end. If your rails are split halfway along, bridge each one "
+                 "across the split, or the DevKit, TB6612 and switches get no power.",
                  "A3144: branded face towards you, legs 1 VCC, 2 GND, 3 OUT; needs a magnet's SOUTH pole on the branded "
                  "face. Firmware: enable the pull-up on GPIO 22, 23 and 2.",
                  "TB6612 pin order is SparkFun's (ROB-14451); check your board's silkscreen. The DevKit is the "

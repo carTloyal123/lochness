@@ -1,4 +1,5 @@
-"""Dev kit: the tall slab (concept B), opened up for development.
+"""Dev kit: the tall slab (concept B), opened up for development, and put together with
+snaps instead of screws.
 
 Same door mounting, drive, motor and battery bay as the slab, and the same chips as its
 main PCB, each on a breakout (concepts/parts.py), so what is learned on it carries over:
@@ -9,13 +10,27 @@ main PCB, each on a breakout (concepts/parts.py), so what is learned on it carri
 - the three DRV5032 Hall switches (bolt locked, bolt unlocked, door) are on SparkFun SOT-23
   adapters, worn chip-down in a printed carrier at the product PCB's height, so they sit
   over the bolt flag's magnet exactly as on the product
-- each breadboard is held by two printed clamp bars, one over each end, screwed into
-  heat-set inserts in the deck (plus its adhesive back)
 - the cover has a big front window (the wiring stays in view) and a slot for the
   DevKit's USB cables; it is 17 mm taller than the slab's to fit the second breadboard
-- no battery door: lift the cover and the deck (four screws) to change cells
 - the TPS629206 regulator is the one product chip not in the kit: the DevKit makes its
   own 3.3 V from USB, so battery life is measured on the first product PCB
+
+Fastening. The only screws are the deadbolt's own two through-screws, which hold a printed
+back plate (a bar across the deadbolt) to the door. Everything else snaps or interlocks
+(concepts/snaps.py):
+
+| Joint | How |
+|---|---|
+| chassis to back plate | hangs on two keyhole pegs: on 6 mm high, slide down; a tongue in the floor drops into a notch |
+| bridge, Hall carrier, deck | sit on pegged posts; spring tabs on their edges click into windows in the chassis walls |
+| motor | in a sleeve on the bridge; two arms hook over its encoder board |
+| pinion, bolt magnet | pressed on (glue the magnet) |
+| breadboards | in a fenced pocket on the deck, an arm hooked over each end (and their adhesive back) |
+| cover | four arms in the chassis walls click into windows in its sides; press them to take it off |
+| knob | two fingers in its bore click into a groove on the coupler's shaft |
+
+Every printed fit has play (SLIDE_FIT, FIT); concepts/assembly.py checks each step of
+ASSEMBLY can actually be done in order, and that nothing fits line to line.
 
 Frame: the fixture's (deadbolt/fixture.py). Which pin goes where is the net list's
 (wiring/netlist.py, DEVKIT); wire_plan() here only picks the holes, colours and routes.
@@ -27,26 +42,42 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from build123d import Color, Compound, Part, Plane, Pos, Rot, Solid, Vector
+from build123d import Axis, Color, Compound, Cone, Part, Plane, Polygon, Pos, Rot, Solid, Vector, revolve
 
 from concepts import parts as P
-from concepts.designs import (FLOOR, M3_BOSS, base_joints, battery_bay, chassis_posts,
-                              chassis_shell, cover_bosses, floor_cuts)
-from concepts.kit import (AA, BOUGHT, PRINTED, WIRE, DriveLayout, Unit, add_stack_screw,
-                          back_plate, box, bridge_cuts, bridge_extras, chassis_screws, cover_screw,
-                          drive_module, fix, knob_on_shaft, rrect, wall_snap, zcyl)
-from deadbolt.fixture import GENERIC_US, DeadboltParams, build as build_fixture
+from concepts.assembly import DOWN, UP, Step, step
+from concepts.designs import FLOOR, base_joints, battery_bay, floor_cuts
+from concepts.kit import (AA, BOUGHT, FASTENER, PRINTED, SHAFT_D, WIRE, DriveLayout, ScrewType, Snap, Unit, box,
+                          bridge_cuts, bridge_extras, d_shaft, drive_module, rrect, screw_solid, sector, zcyl)
+from concepts.snaps import SLIDE_FIT, add_barb, edge_tab, hook_arm, keyhole, wall_latch
+from deadbolt.fixture import GENERIC_US, DeadboltParams, _post_xs, build as build_fixture
 from wiring.netlist import DEVKIT, HALL_HOLE, HALL_PARTS, NET_TITLES, PIN_MAP
 
-W, Y_BOT, Y_TOP, R, DEPTH = 68.0, -35.0, 120.0, 8.0, 51.5  # the slab: 102.6 tall, as deep
-WALL_TOP = 20.0
-DECK_Z = (21.0, 25.5)  # over the cells (their tops are at 19.5); 4.5 mm holds an M2 insert
-DECK_Y = (26.0, 116.0)
+W, Y_BOT, Y_TOP, R, DEPTH = 68.0, -35.0, 120.0, 8.0, 51.5  # the cover: the slab's, 17 mm taller
+CY, H = (Y_BOT + Y_TOP) / 2, Y_TOP - Y_BOT
+COVER_T, COVER_GAP = 2.0, 0.25  # cover wall, and its play over the chassis wall
+WALL_T, WALL_TOP = 1.6, 30.0  # chassis wall; tall enough for the deck's and carrier's tab windows
+X_OUT = W / 2 - COVER_T - COVER_GAP  # chassis wall, outer face
+X_IN = X_OUT - WALL_T  # and inner
+FIT = 0.15  # play per side on keyed fits (D-bores on the coupler's shaft, the motor sleeve)
+EDGE = X_IN - 0.45  # edge of the bridge, carrier and deck: 0.45 inside the walls
+DECK_Z = (21.0, 25.5)  # over the cells (their tops are at 19.5); 4.5 mm stiffens it
+DECK_Y = (26.0, CY + H / 2 - COVER_T - COVER_GAP - WALL_T - 0.3)
+
+# Back plate: a printed bar across the deadbolt, on its two through-screws. The chassis
+# hangs on its keyhole pegs. A bar, not a plate under the whole chassis: the chassis floor
+# prints over the pocket it sits in, and 25 mm is a span a printer bridges cleanly.
+PLATE_T = 3.0
+PLATE_X, PLATE_Y = (-29.0, 29.0), (-10.0, 8.0)
+SLIDE = 6.0  # the chassis goes on this much high, then slides down onto the pegs
+KEY_PEGS = [(12.0, 4.5), (-12.0, 4.5)]
+# The floor tongue: x span, root and tip (y), the hole the plate's bump drops into, the bump's height.
+TONGUE = dict(x=(21.5, 28.3), root=PLATE_Y[0] - SLIDE - SLIDE_FIT, tip=-3.0, hole=(-6.6, -4.2), drop=0.8)
 
 # Mini breadboard (170 points: 17 rows x 10 columns, no rails). Check yours: they vary.
-MINI_BB = dict(l=47.0, w=35.0, h=8.5)
+MINI_BB = dict(l=47.0, w=35.0, h=8.5, margin=1.9)  # margin: plain plastic past the end rows
 BB_TOP = DECK_Z[1] + MINI_BB["h"]
-BOARDS = {"bb_drv": 60.5, "bb_mcu": 97.5}  # centre y of each breadboard; both centred on x = 0
+BOARDS = {"bb_drv": 60.0, "bb_mcu": 97.0}  # centre y of each breadboard; both centred on x = 0
 COL_OFF = {c: -(3.81 + (4 - i) * 2.54) for i, c in enumerate("abcde")} | \
           {c: 3.81 + i * 2.54 for i, c in enumerate("fghij")}
 
@@ -282,42 +313,128 @@ def _lift(p, dz):
     return (p[0], p[1], p[2] + dz)
 
 
-CLAMP_LIP, CLAMP_W, CLAMP_SEAT = 1.2, 6.5, 5.5  # lip over the breadboard's end margin
-CLAMP_SCREW_DY = 15.5  # either side of the breadboard's centre line, clear of the DevKit
+SHAFT_R = SHAFT_D / 2
+PEG_D = 3.0  # locating pegs on post tops; the part on them has a SLIDE_FIT hole
 
 
-def clamp_screw_xy(name: str) -> list[tuple[float, float]]:
-    x = MINI_BB["l"] / 2 + CLAMP_W / 2
-    return [(sx * x, BOARDS[name] + dy) for sx in (-1, 1) for dy in (-CLAMP_SCREW_DY, CLAMP_SCREW_DY)]
+def outline(z0: float, z1: float, inset: float) -> Part:
+    """The chassis's outline (inset from its wall's outer face), z0..z1."""
+    k = COVER_T + COVER_GAP + inset
+    return rrect(0, CY, W - 2 * k, H - 2 * k, R - k, z0, z1)
 
 
-def _breadboard(u: Unit, name: str, post_screws: set[tuple[float, float]]) -> None:
-    """A mini breadboard on its adhesive back, held by a clamp bar over each end. Each bar's two
-    M2s go into inserts in the deck, or through it into a chassis post where there is one."""
+def posts(xys, z0: float, top: float, d: float = 7.0, peg: float = 2.0) -> Part:
+    """Round posts from z0 to top, each with a locating peg on top."""
+    out = Part()
+    for x, y in xys:
+        out += zcyl(d, z0, top, x, y) + zcyl(PEG_D, top - 0.01, top + peg, x, y)
+    return out
+
+
+def peg_holes(xys, z0: float, z1: float) -> Part:
+    out = Part()
+    for x, y in xys:
+        out += zcyl(PEG_D + 2 * SLIDE_FIT, z0, z1, x, y)
+    return out
+
+
+def back_plate(u: Unit, p: DeadboltParams) -> None:
+    """The printed bar on the deadbolt's two through-screws, with the chassis's keyhole pegs
+    and the bump its floor tongue drops over."""
+    (x0, x1), (y0, y1) = PLATE_X, PLATE_Y
+    plate = rrect((x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0, 2.0, 0, PLATE_T) - zcyl(10.0, -1, PLATE_T + 1)
+    door = ScrewType(p.post_hole_d, p.post_hole_d, "csk", 7.5, 2.3, (), "")  # thread per brand
+    slope = (door.head_d - door.d) / 2 / door.head_h
+    seat = PLATE_T - 0.25 / slope * 1.0  # a 0.25 mm wider recess: the head seats this far down
+    for x in _post_xs(p):
+        hole_r = door.d / 2 + 0.25
+        plate -= zcyl(2 * hole_r, -1, PLATE_T + 1, x, 0)
+        h = door.head_h
+        plate -= Pos(x, 0, PLATE_T - h / 2) * Cone(door.d / 2 + 0.25, door.head_d / 2 + 0.25, h)
+        name = f"screw_door_{'r' if x > 0 else 'l'}"
+        u.add(name, Pos(x, 0, seat) * screw_solid(door, 22.0), FASTENER,
+              "Deadbolt through-screw, flat head (thread per brand, e.g. #8-32 x 1\")")
+        u.joint(name, "plate", 0.05)
+        u.joint(name, "door")
+        u.press[frozenset({name, "plate"})] = "countersunk head seated in its recess"
+        u.press[frozenset({name, "exterior_cylinder"})] = "threaded into the deadbolt's post"
+    for x, y in KEY_PEGS:
+        plate += keyhole(x, y, SLIDE, PLATE_T, FLOOR[1])[0]
+    t = TONGUE
+    bump = box(t["x"][0] + 1.9, t["x"][1] - 1.9, t["hole"][0] + 0.2, t["hole"][1] - 0.2, PLATE_T - 0.01,
+               PLATE_T + t["drop"])
+    plate += bump
+    add_barb(u, "plate", bump)
+    u.add("plate", plate, PRINTED, "Back plate: a bar on the deadbolt's two screws, 2 keyhole pegs, PETG")
+    u.joint("plate", "door")
+
+
+def chassis_floor_tongue(u: Unit) -> Part:
+    """The tongue in the chassis floor that locks it on the plate: a slot round three sides
+    and a hole the plate's bump drops into. It flexes up out of the floor's plane, which
+    bends it along its layers. Returns the cut."""
+    t = TONGUE
+    (xa, xb), root, tip = t["x"], t["root"], t["tip"]
+    z0, z1 = FLOOR[0] - 0.1, FLOOR[1] + 0.1
+    cut = box(xa - 0.8, xa, root, tip + 0.8, z0, z1) + box(xb, xb + 0.8, root, tip + 0.8, z0, z1) \
+        + box(xa - 0.8, xb + 0.8, tip, tip + 0.8, z0, z1) \
+        + box(xa + 1.7, xb - 1.7, t["hole"][0], t["hole"][1], z0, z1)
+    u.snaps.append(Snap("chassis floor tongue", FLOOR[1] - FLOOR[0], sum(t["hole"]) / 2 - root, t["drop"], "along"))
+    return cut
+
+
+def snap_knob(u: Unit, z0: float, z1: float) -> None:
+    """The knob, keyed on the coupler's D-shaft; two fingers in its bore click into a groove
+    round the shaft. Pull it off firmly: the groove's upper face is a 45 deg ramp."""
+    ang = u.shaft_angle
+    r_in = SHAFT_R + FIT
+    root = z1 - 2.0  # the fingers hang from the knob's 2 mm top
+    knob = zcyl(40.0, z0, z1) - d_shaft(ang, z0 - 1, root, FIT)
+    groove = Polygon((SHAFT_R - 0.6, z0 + 0.8), (SHAFT_R + 0.2, z0 + 0.8), (SHAFT_R + 0.2, z0 + 3.4),
+                     (SHAFT_R - 0.6, z0 + 2.6), align=None)
+    u.cut("coupler", revolve(Plane.XZ * groove, Axis.Z))
+    tooth = Polygon((r_in, z0 + 1.0), (SHAFT_R - 0.45, z0 + 1.6), (SHAFT_R - 0.45, z0 + 2.4), (r_in, z0 + 2.4),
+                    align=None)
+    for i, a in enumerate((ang + 90.0, ang - 90.0)):
+        knob -= sector(r_in - 0.01, r_in + 2.2, a - 29, a + 29, z0 - 1, root) \
+            - sector(r_in - 0.02, r_in + 1.2, a - 25, a + 25, z0 - 1, root)
+        barb = Rot(0, 0, a - 22) * revolve(Plane.XZ * tooth, Axis.Z, 44)
+        knob += barb
+        add_barb(u, "knob", barb)
+        u.snaps.append(Snap(f"knob finger {i}", 1.2, root - (z0 + 2.0), 0.45, "across"))
+    u.add("knob", knob, PRINTED, "Manual knob, snaps onto the coupler's shaft, PETG/ASA")
+    u.joint("knob", "coupler", 0.2)
+
+
+def _notch(s: int, y: float, x_from: float, z0: float, z1: float) -> Part:
+    """Room beside a cover latch arm (at y on side s) for it to flex in."""
+    return box(min(s * x_from, s * (EDGE + 1)), max(s * x_from, s * (EDGE + 1)), y - 5.6, y + 5.6, z0 - 1, z1 + 1)
+
+
+def _breadboard(u: Unit, name: str) -> tuple[Part, Part]:
+    """A mini breadboard in a fenced pocket on the deck: an arm at each end hooks over its
+    end margin (the arms' roots are sunk into the deck, so they're long enough to flex), and
+    low fences either side stop it sliding. Its adhesive back is optional. Returns what to
+    add to and cut from the deck (deck geometry, so the caller adds it before the deck)."""
     yc = BOARDS[name]
     l, w, h = MINI_BB["l"], MINI_BB["w"], MINI_BB["h"]
     u.add(name, box(-l / 2, l / 2, yc - w / 2, yc + w / 2, DECK_Z[1], DECK_Z[1] + h), BOUGHT,
           "Mini breadboard, 170 points (47 x 35 mm), adhesive back")
     u.items[name].part.color = Color(0.95, 0.95, 0.93)
     u.joint(name, "deck")
+    add, cut = Part(), Part()
     for sx in (-1, 1):
-        x0, x1 = sorted((sx * l / 2, sx * (l / 2 + CLAMP_W)))
-        lx0, lx1 = sorted((sx * l / 2, sx * (l / 2 - CLAMP_LIP)))
-        bar = box(x0, x1, yc - w / 2, yc + w / 2, DECK_Z[1], BB_TOP + 1.5)
-        bar += box(lx0, lx1, yc - w / 2, yc + w / 2, BB_TOP, BB_TOP + 1.5)
-        bar_name = f"{name}_clamp_{'r' if sx > 0 else 'l'}"
-        u.add(bar_name, bar, PRINTED, "Breadboard clamp bar, PETG")
-        u.joint(bar_name, name)
-        u.joint(bar_name, "deck")
-        for k, (x, y) in enumerate(xy for xy in clamp_screw_xy(name) if xy[0] * sx > 0):
-            seat = Pos(x, y, DECK_Z[1] + CLAMP_SEAT)
-            cbore = BB_TOP + 1.5 - (DECK_Z[1] + CLAMP_SEAT)
-            if (x, y) in post_screws:  # through the deck into a chassis post
-                add = dict(clamp=CLAMP_SEAT + DECK_Z[1] - DECK_Z[0], into="chassis", clamps=[bar_name, "deck"])
-            else:
-                add = dict(clamp=CLAMP_SEAT, into="deck", clamps=[bar_name])
-            fix(u, f"screw_{bar_name}_{k}", "M2 button", seat, add["clamp"], add["into"], "insert",
-                add["clamps"], cbore=cbore + 0.5)
+        for k, dy in enumerate((-8.0, 8.0)):
+            loc = Pos(sx * l / 2, yc + dy, 0) * Rot(0, 0, -90 * sx)
+            arm, pocket = hook_arm(u, f"{name} clip {'r' if sx > 0 else 'l'}{k}", "deck", loc, DECK_Z[0] + 0.8,
+                                   BB_TOP, catch=MINI_BB["margin"] - 1.0, sink_from=DECK_Z[1])
+            add += arm
+            cut += pocket
+    for sy in (-1, 1):
+        y0 = yc + sy * (w / 2 + SLIDE_FIT)
+        for x in (-8.0, 8.0):
+            add += box(x - 2, x + 2, min(y0, y0 + sy * 1.4), max(y0, y0 + sy * 1.4), DECK_Z[1] - 0.01, DECK_Z[1] + 1.5)
+    return add, cut
 
 
 def hall_places(L: DriveLayout, p: DeadboltParams) -> dict[str, tuple[float, float, float]]:
@@ -331,57 +448,134 @@ def hall_places(L: DriveLayout, p: DeadboltParams) -> dict[str, tuple[float, flo
     return out
 
 
+# How each printed part goes on the bed (rotation from the model's pose), and what to know.
+# build_devkit.py exports the STLs in this pose and lists the overhangs it leaves.
+FLIP = (180.0, 0.0, 0.0)
+PRINT = {
+    "plate": ((0, 0, 0), "Pegs up. 100% infill round the screw holes, or 4 perimeters."),
+    "chassis": ((0, 0, 0), "Skirt down. The floor bridges the 25 mm plate pocket; the wall windows bridge too."),
+    "bridge": ((0, 0, 0), "Flat side down; sleeve, standoffs and motor clips up."),
+    "hall_carrier": ((0, 0, 0), "Flat."),
+    "deck": ((0, 0, 0), "Flat, clips up."),
+    "cover": (FLIP, "Front face down, open side up. Clear PETG shows the wiring."),
+    "knob": (FLIP, "Top face down, fingers up."),
+    "coupler": ((0, 0, 0), "Hub down. Needs support under the lug (2.5 mm up the hub); or print it in PA12 (SLS)."),
+    "ring_gear": ((0, 0, 0), "Flat."),
+    "pinion": ((0, 0, 0), "Flat. Or buy a brass m1 10T pinion for a 3 mm D shaft."),
+    "bolt_flag": ((0, 0, 0), "Flat, magnet pocket up."),
+}
+
+
+def assembly_steps(u: Unit) -> list[Step]:
+    """The order the dev kit goes together in. concepts/assembly.py checks every step can be
+    done; build_devkit.py writes them out as ASSEMBLY.md."""
+    has = lambda pre: sorted(n for n in u.items if n.startswith(pre))
+    slide_down = ((0.0, -1.0, 0.0), SLIDE)
+    return [
+        step("plate", "Hold the back plate over the deadbolt, pegs out, the bump towards the latch edge."),
+        step(has("screw_door"), "Screw it to the door with the deadbolt's own two through-screws."),
+        step("chassis", f"Hang the chassis on the plate: offer it up {SLIDE:g} mm high, so the pegs' heads go "
+             "through the round holes in its floor, then slide it down until it stops and the floor's tongue "
+             f"clicks over the plate's bump. (Off: lift the tongue's tip, slide it up {SLIDE:g} mm.)",
+             (DOWN, None), slide_down),
+        step("coupler", "Slide the coupler over the tailpiece, through the floor."),
+        step("ring_gear", "Drop the output gear over the coupler's hub, its pocket round the lug."),
+        step("bridge", "Bridge, on the bench:", sub="bridge"),
+        step("motor", "push the motor into the bridge's sleeve, connector towards the top of the door, until "
+             "both arms click over its encoder board;", sub="bridge"),
+        step("pinion", "press the pinion onto the motor's shaft from underneath, flat to flat.", (UP, None),
+             sub="bridge"),
+        step([], "Lower the bridge onto its four posts, the pinion meshing with the gear, until its four edge "
+             "tabs click into the chassis walls. (Out: squeeze each tab's tip in.)", carry="bridge"),
+        step("bolt_flag", "Bolt flag:", sub="flag"),
+        step("bolt_magnet", "press the magnet into its pocket in the flag (a drop of glue), the face that "
+             "triggers the switches up.", sub="flag"),
+        step([], "Slide the flag down the coupler's shaft onto the bridge, flat to flat.", carry="flag"),
+        step("hall_carrier", "Hall carrier, on the bench:", sub="carrier"),
+        step(["hall_locked", "hall_unlocked", "hall_door"], "glue the three Hall adapters chip-down under it, "
+             "their header pins up through its slots.", (UP, None), sub="carrier"),
+        step([], "Lower the carrier onto its three standoffs until its two edge tabs click into the walls.",
+             carry="carrier"),
+        step(has("contact_"), "Drop the battery contacts into the slots in the battery ribs (solder the leads "
+             "to the two end contacts first)."),
+        step(has("cell_"), "Fit the four AA cells, + and - alternating as moulded in the ribs."),
+        step("deck", "Lower the deck onto its four posts, the battery leads up through its slots, until its "
+             "four edge tabs click into the walls. (Out, to change cells: squeeze the tabs in, a pair at a time.)"),
+        step(["bb_drv", "bb_mcu"], "Press each breadboard into its pocket until the arms at its ends click over it."),
+        step(["devkit", "drv8833"], "Plug the DevKit and the DRV8833 carrier into their breadboards."),
+        step("cover", "Wire it up (SETUP.md). Then push the cover on until its four latches click into the "
+             "windows in its sides. (Off: press the four latches in through the windows.)"),
+        step("knob", "Push the knob onto the shaft, flat to flat, until it clicks."),
+    ]
+
+
 def rig(p: DeadboltParams = GENERIC_US, locked: bool = True) -> tuple[Unit, dict[str, Part]]:
     """The dev kit and the door + deadbolt it mounts on."""
     u = Unit()
     L = DriveLayout(gear_z0=5.5, gear_teeth=40, motor="n20", motor_angle_deg=90.0,
-                    shaft_top=DEPTH + 0.5 + 6.0)
+                    shaft_top=DEPTH + 0.5 + 6.0, fit=FIT, motor_screws=False)
     b0, b1 = L.bridge_z
-    cy, H = (Y_BOT + Y_TOP) / 2, Y_TOP - Y_BOT
-    outline = lambda z0, z1, inset: rrect(0, cy, W - 2 * (2 + inset), H - 2 * (2 + inset), R - 2 - inset, z0, z1)
-    plate_outline = lambda z0, z1, g: rrect(0, 2.5, 55.0 - 2 * g, 67.0 - 2 * g, 3.0 - g, z0, z1)
-    floor_screws = [(6.0, -27.0), (-6.0, -27.0)]  # clear of the carrier posts and cover bosses
-    bridge_posts = [(25.0, -20.0), (-25.0, -20.0)]
-    deck_posts_near = [(25.0, 30.0), (-25.0, 30.0)]  # through spacers on the bridge
-    # Tall posts beyond the cells: the upper breadboard's top clamp screws go into them.
-    deck_posts_far = [xy for xy in clamp_screw_xy("bb_mcu") if xy[1] > BOARDS["bb_mcu"]]
-    carrier_posts = [(-26.0, -7.0), (-26.0, 7.0), (26.0, -9.0)]
-    cover_screws = [(15.0, 9.0), (-15.0, 9.0)]
+    bridge_posts = [(21.0, -26.0), (-21.0, -26.0), (23.0, 30.0), (-23.0, 30.0)]
+    deck_near = [(23.0, 30.0), (-23.0, 30.0)]  # standoffs on the bridge, over its posts
+    deck_far = [(23.0, 110.0), (-23.0, 110.0)]  # tall posts on the floor, beyond the cells
+    carrier_posts = [(-22.0, -7.0), (-22.0, 7.0), (22.0, -9.0)]  # standoffs on the bridge
+    cover_latches = [(s, y) for y in (6.0, 75.0) for s in (1, -1)]
+    windows = Part()  # tab windows in the chassis walls
 
-    back_plate(u, p, plate_outline(0, FLOOR[0], 0), floor_screws)
+    back_plate(u, p)
     drive_module(u, p, locked, L)
 
-    # --- chassis: the slab's, with tall posts for the deck's far edge ---
-    chassis = chassis_shell(outline, plate_outline, WALL_TOP)
-    chassis = chassis_posts(chassis, bridge_posts + deck_posts_near + carrier_posts, b0)
-    chassis = floor_cuts(chassis_posts(chassis, deck_posts_far, DECK_Z[0]))
+    # --- chassis: floor on the plate, a skirt round it down to the door, walls ---
+    (x0, x1), (y0, y1) = PLATE_X, PLATE_Y
+    pocket = rrect((x0 + x1) / 2, (y0 + y1 - SLIDE) / 2, x1 - x0 + 2 * SLIDE_FIT, y1 - y0 + SLIDE + 2 * SLIDE_FIT,
+                   2.0 + SLIDE_FIT, -1, FLOOR[0])
+    chassis = outline(*FLOOR, 0) + (outline(0, FLOOR[0], 0) - pocket) \
+        + (outline(FLOOR[1], WALL_TOP, 0) - outline(FLOOR[1] - 1, WALL_TOP + 1, WALL_T))
+    chassis += posts(bridge_posts, FLOOR[1], b0) + posts(deck_far, FLOOR[1], DECK_Z[0])
+    chassis = floor_cuts(chassis) - chassis_floor_tongue(u)
+    tp = max(p.tailpiece_w, p.tailpiece_t) / 2 + 0.3  # the tailpiece passes as the chassis slides down
+    chassis -= box(-tp, tp, -SLIDE - tp, 0, FLOOR[0] - 1, FLOOR[1] + 1)
+    for x, y in KEY_PEGS:
+        chassis -= keyhole(x, y, SLIDE, PLATE_T, FLOOR[1])[1]
     chassis += battery_bay(u, dict(AA, desc="AA 1.5 V lithium cell (Energizer L91)"),
                            [-22.5, -7.5, 7.5, 22.5], 38.4, FLOOR[1], "chassis", rib_x=(-30.4, 30.4))
-    chassis = cover_bosses(chassis, cover_screws, Y_BOT)
-    pockets = Part()
-    for i, x in enumerate((-15.0, 15.0)):
-        slits, bump, pocket = wall_snap(u, f"cover snap {i}", Pos(x, Y_TOP - 2.0, 0), 8.0, WALL_TOP)
-        chassis = chassis - slits + bump
-        pockets += pocket
-    u.add("chassis", chassis, PRINTED, "Chassis tray (slab, 17 mm taller), PETG/ASA")
-    chassis_screws(u, floor_screws, FLOOR[1])
+    cover_windows = Part()
+    for i, (s, y) in enumerate(cover_latches):
+        slits, barb, window = wall_latch(u, f"cover latch {i}", "chassis", Pos(s * X_OUT, y, 0) * Rot(0, 0, -90 * s),
+                                         13.0, WALL_TOP, 27.0, WALL_T, gap=COVER_GAP, cover_t=COVER_T)
+        chassis = chassis - slits + barb
+        cover_windows += window
+    u.add("chassis", chassis, PRINTED, "Chassis tray, hangs on the back plate, PETG/ASA")
 
-    bridge = rrect(0, 3.25, 60.0, 68.5, 4.0, b0, b1) - bridge_cuts(u, L) + bridge_extras(u, L)
-    for x, _ in cover_screws:
-        bridge -= box(x - M3_BOSS / 2 - 0.3, x + M3_BOSS / 2 + 0.3, Y_BOT, Y_BOT + 12.0, b0 - 1, b1 + 1)
-    u.add("bridge", bridge, PRINTED, "Bridge: gear retainer, motor mount")
+    # --- bridge: gear retainer and motor mount, on four posts; tabs click into the walls ---
+    bridge = rrect(0, 3.5, 2 * EDGE, 68.0, 4.0, b0, b1) - bridge_cuts(u, L) \
+        - peg_holes(bridge_posts, b0 - 1, b0 + 2.3) + bridge_extras(u, L)
+    c0 = L.board_bottom + 1.6 + P.HEADER_H  # the Hall carrier rests on the adapters' header plastic
+    c1 = c0 + 2.0
+    bridge += posts(deck_near, b1 - 0.01, DECK_Z[0], d=6.0) + posts(carrier_posts, b1 - 0.01, c0, d=6.0, peg=1.5)
+    for s in (1, -1):
+        for root, tip in ((-10.0, -22.0), (21.0, 33.0)):
+            cut, barb, window = edge_tab(u, f"bridge tab {s:+d} {tip:g}", "bridge", s, EDGE, root, tip, b0, b1, X_IN)
+            bridge = bridge - cut + barb
+            windows += window
+    mx, my = u.motor_xy
+    enc_top = b1 + P.MOTOR["overall"] - 0.5  # the encoder board's top face
+    for s in (1, -1):  # arms hooked over the encoder board's edges hold the motor down in its sleeve
+        loc = Pos(mx + s * P.MOTOR["enc_w"] / 2, my, 0) * Rot(0, 0, -90 * s)
+        arm, _ = hook_arm(u, f"motor clip {s:+d}", "bridge", loc, b1, enc_top, t=1.6, catch=0.8)
+        bridge += arm
+    u.add("bridge", bridge, PRINTED, "Bridge: gear retainer, motor sleeve and clips, deck and carrier standoffs")
     base_joints(u)
     u.joint("motor", "bridge")
-    for i, (x, y) in enumerate(bridge_posts):
-        add_stack_screw(u, f"screw_bridge_{i}", x, y, b1, b0, "chassis", ["bridge"])
+    u.press[frozenset({"pinion", "motor"})] = "pressed onto the motor's D shaft"
+    u.press[frozenset({"bolt_magnet", "bolt_flag"})] = "pressed (and glued) into the flag"
 
-    # --- Hall switches: three SOT-23 adapters, chip-down, hung under a printed carrier. The
+    # --- Hall switches: three SOT-23 adapters, chip-down, glued under a printed carrier. The
     # adapters' chip faces are where the product PCB's underside is, so the switches see the
     # magnet as they will on the product. Their header pins come up through the carrier.
     adapter = P.sot23_adapter_with_hall()
-    c0 = L.board_bottom + 1.6 + P.HEADER_H  # the carrier rests on the headers' plastic
-    c1 = c0 + 2.0
-    carrier = rrect(0, -3.0, 60.0, 26.0, 3.0, c0, c1) - zcyl(13.0, c0 - 1, c1 + 1)
+    carrier = rrect(0, -3.0, 2 * EDGE, 26.0, 3.0, c0, c1) - zcyl(13.0, c0 - 1, c1 + 1) \
+        - peg_holes(carrier_posts, c0 - 1, c1 + 1)
     hall_pin = {}
     for name, (x, y, rot) in hall_places(L, p).items():
         loc = Pos(x, y, L.board_bottom) * Rot(0, 0, rot)
@@ -391,31 +585,41 @@ def rig(p: DeadboltParams = GENERIC_US, locked: bool = True) -> tuple[Unit, dict
               "SparkFun BOB-00717 SOT-23 adapter with a DRV5032FADBZR and 2x 1x3 header, worn chip-down")
         u.joint(name, "hall_carrier")
         hall_pin[name] = {h: adapter.pin(loc, h) for h in HALL_HOLE.values()}
+    for s in (1, -1):
+        cut, barb, window = edge_tab(u, f"carrier tab {s:+d}", "hall_carrier", s, EDGE, -15.0, -3.0, c0, c1, X_IN)
+        carrier = carrier - cut + barb
+        windows += window
+    for s, y in cover_latches:  # room for the cover latch arms to flex in
+        if y < 20:
+            carrier -= _notch(s, y, 28.6, c0, c1)
     u.add("hall_carrier", carrier, PRINTED,
           "Hall carrier: holds the three adapters chip-down (glued in its slots), PETG")
-    for i, (x, y) in enumerate(carrier_posts):
-        u.add(f"carrier_spacer_{i}", zcyl(5.0, b1, c0, x, y), PRINTED, "Carrier spacer tube, 5 mm OD")
-        u.joint(f"carrier_spacer_{i}", "bridge")
-        u.joint(f"carrier_spacer_{i}", "hall_carrier")
-        add_stack_screw(u, f"screw_carrier_{i}", x, y, c1, b0, "chassis",
-                        ["hall_carrier", f"carrier_spacer_{i}", "bridge"])
+    u.joint("hall_carrier", "bridge")
 
-    # --- deck: replaces the main PCB; removable (four screws) to change the cells ---
-    deck = rrect(0, sum(DECK_Y) / 2, 60.0, DECK_Y[1] - DECK_Y[0], 3.0, *DECK_Z)
+    # --- deck: replaces the main PCB; lift it out (four tabs) to change the cells ---
+    deck = rrect(0, sum(DECK_Y) / 2, 2 * EDGE, DECK_Y[1] - DECK_Y[0], 3.0, *DECK_Z)
     deck -= box(-11.0, 11.0, DECK_Y[0] - 1, 36.0, DECK_Z[0] - 1, DECK_Z[1] + 1)  # round the motor
     for sx in (-1, 1):  # slots for the battery leads, over the near contacts' tabs
         deck -= box(min(sx * 14.0, sx * 29.0), max(sx * 14.0, sx * 29.0), 36.5, 42.0, DECK_Z[0] - 1, DECK_Z[1] + 1)
+    deck -= peg_holes(deck_near + deck_far, DECK_Z[0] - 1, DECK_Z[1] + 1)
+    for s in (1, -1):
+        for root, tip in ((57.0, 45.0), (88.0, 100.0)):
+            cut, barb, window = edge_tab(u, f"deck tab {s:+d} {tip:g}", "deck", s, EDGE, root, tip, *DECK_Z, X_IN)
+            deck = deck - cut + barb
+            windows += window
+    for s, y in cover_latches:
+        if y > 20:
+            deck -= _notch(s, y, 28.8, *DECK_Z)
+    for name in BOARDS:
+        add, cut = _breadboard(u, name)
+        deck = deck - cut + add
+    deck &= rrect(0, sum(DECK_Y) / 2, 2 * EDGE, DECK_Y[1] - DECK_Y[0], 3.0, DECK_Z[0] - 1, DECK_Z[1] + 20)
     u.add("deck", deck, PRINTED, "Breadboard deck (in place of the main PCB), PETG")
     u.joint("deck", "chassis")
-    for i, (x, y) in enumerate(deck_posts_near):
-        u.add(f"spacer_{i}", zcyl(5.0, b1, DECK_Z[0], x, y), PRINTED, "Deck spacer tube, 5 mm OD")
-        u.joint(f"spacer_{i}", "bridge")
-        u.joint(f"spacer_{i}", "deck")
-        add_stack_screw(u, f"screw_stack_{i}", x, y, DECK_Z[1], b0, "chassis", ["deck", f"spacer_{i}", "bridge"])
+    u.joint("deck", "bridge")
+    u.cut("chassis", windows)
 
-    # --- the two breadboards, the DevKitM-1 and the DRV8833 carrier ---
-    for name in BOARDS:
-        _breadboard(u, name, set(deck_posts_far))
+    # --- the DevKitM-1 and the DRV8833 carrier, on their breadboards ---
     u.add("devkit", P.devkitm_1().at(DEVKIT_LOC), BOUGHT,
           "Espressif ESP32-C6-DevKitM-1 (the product's ESP32-C6-MINI-1 module), on its pin headers")
     u.joint("devkit", "bb_mcu")
@@ -426,17 +630,21 @@ def rig(p: DeadboltParams = GENERIC_US, locked: bool = True) -> tuple[Unit, dict
 
     # --- cover: the slab's shape, a big front window, a slot for the USB cables ---
     yc = BOARDS["bb_mcu"]
-    cover = rrect(0, cy, W, H, R, 0, DEPTH) - rrect(0, cy, W - 4, H - 4, R - 2, -1, DEPTH - 2)
+    cover = rrect(0, CY, W, H, R, 0, DEPTH) - rrect(0, CY, W - 2 * COVER_T, H - 2 * COVER_T, R - COVER_T, -1,
+                                                    DEPTH - COVER_T)
     cover -= zcyl(13.0, DEPTH - 3, DEPTH + 1)
     cover -= rrect(0, 79.0, 56.0, 76.0, 4.0, DEPTH - 3, DEPTH + 1)
     cover -= box(-W / 2 - 1, -W / 2 + 3, yc - 12.0, yc + 12.0, pcb_top - 1.0, pcb_top + 6.0)
-    cover -= pockets
+    cover -= cover_windows
     u.add("cover", cover, PRINTED, "Open cover with a front window and USB slot, PETG (clear works)")
-    u.joint("cover", "chassis")
-    for i, (x, z) in enumerate(cover_screws):
-        cover_screw(u, i, x, Y_BOT, z)
-    knob_on_shaft(u, "knob", "Manual knob, PETG/ASA", zcyl(40.0, DEPTH + 0.5, DEPTH + 12.5),
-                  DEPTH + 0.5, L.shaft_top)
+    u.joint("cover", "chassis", COVER_GAP + 0.05)
+    snap_knob(u, DEPTH + 0.5, DEPTH + 13.0)
+
+    u.steps = assembly_steps(u)
+    for i in range(4):
+        for c in [n for n in u.items if n.startswith("contact_")]:
+            u.press[frozenset({f"cell_{i}", c})] = "held against its contacts by the spring"
+        u.press[frozenset({f"cell_{i}", "chassis"})] = "pushed against the rib by the spring"
 
     # --- wires: the net list's, routed over the boards ---
     mx, my = u.motor_xy

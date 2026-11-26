@@ -1,10 +1,12 @@
-"""Assembly checks for the dev kit: the same as the concepts'.
+"""Assembly checks for the dev kit: the concepts' (final pose, fasteners, snap strain), plus
+whether it can actually be put together, step by step (concepts/assembly.py).
 
     uv run python -m devkit.check
 """
 
 from __future__ import annotations
 
+from concepts import assembly
 from concepts.check import collisions, fasteners, fit, joint_gaps, snaps, unattached
 from deadbolt.fixture import GENERIC_US, DeadboltParams
 from devkit.rig import rig
@@ -13,7 +15,8 @@ from devkit.rig import rig
 def check(p: DeadboltParams = GENERIC_US, locked: bool = True) -> dict[str, list[str]]:
     u, fixture = rig(p, locked)
     return {"collisions": collisions(u, fixture), "joints": joint_gaps(u, fixture),
-            "unattached": unattached(u), "fit": fit(u, p), "fasteners": fasteners(u), "snaps": snaps(u)}
+            "unattached": unattached(u), "fit": fit(u, p), "fasteners": fasteners(u), "snaps": snaps(u),
+            **assembly.check(u, fixture)}
 
 
 def main() -> int:

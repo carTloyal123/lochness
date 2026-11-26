@@ -14,7 +14,7 @@ range, then applies RULES:
 | over-voltage | a net above the maximum of any pin on it (5 V on a 3.3 V GPIO, the pack on logic VCC) |
 | under-voltage | a supply pin below its minimum (an A3144 on 3.3 V), or with no source at all |
 | pull-up | an open-drain output with nothing pulling its net up (no resistor, no GPIO pull-up) |
-| ground | a part with a supply but no ground, or a ground pin on another net |
+| ground | a part with a supply, or one driving signals, but no ground; or a ground pin on another net |
 | strapping | GPIO 8 or 9 pulled low or driven by another part at boot (wrong boot mode) |
 
 Net voltages: sources and followers set a net's range ("strong"); a resistor from a strong net
@@ -125,14 +125,13 @@ def a3144(pin: str) -> E:
     return {"1": SUP(4.5, 24.0), "2": GND, "3": OD(24.0)}[pin]
 
 
-def mp1584(pin: str) -> E:
-    """MP1584EN module: input 4.5-28 V; output set by its trimmer (6.0 V here); grounds common."""
-    return {"IN+": SUP(4.5, 28.0), "IN-": GND, "OUT+": SRC(5.9, 6.1), "OUT-": GND}[pin]
-
-
-def pack_2s(pin: str) -> E:
-    """2x 18650 Li-ion in series: 3.0-4.2 V per cell (stop at 3.0)."""
-    return SRC(6.0, 8.4) if pin == "+" else GND
+def breadboard_psu(pin: str) -> E:
+    """ELEGOO breadboard power module (MB102 type; Handson Technology datasheet with the Addicore
+    YwRobot V2 schematic), jumpers set R side 5 V, L side 3.3 V. 5 V comes from the barrel jack
+    through a 1N4007 and an AMS1117-5.0, or straight from its USB-A port (the switch picks one):
+    4.75-5.25 V covers both. 3.3 V is an AMS1117-3.3 fed from the 5 V (3.235-3.365 V). Under
+    700 mA in all. Both grounds common."""
+    return {"R+": SRC(4.75, 5.25), "L+": SRC(3.235, 3.365), "R-": GND, "L-": GND}[pin]
 
 
 def mini1(pin: str) -> E:
@@ -211,7 +210,7 @@ def configs() -> dict[str, Config]:
     return {
         "bench": Config(
             models={"devkit": espressif_devkit(bench.DEVKITC_J1, bench.DEVKITC_J3), "tb6612": tb6612, **{h: a3144 for h in halls}, "motor": lambda p: PAS,
-                    "buck": mp1584, "battery": pack_2s},
+                    "psu": breadboard_psu},
             pullups={_gpio_pin(bench.BENCH, g) for g in (22, 23, 2)}),
         "devkit": Config(
             models={"devkit": devkitm1, "drv8833": pololu_2130, **{h: drv5032_adapter for h in halls},
@@ -308,9 +307,13 @@ def check(nets: dict[str, list[Pin]], cfg: Config) -> list[Finding]:
     parts = {p[0] for p in model}
     for ref in sorted(parts):
         pins = [p for p in model if p[0] == ref]
-        if any(model[p].kind == "supply" for p in pins) and not any(
-                model[p].kind == "gnd" and net_of[p] == GND_NET for p in pins):
+        grounded = any(model[p].kind == "gnd" and net_of[p] == GND_NET for p in pins)
+        if any(model[p].kind == "supply" for p in pins) and not grounded:
             out.append(Finding("ground", ref, "has a supply but no ground"))
+        elif any(model[p].kind in ("io", "out", "od") for p in pins) and not grounded:
+            # powered some other way (a DevKit on its own USB): its signals mean nothing
+            # to the parts they reach without a common ground
+            out.append(Finding("ground", ref, "drives signals but shares no ground with the parts it drives"))
     return out
 
 
