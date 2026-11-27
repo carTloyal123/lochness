@@ -60,6 +60,23 @@ menu "Lochness keypad"
             Hold for 3 seconds to enter pairing mode. On the production
             keypad this sits behind the mounting plate.
 
+    config KEYPAD_BENCH_PIN
+        string "Bench PIN for a short press of the pair button: toggle (empty = off)"
+        depends on KEYPAD_PAIR_BUTTON_GPIO >= 0
+        default "1234"
+        help
+            Bench aid for a keypad with no keys (a bare DevKitC): a short
+            press of the pair button (BOOT) types this PIN and the toggle
+            key. Once connected, the keypad locks if the lock reports its
+            bolt unlocked (no PIN sent) and otherwise unlocks with this PIN,
+            under the same PIN rules, rate limit and lockout as typed keys. Holding the button for
+            3 seconds still pairs. 1 to 8 digits; "1234" matches the PIN the
+            README and bench.py add as user 1.
+
+            The PIN sits in the keypad's flash, which breaks the rule that
+            a keypad holds no PINs at rest. Leave it empty on any keypad
+            that leaves the bench.
+
     config KEYPAD_STATUS_LED_GPIO
         int "Status RGB LED (WS2812) GPIO (-1 = none)"
         range -1 30

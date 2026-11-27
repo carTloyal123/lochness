@@ -11,7 +11,7 @@
 static int cmd_keys(int argc, char **argv)
 {
     if (argc != 2) {
-        printf("usage: keys <sequence>   e.g. keys 1234#   (* clear, # unlock, L lock)\n");
+        printf("usage: keys <sequence>   e.g. keys 1234#   (* clear, # unlock, L lock, T toggle)\n");
         return 1;
     }
     for (const char *k = argv[1]; *k; k++) {
@@ -83,7 +83,7 @@ void console_start(void)
     repl_config.prompt = "keypad>";
 
     ESP_ERROR_CHECK(esp_console_register_help_command());
-    reg("keys", "Type keys as if pressed (digits, * clear, # unlock, L lock)", cmd_keys);
+    reg("keys", "Type keys as if pressed (digits, * clear, # unlock, L lock, T toggle)", cmd_keys);
     reg("pair", "Pair with a lock that has an open pairing window", cmd_pair);
     reg("forget", "Forget the paired lock", cmd_forget);
     reg("status", "Show pairing and link state", cmd_status);

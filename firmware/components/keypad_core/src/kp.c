@@ -41,6 +41,7 @@ static void reset_link(kp_t *kp)
     sl_handshake_wipe(&kp->hs);
     sl_session_wipe(&kp->sess);
     kp->link = KP_LINK_DOWN;
+    kp->bolt = LP_BOLT_UNKNOWN;
     kp->link_deadline = 0;
     kp->linger_deadline = 0;
 }
@@ -105,6 +106,16 @@ static bool send_msg(kp_t *kp, const lp_msg_t *msg)
 
 static void send_pending(kp_t *kp)
 {
+    if (kp->pending_op == KP_OP_TOGGLE) {
+        /* Resolved once, so a resend after a dropped link repeats the same op. */
+        if (kp->bolt == LP_BOLT_UNLOCKED) {
+            kp->pending_op = (uint8_t)LP_OP_LOCK;
+            sl_wipe(kp->pending_pin, sizeof(kp->pending_pin)); /* locking needs no PIN */
+            kp->pending_len = 0;
+        } else {
+            kp->pending_op = (uint8_t)LP_OP_UNLOCK;
+        }
+    }
     lp_msg_t req = {.type = LP_MSG_ACCESS_REQ,
                     .access_req = {.seq = ++kp->seq, .op = kp->pending_op, .pin_len = kp->pending_len}};
     memcpy(req.access_req.pin, kp->pending_pin, kp->pending_len);
@@ -122,7 +133,7 @@ static void send_pending(kp_t *kp)
     kp->linger_deadline = 0;
 }
 
-static void submit(kp_t *kp, lp_op_t op)
+static void submit(kp_t *kp, uint8_t op)
 {
     if (kp->pending || kp->awaiting_result) {
         return;
@@ -140,7 +151,7 @@ static void submit(kp_t *kp, lp_op_t op)
     }
     kp->pending = true;
     kp->retried = false;
-    kp->pending_op = (uint8_t)op;
+    kp->pending_op = op;
     kp->pending_len = kp->ndigits;
     memcpy(kp->pending_pin, kp->digits, kp->ndigits);
     clear_digits(kp);
@@ -169,10 +180,12 @@ void kp_on_key(kp_t *kp, char key)
         feedback(kp, KP_FB_CLEARED, 0);
     } else if (key == KP_KEY_ENTER) {
         if (kp->ndigits || kp->overflow) {
-            submit(kp, LP_OP_UNLOCK);
+            submit(kp, (uint8_t)LP_OP_UNLOCK);
         }
     } else if (key == KP_KEY_LOCK) {
-        submit(kp, LP_OP_LOCK);
+        submit(kp, (uint8_t)LP_OP_LOCK);
+    } else if (key == KP_KEY_TOGGLE) {
+        submit(kp, KP_OP_TOGGLE);
     }
 }
 
@@ -272,6 +285,7 @@ static void on_ik2(kp_t *kp, const uint8_t *body, size_t len)
     }
     kp->link = KP_LINK_READY;
     kp->link_deadline = 0;
+    kp->bolt = ack.hello_ack.bolt;
     uint8_t flags = kp->hooks.status_flags ? kp->hooks.status_flags(kp->hooks.ctx) : 0;
     if (flags) {
         lp_msg_t status = {.type = LP_MSG_KEYPAD_STATUS,
@@ -361,6 +375,11 @@ static void on_data(kp_t *kp, const uint8_t *body, size_t len)
                msg.access_result.seq == kp->seq) {
         kp->awaiting_result = false;
         kp->result_deadline = 0;
+        kp->bolt = msg.access_result.bolt;
+        if (kp->bolt == LP_BOLT_MOVING && msg.access_result.result == LP_RESULT_OK) {
+            /* Where it is heading, so a second toggle on this link reverses it. */
+            kp->bolt = kp->last_op == LP_OP_UNLOCK ? LP_BOLT_UNLOCKED : LP_BOLT_LOCKED;
+        }
         sl_wipe(kp->pending_pin, sizeof(kp->pending_pin));
         kp->pending_len = 0;
         feedback(kp, result_feedback(msg.access_result.result, kp->last_op), msg.access_result.lockout_s);
