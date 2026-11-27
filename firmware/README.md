@@ -26,7 +26,7 @@
 ESP-IDF **v6.0.2** is pinned because it is the version esp-matter recommends, and the lock's Matter-over-Thread build needs esp-matter.
 
 ```sh
-brew install cmake ninja dfu-util libgcrypt glib pixman sdl2 libslirp
+brew install cmake ninja dfu-util libgcrypt glib pixman sdl2 libslirp uv
 mkdir -p ~/esp && cd ~/esp
 git clone -b v6.0.2 --depth 1 --recursive --shallow-submodules \
     https://github.com/espressif/esp-idf.git esp-idf-v6.0.2
@@ -46,7 +46,22 @@ cd connectedhomeip/connectedhomeip && ./scripts/checkout_submodules.py --platfor
 
 `--no-host-tool` skips chip-tool, which does not build on Apple Silicon without Rosetta (its zap-cli is x86-only). Apple Home (or another controller) does the commissioning, so chip-tool is not needed. `./esp.sh` loads esp-matter automatically when it is there.
 
-Each new shell: `. ~/esp/esp-idf-v6.0.2/export.sh` (an alias like `alias idf='. ~/esp/esp-idf-v6.0.2/export.sh'` helps).
+### Python environment
+
+`./esp.sh` and the scripts in `tools/` run ESP-IDF in the project's own environment, `firmware/.venv`, which `tools/idf_env.sh` builds with [uv](https://docs.astral.sh/uv/) on first use:
+
+- **Python:** a uv-managed interpreter at the version in `firmware/.python-version`, so a system Python upgrade cannot break the build. The system `python3` only starts ESP-IDF's export script.
+- **Packages:** ESP-IDF's `requirements.core.txt` (with Espressif's constraints) and esp-matter's `requirements.txt`, with the pins in `tools/py-overrides.txt` taking precedence.
+- **Rebuilds:** automatic when any of those files, `IDF_PATH` or `ESP_MATTER_PATH` changes. Delete `firmware/.venv` to force one.
+
+To use `idf.py` directly in a shell, without `./esp.sh`:
+
+```sh
+export IDF_PYTHON_ENV_PATH="$PWD/firmware/.venv"   # from the repo root, after one ./esp.sh run
+. ~/esp/esp-idf-v6.0.2/export.sh
+```
+
+Without `IDF_PYTHON_ENV_PATH`, `export.sh` uses the environment `install.sh` made under `~/.espressif`, which has esp-matter's `lark` pin and so cannot build the lock on Python 3.15.
 
 ## Editor (clangd) and lint
 

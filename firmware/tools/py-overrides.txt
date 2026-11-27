@@ -1,0 +1,6 @@
+# Versions that override the pins in ESP-IDF's and esp-matter's requirement
+# files (applied by tools/idf_env.sh with `uv pip install --override`).
+
+# esp-matter pins lark==1.1.2, which imports sre_parse and so fails on
+# Python 3.15. The Matter IDL code generator runs fine on 1.3.
+lark>=1.3,<2
