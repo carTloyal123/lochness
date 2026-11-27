@@ -30,7 +30,7 @@ Fastener,2,M2 x 6 button head hex socket,McMaster-Carr,92095A453,McMaster-Carr,9
 Fastener,2,M3 x 5 button head hex socket (ISO 7380),McMaster-Carr,92095A177,McMaster-Carr,92095A177,0.07,0.14,yes,yes,estimate,https://www.mcmaster.com/92095A177,"18-8 stainless; pack of 100, per-piece price estimated."
 Fastener,1,M3 x 6 button head hex socket (ISO 7380),McMaster-Carr,92095A179,McMaster-Carr,92095A179,0.07,0.07,yes,yes,estimate,https://www.mcmaster.com/92095A179,"18-8 stainless; pack of 100, per-piece price estimated. Part number confirmed."
 Printed,1,Bolt flag (magnet carrier) on the coupler's D-shaft,printed,,,,0.02,0.02,yes,yes,yes,,"Filament, 0.9 cm3 solid each (PETG 1.27 g/cm3 at $20/kg)."
-Printed,1,"Bridge: gear retainer, motor mount, PCB clamp, cell holder",printed,,,,0.34,0.34,yes,yes,yes,,"Filament, 13.3 cm3 solid each (PETG 1.27 g/cm3 at $20/kg)."
+Printed,1,"Bridge: gear retainer, motor mount, PCB clamp, cell holder",printed,,,,0.34,0.34,yes,yes,yes,,"Filament, 13.2 cm3 solid each (PETG 1.27 g/cm3 at $20/kg)."
 Printed,1,"Chassis cup (the visible body), PETG/ASA",printed,,,,0.84,0.84,yes,yes,yes,,"Filament, 33.1 cm3 solid each (PETG 1.27 g/cm3 at $20/kg)."
 Printed,1,"Coupler / tailpiece adapter (per brand), PA12 or PETG-CF",printed,,,,0.16,0.16,yes,yes,yes,,"Filament, 6.3 cm3 solid each (PETG 1.27 g/cm3 at $20/kg)."
 Printed,1,"Front cap = manual knob, PETG/ASA",printed,,,,1.07,1.07,yes,yes,yes,,"Filament, 42.3 cm3 solid each (PETG 1.27 g/cm3 at $20/kg)."

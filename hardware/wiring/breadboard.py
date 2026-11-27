@@ -70,14 +70,14 @@ def _end_xy(e, terms) -> tuple[float, float]:
 
 
 DEVKIT_PLACEMENT = [  # (part, where it goes): the layout drawing's list
-    ("Deck", "on the chassis spacers and the two tall posts, over the cells"),
-    ("MCU breadboard (170 points)", "upper, held by two clamp bars; strips run across the deck"),
+    ("Deck", "over the cells, on two standoffs on the bridge and two tall posts; four edge tabs click into the chassis walls"),
+    ("MCU breadboard (170 points)", "upper, in its pocket on the deck, an arm hooked over each end; strips run across the deck"),
     ("ESP32-C6-DevKitM-1", "on the MCU breadboard: J1 in column i, J3 in column b; USB end at the left, "
      "towards the cover's slot; antenna past the right edge"),
-    ("DRV breadboard (170 points)", "lower, held by two clamp bars"),
+    ("DRV breadboard (170 points)", "lower, in its pocket on the deck, an arm hooked over each end"),
     ("Pololu #2130 DRV8833 carrier", "on the DRV breadboard: control row in column g, power row in column e"),
     (f"3V3 and GND rows", f"DRV breadboard rows {R.RAIL_3V3} and {R.RAIL_GND}, columns f-j: shared supply rows"),
-    ("3x DRV5032 on BOB-00717 adapters", "glued chip-down in the Hall carrier, under the deck, pins up"),
+    ("3x DRV5032 on BOB-00717 adapters", "glued chip-down under the Hall carrier, below the deck's lower end, pins up"),
     ("Motor cable", "from the motor's side connector, through the notch, bare ends into the breadboard"),
     ("4xAA cells", "in the chassis under the deck; leads from the end contacts"),
 ]

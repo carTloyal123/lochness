@@ -74,7 +74,7 @@ Not used: Seeed XIAO ESP32C6, PN532 NFC, the ELEGOO kit's power module, and the 
 
 ### Layout
 
-Where each part sits. Holes are row (1-63) and column (a-j), or a rail: L+ and L- run along column a's side, R+ and R- along column j's.
+Where each part sits. Holes are row (1-63) and column (a-j), or a rail: L+ and L- run along column a's side, R+ and R- along column j's. Across the board the rails go + - (strips) + -: R+ is the outer rail on column j's side, and L+ is the inner rail on column a's side, next to column a.
 
 ![Bench layout](drawings/bench-layout.svg)
 
@@ -125,10 +125,10 @@ Do these in order. The DevKit goes on USB last, after the rails have been checke
 1. **Charge the BreadVolt** over its USB-C port. The red CHG LED goes out when it's full.
 2. **Set and check its jumpers, on the empty board.** Switch it off. Put the L side's jumper (the side over the L+/L- rails) on 3V3 and the R side's on 5V. Plug it into the row-63 end, minus pins in the blue rails. Switch on and measure, against the minus rails: 3.2-3.4 V on L+ and 4.75-5.25 V on R+. Switch off.
 3. **Place the parts** as in the layout, with the BreadVolt off and USB unplugged.
-4. **Wire the rails:** wires 4, 5, 6, 7, 8 and 9. Nothing goes to the DevKit's 3V3 or 5V pins.
+4. **Wire the rails:** wires 4, 5, 6, 7 and 8. Nothing goes to the DevKit's 3V3 or 5V pins.
 5. **Wire the motor control signals:** wires 1, 2 and 3.
 6. **Power the Hall modules:** wires 12, 13, 15, 16, 18 and 19, and fit the three 20 kΩ resistors (holes 36h, 41h, 46h to the top - rail). Leave the S wires off for now.
-7. **Wire the motor:** wires 10 and 11.
+7. **Wire the motor:** wires 9, 10 and 11.
 8. **Check the power, still without USB.** Switch the BreadVolt on: L+ reads 3.2-3.4 V and R+ 4.75-5.25 V, nothing gets warm, and the motor stays still (the TB6612 pulls STBY low itself). Switch off if anything's wrong.
 9. **Check each module's S before it meets the ESP32.** BreadVolt on, still no USB. On each S row (36h, 41h, 46h): 2.6-3.5 V with no magnet, and under 0.5 V with the magnet's south pole at the A3144's branded face (the module's LED lights). Above 3.6 V: don't connect it; the board's pull-up is stronger than 10k and the resistor must be smaller. Then switch off and fit the S wires: 14, 17 and 20.
 10. **Flash and test the switches.** BreadVolt on, then plug in the DevKit's USB. `sensors on` prints each switch every 0.5 s: 1 with no magnet, 0 with one. See [Firmware](#firmware) below.
@@ -141,7 +141,7 @@ The tall slab (concept B), opened up, on a real door. It has the product's drive
 
 ### Parts
 
-The electronics and wiring. The full list (printed parts, 4 metal and 11 fastener lines, prices and suppliers) is in [bom/devkit.csv](bom/devkit.csv): $125.51 in all.
+The electronics and wiring. The full list (printed parts, 3 metal and 1 fastener lines, prices and suppliers) is in [bom/devkit.csv](bom/devkit.csv): $106.44 in all.
 
 | Qty | Part | Supplier | Notes |
 |---|---|---|---|
@@ -162,13 +162,13 @@ The electronics and wiring. The full list (printed parts, 4 metal and 11 fastene
 
 Jumper wires (24, from the kit) by colour: 8 black, 7 red, 3 blue, 2 yellow, 1 orange, 1 white, 1 purple, 1 green.
 
-Printed parts: 1x Bolt flag on the coupler's D-shaft; 4x Breadboard clamp bar; 1x Breadboard deck; 1x Bridge: gear retainer, motor mount; 3x Carrier spacer tube, 5 mm OD; 1x Chassis tray; 1x Coupler / tailpiece adapter; 2x Deck spacer tube, 5 mm OD; 1x Hall carrier: holds the three adapters chip-down; 1x Manual knob; 1x Motor pinion; 1x Open cover with a front window and USB slot; 1x Output gear. `uv run build_devkit.py` writes their STLs to `out/devkit/`.
+Printed parts: 1x Back plate: a bar on the deadbolt's two screws, 2 keyhole pegs; 1x Bolt flag on the coupler's D-shaft; 1x Breadboard deck; 1x Bridge: gear retainer, motor sleeve and clips, deck and carrier standoffs; 1x Chassis tray, hangs on the back plate; 1x Coupler / tailpiece adapter; 1x Hall carrier: holds the three adapters chip-down; 1x Manual knob, snaps onto the coupler's shaft; 1x Motor pinion; 1x Open cover with a front window and USB slot; 1x Output gear. `uv run build_devkit.py` writes their STLs to `out/devkit/`.
 
-Tools: soldering iron (Hall adapters, headers), heat-set insert tip, multimeter, hex keys for the M2 and M3 screws.
+Tools: soldering iron (Hall adapters, headers, battery leads), multimeter, a screwdriver for the deadbolt's screws, and a drop of CA glue (magnet, Hall adapters). Everything else snaps together.
 
 ### Layout
 
-The model with the cover off. The upper breadboard holds the DevKit, the lower one the DRV8833 carrier. The Hall carrier sits under the lower breadboard, over the bolt flag.
+The model with the cover off. The upper breadboard holds the DevKit, the lower one the DRV8833 carrier. The Hall carrier sits below the lower breadboard, over the bolt flag.
 
 ![Dev kit, cover off](drawings/devkit-guts.png)
 
@@ -180,13 +180,13 @@ The breadboards from above, at true scale, with every part where the model puts 
 
 | Part | Where |
 |---|---|
-| Deck | on the chassis spacers and the two tall posts, over the cells |
-| MCU breadboard (170 points) | upper, held by two clamp bars; strips run across the deck |
+| Deck | over the cells, on two standoffs on the bridge and two tall posts; four edge tabs click into the chassis walls |
+| MCU breadboard (170 points) | upper, in its pocket on the deck, an arm hooked over each end; strips run across the deck |
 | ESP32-C6-DevKitM-1 | on the MCU breadboard: J1 in column i, J3 in column b; USB end at the left, towards the cover's slot; antenna past the right edge |
-| DRV breadboard (170 points) | lower, held by two clamp bars |
+| DRV breadboard (170 points) | lower, in its pocket on the deck, an arm hooked over each end |
 | Pololu #2130 DRV8833 carrier | on the DRV breadboard: control row in column g, power row in column e |
 | 3V3 and GND rows | DRV breadboard rows 15 and 16, columns f-j: shared supply rows |
-| 3x DRV5032 on BOB-00717 adapters | glued chip-down in the Hall carrier, under the deck, pins up |
+| 3x DRV5032 on BOB-00717 adapters | glued chip-down under the Hall carrier, below the deck's lower end, pins up |
 | Motor cable | from the motor's side connector, through the notch, bare ends into the breadboard |
 | 4xAA cells | in the chassis under the deck; leads from the end contacts |
 
@@ -223,15 +223,15 @@ The breadboards from above, at true scale, with every part where the model puts 
 
 ### Setup
 
-1. **Print the parts** (PETG; the coupler in PA12 or PETG-CF) and fit the heat-set inserts.
+1. **Print the parts** (PETG; the coupler in PA12 or PETG-CF). `out/devkit/PRINT.md` gives each part's pose on the bed; the STLs are already in it.
 2. **Make the Hall switches.** Solder a DRV5032FA and two 1x3 headers to each SOT-23 adapter. Then check with a meter which holes the chip's VCC, OUT and GND reach. The drawings assume holes 1, 3 and 5; if yours differ, change `HALL_HOLE` in `wiring/netlist.py` and run `uv run build_wiring.py` before wiring. Glue the adapters chip-down into the Hall carrier.
-3. **Fit the chassis to the door** with the deadbolt's through-screws, then the coupler, gears, motor and bridge (see the README's Dev kit section).
-4. **Place the breadboards and boards** as in the layout, and clamp the breadboards down.
+3. **Fit the back plate to the door** with the deadbolt's through-screws, hang the chassis on it, then fit the drive, the Hall carrier, the cells and the deck: `out/devkit/ASSEMBLY.md` has every step, in an order the model checks can be done.
+4. **Place the breadboards and boards** as in the layout: each breadboard clicks into its pocket on the deck.
 5. **Wire it** from the table, with the cells out and USB unplugged. Wire 3V3 and GND first, then the signals, then the motor cable and battery leads.
 6. **Check on USB alone,** with no cells: 3.2-3.4 V on the 3V3 row, and nothing warm.
 7. **Flash and test.** The firmware must enable the internal pull-up on GPIO 3 (nFAULT is open drain). Each DRV5032 drives its output itself, so its GPIO needs no pull-up: it reads 0 with a magnet near it and 1 without.
 8. **Fit the cells** (4x AA lithium) and test the motor as on the bench: nSLEEP (GPIO 20) high, then PWM on AIN1 or AIN2. The encoder counts on GPIO 21 and 4.
-9. **Close up:** fit the deck's screws and the cover.
+9. **Close up:** click the cover on (four latches) and push the knob onto the shaft. To change cells, press the cover's latches in through its side windows, then squeeze the deck's four edge tabs and lift it, boards and wires and all.
 
 ## Firmware
 

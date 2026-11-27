@@ -59,6 +59,11 @@ class Unit:
     shaft_angle: float = 0.0  # where the coupler shaft's flat faces (it turns with the tailpiece)
     fixings: list["Fixing"] = field(default_factory=list)
     snaps: list["Snap"] = field(default_factory=list)
+    # Assembly (concepts/assembly.py): the steps in order, and fits with no sideways play
+    # (press fits, threads, seats, springs).
+    steps: list = field(default_factory=list)
+    press: dict[frozenset[str], str] = field(default_factory=dict)  # pair -> why it has no play
+    barbs: dict[str, Part] = field(default_factory=dict)  # part -> its snap barbs (they deflect)
     _cuts: dict[str, list[Part]] = field(default_factory=dict)
 
     def add(self, name: str, part: Part, kind: str, desc: str) -> Part:
@@ -298,18 +303,32 @@ def fix(u: Unit, name: str, type_: str, loc: Location, clamp: float, into: str, 
 
 @dataclass
 class Snap:
-    """A printed cantilever snap: thickness t, free length l, deflection to engage."""
+    """A printed cantilever snap: thickness t, free length l, deflection to engage.
+
+    layers: how the arm bends relative to the print layers. "along": the bending stress runs
+    in the layer plane (an arm that flexes in the plane it was printed in). "across": it
+    pulls the layers apart (an arm standing up from the bed). None: not stated, so the
+    general limit applies.
+    """
     name: str
     t: float
     l: float
     deflection: float
+    layers: str | None = None
 
     @property
     def strain(self) -> float:  # root strain of a uniform cantilever: 1.5 t y / l^2
         return 1.5 * self.t * self.deflection / self.l ** 2
 
+    @property
+    def limit(self) -> float:
+        return SNAP_STRAIN_LIMIT_ACROSS if self.layers == "across" else SNAP_STRAIN_LIMIT
+
 
 SNAP_STRAIN_LIMIT = 0.025  # PETG/ASA, for snaps opened a few times
+# Bending across the layers: printed PETG is roughly 60% as strong between layers as along
+# them (ASSUMED from typical datasheet Z/XY ratios; check against your printer).
+SNAP_STRAIN_LIMIT_ACROSS = 0.015
 
 
 def wall_snap(u: Unit, name: str, loc: Location, z0: float, z1: float, wall_t: float = 1.6,
@@ -366,6 +385,8 @@ class DriveLayout:
     shaft_top: float  # top of the coupler's knob shaft
     lug_angle_deg: float = 90.0  # coupler lug, relative to the tailpiece's wide face
     motor_turn_deg: float = 0.0  # standing motor: which way its encoder connector faces (0 = +Y)
+    fit: float = 0.0  # play per side on printed fits round bought or keyed parts (0: line to line)
+    motor_screws: bool = True  # False: the concept holds the motor without its face screws
     # The bolt magnet's radius. 10.5 lets the dev kit's SOT-23 adapters (10.16 x 7.62) clear
     # the shaft, so the slab uses it too; the puck's cells leave room for only 8.5.
     hall_r: float = 10.5
@@ -397,10 +418,16 @@ class DriveLayout:
 SHAFT_FLAT = 1.2  # depth of the flat on the coupler's knob shaft
 
 
-def d_shaft(angle_deg: float, z0: float, z1: float) -> Part:
-    """The coupler's knob shaft: a D, so the knob and encoder gear are keyed to it."""
-    flat = box(SHAFT_D / 2 - SHAFT_FLAT, SHAFT_D, -SHAFT_D, SHAFT_D, z0 - 1, z1 + 1)
-    return Rot(0, 0, angle_deg) * (zcyl(SHAFT_D, z0, z1) - flat)
+def d_shaft(angle_deg: float, z0: float, z1: float, grow: float = 0.0) -> Part:
+    """The coupler's knob shaft: a D, so the knob and encoder gear are keyed to it. grow
+    enlarges it by that much all round (a bore with play)."""
+    flat = box(SHAFT_D / 2 - SHAFT_FLAT + grow, SHAFT_D + 2 * grow, -SHAFT_D, SHAFT_D, z0 - 1, z1 + 1)
+    return Rot(0, 0, angle_deg) * (zcyl(SHAFT_D + 2 * grow, z0, z1) - flat)
+
+
+def d_bore(d: float, flat: float, x: float, y: float, z0: float, z1: float) -> Part:
+    """A D-shaped bore for a motor shaft (d, `flat` across the flat, flat towards +X)."""
+    return zcyl(d, z0, z1, x, y) - box(x + flat - d / 2, x + d, y - d, y + d, z0 - 1, z1 + 1)
 
 
 FLAG_DEG = 225.0  # the flag's magnet, relative to the tailpiece's wide face
@@ -455,8 +482,12 @@ def drive_module(u: Unit, p: DeadboltParams, locked: bool, L: DriveLayout) -> No
         cd = centre_distance(M_OUT, L.gear_teeth, PINION_TEETH)
         mx, my = polar(cd, math.radians(L.motor_angle_deg))
         u.add("motor", n20_standing(mx, my, b1, L.motor_turn_deg), BOUGHT, MOTOR_DESC["n20"])
-        motor_face_screws(u, L, mx, my)
-        pin = spur_gear(M_OUT, PINION_TEETH, g0, g1, mx, my, phase_deg=pin_phase, bore=N20["shaft_d"])
+        if L.motor_screws:
+            motor_face_screws(u, L, mx, my)
+        pin = spur_gear(M_OUT, PINION_TEETH, g0, g1, mx, my, phase_deg=pin_phase)
+        # pressed on the D shaft, whose flat turns with the motor
+        pin -= Pos(mx, my, 0) * Rot(0, 0, L.motor_turn_deg) * d_bore(N20["shaft_d"], N20["shaft_flat"], 0, 0,
+                                                                      g0 - 1, g1 + 1)
         u.add("pinion", pin, PRINTED, f"Motor pinion, m1 {PINION_TEETH}T (or brass, pressed)")
         u.joint("pinion", "motor")
         u.meshes.add(frozenset({"pinion", "ring_gear"}))
@@ -465,11 +496,11 @@ def drive_module(u: Unit, p: DeadboltParams, locked: bool, L: DriveLayout) -> No
 
     u.layout = L
     # A flag on the D-shaft carries a magnet past the bolt Hall switches on the board above.
-    flag = zcyl(L.flag_d, e0, e1) - d_shaft(tail_ang, e0 - 1, e1 + 1)
+    flag = zcyl(L.flag_d, e0, e1) - d_shaft(tail_ang, e0 - 1, e1 + 1, L.fit)
     mx_, my_ = polar(L.hall_r, math.radians(tail_ang + FLAG_DEG))
     flag -= zcyl(BOLT_MAGNET["d"], e1 - BOLT_MAGNET["h"], e1 + 1, mx_, my_)
     u.add("bolt_flag", flag, PRINTED, "Bolt flag (magnet carrier) on the coupler's D-shaft")
-    u.joint("bolt_flag", "coupler")
+    u.joint("bolt_flag", "coupler", L.fit + 0.05 if L.fit else 0.0)
     u.add("bolt_magnet", zcyl(BOLT_MAGNET["d"], e1 - BOLT_MAGNET["h"], e1, mx_, my_), BOUGHT,
           "NdFeB magnet 3 x 2 mm, axial (bolt position)")
     u.joint("bolt_magnet", "bolt_flag")
@@ -507,7 +538,7 @@ def bridge_extras(u: Unit, L: DriveLayout) -> Part:
     extra = Part()
     if L.motor == "n20":
         mx, my = u.motor_xy
-        w, t = N20["w"], N20["t"]
+        w, t = N20["w"] + 2 * L.fit, N20["t"] + 2 * L.fit
         sleeve = box(mx - w / 2 - 1.6, mx + w / 2 + 1.6, my - t / 2 - 1.6, my + t / 2 + 1.6, b1, b1 + 7)
         sleeve -= box(mx - w / 2, mx + w / 2, my - t / 2, my + t / 2, b1 - 1, b1 + 8)
         extra += sleeve

@@ -37,6 +37,7 @@ FAULTS = [  # (what's wrong, stage, mutation, rule, net it must be reported on)
      "one-driver", "+5V"),
     ("KY-003 on 3.3 V instead of 5 V", B, lambda n: move(n, ("hall_door", "+"), "+3V3"), "under-voltage", "+3V3"),
     ("5 V rail not fed (BreadVolt R side off)", B, lambda n: move(n, ("breadvolt", "R+")), "under-voltage", "+5V"),
+    ("DevKit ground not joined to the board", B, lambda n: move(n, ("devkit", "J3-1")), "ground", "devkit"),
     ("KY-003 ground pin left out", B, lambda n: move(n, ("hall_locked", "-")), "ground", "hall_locked"),
     ("DevKit 3V3 shorted to GND", D, lambda n: move(n, ("devkit", "J1-1"), "GND"), "short-to-ground", "GND"),
     ("4xAA + on the 3.3 V row", D, lambda n: move(n, ("battery", "+"), "+3V3"), "one-driver", "+3V3"),

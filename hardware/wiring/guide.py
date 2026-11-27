@@ -55,7 +55,7 @@ def _bench_steps(plan: list[B.Wire]) -> dict[str, list[int]]:
     step: dict[str, list[int]] = {"rails": [], "signals": [], "halls": [], "hall_s": [], "motor": []}
     for k, w in enumerate(plan, 1):
         refs = {e.ref for e in (w.a, w.b) if isinstance(e, B.Term)}
-        if refs & off_board:
+        if refs & off_board or "TB6612 VM" in w.desc:
             step["motor"].append(k)
         elif "hall" in w.desc:
             step["hall_s" if w.net.startswith("HALL_") else "halls"].append(k)
@@ -96,7 +96,8 @@ def bench_section() -> list[str]:
             f"Tools: {BENCH_TOOLS}", "", f"Not used: {BENCH_UNUSED}", "",
             "### Layout", "",
             "Where each part sits. Holes are row (1-63) and column (a-j), or a rail: L+ and L- run along "
-            "column a's side, R+ and R- along column j's.", "",
+            "column a's side, R+ and R- along column j's. Across the board the rails go + - (strips) + -: "
+            "R+ is the outer rail on column j's side, and L+ is the inner rail on column a's side, next to column a.", "",
             "![Bench layout](drawings/bench-layout.svg)", ""]
     out += _table(["Part", "Where", "Orientation"], [list(r) for r in B.PLACEMENT])
     out += ["", "Rails: L+ is 3.3 V and R+ is 5 V, both from the BreadVolt, and both minus rails are ground. Top to "
@@ -175,10 +176,11 @@ def devkit_section() -> list[str]:
             "Printed parts: " + "; ".join(f"{r['Qty']}x {_short(r['Part'])}" for r in rows
                                           if r["Category"] == "Printed") + ". "
             "`uv run build_devkit.py` writes their STLs to `out/devkit/`.", "",
-            "Tools: soldering iron (Hall adapters, headers), heat-set insert tip, multimeter, hex keys for the M2 and M3 screws.", "",
+            "Tools: soldering iron (Hall adapters, headers, battery leads), multimeter, a screwdriver for the "
+            "deadbolt's screws, and a drop of CA glue (magnet, Hall adapters). Everything else snaps together.", "",
             "### Layout", "",
             "The model with the cover off. The upper breadboard holds the DevKit, the lower one the DRV8833 "
-            "carrier. The Hall carrier sits under the lower breadboard, over the bolt flag.", "",
+            "carrier. The Hall carrier sits below the lower breadboard, over the bolt flag.", "",
             "![Dev kit, cover off](drawings/devkit-guts.png)", "",
             "![Dev kit on the door](drawings/devkit-door.png)", "",
             "The breadboards from above, at true scale, with every part where the model puts it:", "",
@@ -190,14 +192,17 @@ def devkit_section() -> list[str]:
     out += _table(["#", "Colour", "Signal", "From", "To"],
                   [[k, c, s, a, b] for k, (s, a, b, c) in enumerate(R.WIRING, 1)])
     out += ["", "### Setup", "",
-            "1. **Print the parts** (PETG; the coupler in PA12 or PETG-CF) and fit the heat-set inserts.",
+            "1. **Print the parts** (PETG; the coupler in PA12 or PETG-CF). `out/devkit/PRINT.md` gives each "
+            "part's pose on the bed; the STLs are already in it.",
             "2. **Make the Hall switches.** Solder a DRV5032FA and two 1x3 headers to each SOT-23 adapter. "
             "Then check with a meter which holes the chip's VCC, OUT and GND reach. The drawings assume holes 1, "
             "3 and 5; if yours differ, change `HALL_HOLE` in `wiring/netlist.py` and run "
             "`uv run build_wiring.py` before wiring. Glue the adapters chip-down into the Hall carrier.",
-            "3. **Fit the chassis to the door** with the deadbolt's through-screws, then the coupler, gears, "
-            "motor and bridge (see the README's Dev kit section).",
-            "4. **Place the breadboards and boards** as in the layout, and clamp the breadboards down.",
+            "3. **Fit the back plate to the door** with the deadbolt's through-screws, hang the chassis on it, "
+            "then fit the drive, the Hall carrier, the cells and the deck: `out/devkit/ASSEMBLY.md` has every "
+            "step, in an order the model checks can be done.",
+            "4. **Place the breadboards and boards** as in the layout: each breadboard clicks into its pocket "
+            "on the deck.",
             "5. **Wire it** from the table, with the cells out and USB unplugged. Wire 3V3 and GND first, "
             "then the signals, then the motor cable and battery leads.",
             "6. **Check on USB alone,** with no cells: 3.2-3.4 V on the 3V3 row, and nothing warm.",
@@ -206,7 +211,9 @@ def devkit_section() -> list[str]:
             "0 with a magnet near it and 1 without.",
             "8. **Fit the cells** (4x AA lithium) and test the motor as on the bench: nSLEEP (GPIO 20) high, "
             "then PWM on AIN1 or AIN2. The encoder counts on GPIO 21 and 4.",
-            "9. **Close up:** fit the deck's screws and the cover.", ""]
+            "9. **Close up:** click the cover on (four latches) and push the knob onto the shaft. To change "
+            "cells, press the cover's latches in through its side windows, then squeeze the deck's four edge "
+            "tabs and lift it, boards and wires and all.", ""]
     return out
 
 

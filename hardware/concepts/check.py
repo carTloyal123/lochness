@@ -15,7 +15,7 @@ from itertools import combinations
 from build123d import Compound, Part
 
 from concepts.designs import CONCEPTS, Concept
-from concepts.kit import MIN_WALL, SCREW_TYPES, SNAP_STRAIN_LIMIT, WIRE, Unit
+from concepts.kit import MIN_WALL, SCREW_TYPES, WIRE, Unit
 from deadbolt.fixture import DeadboltParams, GENERIC_US, build
 
 OVERLAP_TOL = 0.05  # mm^3: touching faces are fine, interpenetration is not
@@ -116,8 +116,9 @@ def fasteners(u: Unit) -> list[str]:
 
 
 def snaps(u: Unit) -> list[str]:
-    return [f"{s.name}: {s.strain:.1%} strain, over {SNAP_STRAIN_LIMIT:.1%}"
-            for s in u.snaps if s.strain > SNAP_STRAIN_LIMIT]
+    return [f"{s.name}: {s.strain:.1%} strain, over {s.limit:.1%}"
+            + (f" (bending {s.layers} the layers)" if s.layers else "")
+            for s in u.snaps if s.strain > s.limit]
 
 
 def check(c: Concept, p: DeadboltParams = GENERIC_US, locked: bool = True) -> dict[str, list[str]]:

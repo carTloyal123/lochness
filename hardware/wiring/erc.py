@@ -14,7 +14,7 @@ range, then applies RULES:
 | over-voltage | a net above the maximum of any pin on it (5 V on a 3.3 V GPIO, the pack on logic VCC) |
 | under-voltage | a supply pin below its minimum (a KY-003's A3144 on 3.3 V), or with no source at all |
 | pull-up | an open-drain output with nothing pulling its net up (no resistor, no GPIO pull-up) |
-| ground | a part with a supply but no ground, or a ground pin on another net |
+| ground | a part with a supply, or one driving signals, but no ground; or a ground pin on another net |
 | strapping | GPIO 8 or 9 pulled low or driven by another part at boot (wrong boot mode) |
 
 Net voltages: sources and followers set a net's range ("strong"); a resistor from a strong net
@@ -312,9 +312,13 @@ def check(nets: dict[str, list[Pin]], cfg: Config) -> list[Finding]:
     parts = {p[0] for p in model}
     for ref in sorted(parts):
         pins = [p for p in model if p[0] == ref]
-        if any(model[p].kind == "supply" for p in pins) and not any(
-                model[p].kind == "gnd" and net_of[p] == GND_NET for p in pins):
+        grounded = any(model[p].kind == "gnd" and net_of[p] == GND_NET for p in pins)
+        if any(model[p].kind == "supply" for p in pins) and not grounded:
             out.append(Finding("ground", ref, "has a supply but no ground"))
+        elif any(model[p].kind in ("io", "out", "od") for p in pins) and not grounded:
+            # powered some other way (a DevKit on its own USB): its signals mean nothing
+            # to the parts they reach without a common ground
+            out.append(Finding("ground", ref, "drives signals but shares no ground with the parts it drives"))
     return out
 
 

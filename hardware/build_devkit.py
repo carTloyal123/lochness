@@ -1,5 +1,6 @@
-"""Export the dev kit: STEP, STLs of the printed parts, BOM, wiring table, renders. Two renders
-are also copied to drawings/ for the build guide, SETUP.md.
+"""Export the dev kit: STEP, STLs of the printed parts (each in its print pose), BOM, print
+table, assembly steps, wiring table, renders. Two renders are also copied to drawings/ for
+the build guide, SETUP.md.
 
     uv run build_devkit.py            # -> out/devkit/
     uv run build_devkit.py --no-render
@@ -11,11 +12,12 @@ import argparse
 import shutil
 from collections import Counter
 
-from build123d import Compound, export_step, export_stl
+import numpy as np
+from build123d import Compound, Pos, Rot, export_step, export_stl
 
 from build_concepts import SECTIONS, render
 from concepts.kit import PRINTED, WIRE
-from devkit.rig import WIRING, rig
+from devkit.rig import PRINT, WIRING, rig
 
 from pathlib import Path
 
@@ -27,7 +29,7 @@ VIEWS = {
     "side": ("-1,0,0", "+Y"),
     "guts": ("0,0,-1", "+Y"),  # no cover or knob
 }
-SHELL = ("cover", "knob", "screw_knob", "screw_cover")
+SHELL = ("cover", "knob")
 
 
 def bom(u) -> str:
@@ -43,6 +45,63 @@ def bom(u) -> str:
         if counts:
             lines.append(f"\n## {title}\n\n| Qty | Part |\n|---|---|")
             lines += [f"| {n} | {d} |" for d, n in sorted(counts.items())]
+    return "\n".join(lines) + "\n"
+
+
+def on_bed(part, rot):
+    """The part in its print pose, resting on z = 0."""
+    p = Rot(*rot) * part
+    return Pos(0, 0, -p.bounding_box().min.Z) * p
+
+
+def overhangs(part) -> tuple[float, float]:
+    """(flat ceilings, faces steeper than 45 deg) facing down above the bed, mm^2. Flat
+    ceilings with walls both sides are bridges a printer spans; the rest need support."""
+    vs, ts = part.tessellate(0.05, 0.3)
+    v, t = np.array([(q.X, q.Y, q.Z) for q in vs]), np.array(ts)
+    a, b, c = v[t[:, 0]], v[t[:, 1]], v[t[:, 2]]
+    n = np.cross(b - a, c - a)
+    area = np.linalg.norm(n, axis=1) / 2
+    nz = n[:, 2] / np.maximum(2 * area, 1e-12)
+    up = np.minimum(np.minimum(a[:, 2], b[:, 2]), c[:, 2]) > 0.2
+    return float(area[(nz < -0.99) & up].sum()), float(area[(nz < -0.72) & (nz >= -0.99) & up].sum())
+
+
+def print_table(u) -> str:
+    lines = ["# Dev kit printed parts\n",
+             "PETG (the coupler in PA12 or PETG-CF), 0.4 mm nozzle, 0.2 mm layers, 3 perimeters. The STLs "
+             "in this folder are already in the pose below. Every fit has 0.15-0.2 mm of play per side "
+             "modelled in, which suits a calibrated printer; if snaps are too tight, check the flow first.\n",
+             "Ceilings are downward faces above the bed: bridged spans between walls (window tops, the "
+             "chassis floor over the plate pocket) and barb undersides under 1.3 mm. Over 45 deg are "
+             "slopes that would need support.\n",
+             "| Part | Qty | Pose | Ceilings mm2 | Over 45 deg mm2 | Notes |", "|---|---|---|---|---|---|"]
+    for name, (rot, note) in PRINT.items():
+        flat, steep = overhangs(on_bed(u.items[name].part, rot))
+        pose = "upside down" if rot[0] == 180 else "as modelled"
+        lines.append(f"| {name} | 1 | {pose} | {flat:.0f} | {steep:.0f} | {note} |")
+    return "\n".join(lines) + "\n"
+
+
+def assembly(u) -> str:
+    lines = ["# Dev kit assembly\n",
+             "In this order: `uv run python -m devkit.check` checks that each step can be done (every part "
+             "travels in along its path without passing through anything already fitted) and that no "
+             "printed fit is line to line. The only screws are the deadbolt's own two through-screws.\n"]
+    k, sub = 0, ""
+    for st in u.steps:
+        if st.sub and st.sub != sub:
+            k += 1
+            lines.append(f"{k}. **{st.how}**")
+        elif st.sub:
+            lines.append(f"   - {st.how}")
+        else:
+            k += 1
+            lines.append(f"{k}. {st.how}")
+        sub = st.sub
+    lines += ["", "## Snaps\n", "| Snap | Bends | Strain | Limit |", "|---|---|---|---|"]
+    for sn in u.snaps:
+        lines.append(f"| {sn.name} | {sn.layers or '-'} the layers | {sn.strain:.1%} | {sn.limit:.1%} |")
     return "\n".join(lines) + "\n"
 
 
@@ -71,8 +130,10 @@ def main() -> int:
     export_step(scene, OUT / "devkit.step")
     for name, item in u.items.items():
         if item.kind == PRINTED:
-            export_stl(item.part, OUT / f"{name}.stl")
+            export_stl(on_bed(item.part, PRINT[name][0]), OUT / f"{name}.stl")
     (OUT / "BOM.md").write_text(bom(u))
+    (OUT / "PRINT.md").write_text(print_table(u))
+    (OUT / "ASSEMBLY.md").write_text(assembly(u))
     (OUT / "WIRING.md").write_text(wiring())
     guts = Compound(label="devkit", children=[i.part for n, i in u.items.items() if not n.startswith(SHELL)]
                     + [v for k, v in fixture.items() if k != "door"])
