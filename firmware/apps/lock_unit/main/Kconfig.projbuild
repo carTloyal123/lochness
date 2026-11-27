@@ -8,12 +8,96 @@ menu "Lochness lock unit"
             Reed switch to GND with internal pull-up. Closed contact (magnet
             present) means the door is closed.
 
+    choice LOCHNESS_MOTOR
+        prompt "Motor driver"
+        default LOCHNESS_MOTOR_HBRIDGE
+        help
+            The bench (TB6612FNG) and the dev kit (DRV8833) drive the real
+            motor. The simulator stands in where there is none (QEMU, a
+            bare board).
+
+        config LOCHNESS_MOTOR_HBRIDGE
+            bool "H-bridge (TB6612FNG or DRV8833), stopped by the bolt switches"
+            help
+                Drives the motor until the bolt switch for the target
+                position reports, then brakes. A move that never gets
+                there is stopped by the motor timeout (`config`,
+                motor-timeout) and reported as jammed. Needs both bolt
+                switch GPIOs.
+
+        config LOCHNESS_MOTOR_SIM
+            bool "Simulated (fixed travel time)"
+    endchoice
+
     config LOCHNESS_SIM_MOTOR_MS
         int "Simulated motor travel time (ms)"
         default 800
+        depends on LOCHNESS_MOTOR_SIM
         help
-            Until the H-bridge/encoder driver lands, the motor is simulated
-            and reports success after this delay.
+            The simulated motor reports success after this delay.
+
+    if LOCHNESS_MOTOR_HBRIDGE
+
+        config LOCHNESS_MOTOR_IN1_GPIO
+            int "Motor driver IN1 GPIO (TB6612 AIN1 / DRV8833 AIN1)"
+            range 0 30
+            default 18
+
+        config LOCHNESS_MOTOR_IN2_GPIO
+            int "Motor driver IN2 GPIO (TB6612 AIN2 / DRV8833 AIN2)"
+            range 0 30
+            default 19
+
+        config LOCHNESS_MOTOR_EN_GPIO
+            int "Motor driver enable GPIO (TB6612 STBY / DRV8833 nSLEEP, -1 = tied high)"
+            range -1 30
+            default 20
+            help
+                Held low (driver off) except during a move and its brake.
+
+        config LOCHNESS_MOTOR_REVERSE
+            bool "Reverse the motor (swap lock and unlock directions)"
+            default n
+            help
+                Locking drives IN1 (IN1 high, IN2 low). If the bolt goes the
+                wrong way, turn this on rather than swapping the motor leads.
+
+        config LOCHNESS_MOTOR_DUTY_PCT
+            int "Motor PWM duty (%)"
+            range 10 100
+            default 100
+            help
+                PWM at 20 kHz on the driving input. Lower is slower and
+                gentler on the mechanism; too low and it may stall.
+
+        config LOCHNESS_MOTOR_BRAKE_MS
+            int "Brake time after a move (ms)"
+            range 0 1000
+            default 100
+            help
+                After the bolt switch reports, both outputs are shorted
+                (brake) for this long to stop the motor quickly, then the
+                driver is turned off.
+
+    endif
+
+    config LOCHNESS_BOLT_LOCKED_GPIO
+        int "Bolt locked Hall switch GPIO (-1 = none)"
+        range -1 30
+        default 22 if LOCHNESS_MOTOR_HBRIDGE
+        default -1
+        help
+            A3144 (bench) or DRV5032 (dev kit) at the bolt's locked
+            position: low while the bolt's magnet is there. The internal
+            pull-up is enabled.
+
+    config LOCHNESS_BOLT_UNLOCKED_GPIO
+        int "Bolt unlocked Hall switch GPIO (-1 = none)"
+        range -1 30
+        default 23 if LOCHNESS_MOTOR_HBRIDGE
+        default -1
+        help
+            As the locked switch, at the bolt's unlocked position.
 
     config LOCHNESS_STATUS_LED_GPIO
         int "Status RGB LED (WS2812) GPIO (-1 = none)"
@@ -22,7 +106,8 @@ menu "Lochness lock unit"
         help
             Shows the bolt state on the DevKitC-1's onboard RGB LED
             (GPIO 8): red locked, green unlocked, amber moving, blinking red
-            jammed, blinking blue while a pairing window is open. Three
+            jammed, white unknown (with bolt switches: the bolt is at
+            neither), blinking blue while a pairing window is open. Three
             green blinks after boot mean the lock is ready.
 
     config LOCHNESS_STATUS_LED_BRIGHTNESS

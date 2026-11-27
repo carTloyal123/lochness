@@ -184,10 +184,10 @@ The bench (stage 1) builds the same circuit from the parts on hand. It keeps the
 | MCU | ESP32-C6-DevKitC-1 | 16 pins a side, against the DevKitM-1's 15: the same GPIOs on different header pins. |
 | Motor driver | TB6612FNG breakout | STBY on GPIO 20 (where nSLEEP was), and PWMA tied to 3.3 V so PWM on AIN1/AIN2 works as on the DRV8833. No fault output, so GPIO 3 is unused. |
 | Motor | N20, no encoder | GPIO 21 and 4 are unused; the bolt Hall switches and timeouts stand in for the encoder. |
-| Hall switches | 3x A3144 | They need 4.5 V or more, so they run from the DevKit's 5 V. The outputs are open collector, so enable the GPIO pull-ups. They respond only to a south pole on the branded face. |
-| Motor supply | 2x 18650 in series, then an MP1584EN set to 6.0 V | Set the MP1584 before connecting it. Charge the cells one at a time with the TP4056 (a 1-cell charger). The pack has no protection: stop at 3.0 V per cell. |
+| Hall switches | 3x KY-003 module (A3144 with an LED; pins - + S) | The A3144 needs 4.5 V or more, so they run from the 5 V rail. Each board pulls S up to 5 V, so a 20 kΩ from S to GND brings it to about 3.3 V for the GPIO. They respond only to a south pole on the A3144's branded face. |
+| Supplies | SunFounder BreadVolt on the rails | Jumpers: L side 3.3 V (TB6612 logic), R side 5 V (Hall modules and the motor, which runs a little slower than at 6 V). The DevKit runs from its USB and shares only ground with the rails; its 3V3 and 5V pins stay unwired. |
 
-The XIAO ESP32C6, the PN532 and the ELEGOO kit's power module aren't used. The dev kit's BOM and `WIRING` are unchanged: these substitutions are bench-only.
+The XIAO ESP32C6, the PN532 and the ELEGOO kit's power module aren't used, nor (for now) the MP1584EN, 18650s and TP4056. The dev kit's BOM and `WIRING` are unchanged: these substitutions are bench-only.
 
 ### Electrical rule check (`wiring/erc.py`)
 
@@ -198,7 +198,7 @@ Every stage's net list is checked before anything is drawn. `build_wiring.py` st
 | one-driver | two supplies or push-pull outputs fighting on one net |
 | short-to-ground | a supply or output on GND |
 | over-voltage | a net above any of its pins' maximum (5 V on a 3.3 V GPIO, the pack on logic VCC) |
-| under-voltage | a supply pin below its minimum (an A3144 on 3.3 V), or with nothing supplying it |
+| under-voltage | a supply pin below its minimum (a KY-003's A3144 on 3.3 V), or with nothing supplying it |
 | pull-up | an open-drain output with no resistor and no GPIO pull-up on its net |
 | ground | a powered part with no ground, or a ground pin on another net |
 | strapping | GPIO 8 or 9 pulled low, or driven by another part, at boot |
@@ -208,7 +208,7 @@ Some things the inference can't work out alone, so they're declared per stage wi
 - GPIO pull-ups the firmware must enable: bench GPIO 2, 22 and 23; dev kit GPIO 3. `build_wiring.py` prints these.
 - The battery-sense divider's range.
 
-The tests seed one mistake per rule and check that it's caught. Examples: GPIO 22 on the 5 V rail, the 18650 pack on the TB6612's VCC, the DevKit's 3V3 shorted to GND, and the nFAULT pull-up removed.
+The tests seed one mistake per rule and check that it's caught. Examples: GPIO 22 on the 5 V rail, the DevKit's 3V3 wired to the BreadVolt's 3.3 V rail, the DevKit's 3V3 shorted to GND, and the nFAULT pull-up removed.
 
 It checks the parts as their datasheets describe them. A board whose silkscreen differs from the pin order a model assumes still needs checking by eye.
 

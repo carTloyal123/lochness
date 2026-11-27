@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "ble_server.h"
+#include "bolt_sense.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "freertos/FreeRTOS.h"
@@ -17,7 +18,7 @@
 #include "lock_core/lc_log.h"
 #include "lock_core/lc_types.h"
 #include "lock_link/ll.h"
-#include "motor_sim.h"
+#include "motor.h"
 #include "platform_esp/pe_platform.h"
 #include "secure_link/sl_crypto.h"
 #include "status_led.h"
@@ -267,6 +268,23 @@ static TickType_t ticks_until(uint64_t deadline_ms, uint64_t now)
 
 static uint64_t min_u64(uint64_t a, uint64_t b) { return a < b ? a : b; }
 
+/* The bolt as the LED shows it: lock_core's state, except that a resting
+ * state the bolt switches don't confirm (the bolt pushed part way by hand,
+ * a magnet gone) shows as unknown. */
+static lp_bolt_t led_bolt(void)
+{
+    lp_bolt_t bolt = lock_bridge_bolt(&s_lock.ctx.lc);
+    bolt_sense_t sensed = bolt_sense_read();
+    if (sensed == BOLT_SENSE_NONE) {
+        return bolt;
+    }
+    if ((bolt == LP_BOLT_LOCKED && sensed != BOLT_SENSE_LOCKED) ||
+        (bolt == LP_BOLT_UNLOCKED && sensed != BOLT_SENSE_UNLOCKED)) {
+        return LP_BOLT_UNKNOWN;
+    }
+    return bolt;
+}
+
 static void handle(const ev_t *ev)
 {
     switch (ev->kind) {
@@ -321,7 +339,7 @@ static void lock_task(void *arg)
             ble_server_set_pairing(pairing);
             ESP_LOGI(TAG, "pairing window %s", pairing ? "open" : "closed");
         }
-        status_led_show(lock_bridge_bolt(&s_lock.ctx.lc), pairing);
+        status_led_show(led_bolt(), pairing);
         if (s_lock.log_dirty && now_ms() >= s_lock.log_dirty_since_ms + LOG_FLUSH_DELAY_MS) {
             pe_store_save(&s_lock.ctx.lc, LC_PERSIST_LOG);
             s_lock.log_dirty = false;
@@ -333,8 +351,8 @@ void lock_task_start(void)
 {
     lc_platform_t plat = pe_platform();
     lc_hooks_t hooks = {
-        .motor_start = motor_sim_start,
-        .motor_stop = motor_sim_stop,
+        .motor_start = motor_start,
+        .motor_stop = motor_stop,
         .notify = hook_notify,
         .persist = hook_persist,
     };
@@ -344,8 +362,10 @@ void lock_task_start(void)
     lc_init(&s_lock.ctx.lc, &plat, &hooks, &cfg);
     s_lock.ctx.lc.boot_count = pe_boot_count();
     ESP_ERROR_CHECK(pe_store_load(&s_lock.ctx.lc));
-    /* TODO(M1): read the real bolt position from the encoder. */
-    lc_boot(&s_lock.ctx.lc, LC_BOLT_LOCKED, LC_DOOR_UNKNOWN);
+    /* The bolt switches say where the bolt is (unknown if at neither). With
+     * none, assume locked, as the simulator always has. */
+    bolt_sense_t sensed = bolt_sense_read();
+    lc_boot(&s_lock.ctx.lc, sensed == BOLT_SENSE_NONE ? LC_BOLT_LOCKED : bolt_sense_to_lc(sensed), LC_DOOR_UNKNOWN);
 
     /* Long-term link identity. Must be created before the radio starts. */
     sl_keypair_t identity;

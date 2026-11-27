@@ -33,30 +33,32 @@ BENCH_PARTS = [
     (1, "Espressif ESP32-C6-DevKitC-1", "yes", "Headers fitted. The bench drawing is for this board."),
     (1, "TB6612FNG dual motor driver breakout", "yes", "Solder its two 1x8 headers, pins down."),
     (1, "N20 gearmotor, 6 V, no encoder", "yes", "Solder a red and a black lead to its tabs."),
-    (3, "A3144 Hall switch (TO-92)", "yes", "Locked, unlocked and door. Needs 4.5 V or more."),
-    (1, "MP1584EN buck module", "yes", "Solder leads or pins to IN+, IN-, OUT+ and OUT-. Set to 6.0 V before use."),
-    (2, "18650 Li-ion cell", "yes", "Charged one at a time on the TP4056."),
-    (1, "TP4056 1-cell charger module", "yes", "For charging only. It is not in the circuit."),
+    (3, "KY-003 Hall switch module (A3144 with an LED; pins - + S)", "yes",
+     "Locked, unlocked and door. Needs 4.5 V or more. The board pulls S up to 5 V."),
+    (3, "20 kΩ resistor", "**check**",
+     "One from each module's S to GND, so S is about 3.3 V. Or two 10 kΩ soldered end to end."),
+    (1, "SunFounder BreadVolt breadboard power module", "yes",
+     "Charge it over USB-C first. Jumpers: L side 3V3, R side 5V."),
     (1, "830-point breadboard with power rails", "yes (ELEGOO kit)", ""),
     (len(B.wire_plan()), "Jumper wires", "yes (ELEGOO kit)", ""),
-    (1, "2-cell 18650 holder, in series, with leads", "**no**", "Not in your inventory. Any 2S holder."),
-    (1, "Small neodymium magnet", "**check**", "To trigger the A3144s (south pole to the branded face)."),
+    (1, "Small neodymium magnet", "**check**", "To trigger the modules: south pole to the A3144's branded face (the module's LED lights)."),
     (1, "USB-C data cable", "**check**", "Powers and programs the DevKit."),
 ]
-BENCH_TOOLS = "Multimeter (to set the MP1584 and check the rails), soldering iron."
-BENCH_UNUSED = "Seeed XIAO ESP32C6, PN532 NFC, and the ELEGOO kit's power module."
+BENCH_TOOLS = "Multimeter (to check the rails before the DevKit goes on), soldering iron (TB6612 headers, motor leads)."
+BENCH_UNUSED = ("Seeed XIAO ESP32C6, PN532 NFC, the ELEGOO kit's power module, and the MP1584EN, 18650s and TP4056 "
+                "(kept for a 6 V motor supply later).")
 
 
 def _bench_steps(plan: list[B.Wire]) -> dict[str, list[int]]:
     """Wire numbers (1-based, as in the drawing) by build step."""
-    off_board = {"buck", "battery", "motor"}
-    step: dict[str, list[int]] = {"rails": [], "signals": [], "halls": [], "motor": []}
+    off_board = {"motor"}
+    step: dict[str, list[int]] = {"rails": [], "signals": [], "halls": [], "hall_s": [], "motor": []}
     for k, w in enumerate(plan, 1):
         refs = {e.ref for e in (w.a, w.b) if isinstance(e, B.Term)}
         if refs & off_board:
             step["motor"].append(k)
         elif "hall" in w.desc:
-            step["halls"].append(k)
+            step["hall_s" if w.net.startswith("HALL_") else "halls"].append(k)
         elif w.net in ("+3V3", "GND", "+5V"):
             step["rails"].append(k)
         else:
@@ -72,7 +74,7 @@ def bench_section() -> list[str]:
     plan = B.wire_plan()
     steps = _bench_steps(plan)
     colours = Counter(w.colour for w in plan)
-    pullups = [r.rsplit(" ", 1)[1] for r in erc.firmware_requirements(B.BENCH)]
+    hall_s_rows = ", ".join(f"{r + 2}h" for r in B.HALL_ROWS.values())
     out = ["## Stage 1: the bench", "",
            "The lock's circuit on one breadboard, from the parts on hand. It differs from the dev kit in "
            "four ways, and none of them changes the GPIO map:", "",
@@ -80,9 +82,14 @@ def bench_section() -> list[str]:
            "DRV8833's nSLEEP was. PWMA is tied to 3.3 V, so PWM on AIN1/AIN2 drives it the same way. It has "
            "no fault output, so GPIO 3 is unused.",
            "- **Motor:** the N20 has no encoder, so GPIO 21 and 4 are unused.",
-           "- **Hall switches:** A3144s instead of DRV5032s. They need 4.5 V or more, so they run from the "
-           "DevKit's 5 V. Their outputs are open collector, so the firmware turns on the GPIO pull-ups.",
-           "- **Motor supply:** 2x 18650 through an MP1584EN set to 6.0 V, instead of 4xAA.", "",
+           "- **Hall switches:** KY-003 modules (an A3144 on a small board with an LED) instead of DRV5032s. "
+           "The A3144 needs 4.5 V or more, so they run from the 5 V rail. Each board pulls its S output up to "
+           "that 5 V, too much for a GPIO, so a 20 kΩ resistor from S to ground brings it to about 3.3 V. S goes "
+           "low, and the LED lights, when a magnet's south pole faces the A3144's branded face.",
+           "- **Supplies:** a SunFounder BreadVolt on the rails, instead of 4xAA and the DevKit's 3V3. Its L side "
+           "makes 3.3 V for the TB6612's logic, its R side 5 V for the Hall modules and the motor. The DevKit runs from "
+           "its USB and shares only ground with the rails: its 3V3 and 5V pins stay unwired. The N20 runs at 5 V, "
+           "a little slower than its rated 6 V.", "",
            "### Parts", ""]
     out += _table(["Qty", "Part", "On hand", "Before you start"], [[q, p, h, n] for q, p, h, n in BENCH_PARTS])
     out += ["", f"Jumper wires by colour: " + ", ".join(f"{n} {c}" for c, n in colours.most_common()) + ".", "",
@@ -92,37 +99,44 @@ def bench_section() -> list[str]:
             "column a's side, R+ and R- along column j's.", "",
             "![Bench layout](drawings/bench-layout.svg)", ""]
     out += _table(["Part", "Where", "Orientation"], [list(r) for r in B.PLACEMENT])
-    out += ["", "Rails: L+ is 3.3 V, R+ is 5 V, and both minus rails are ground. On some 830-point boards each "
-            "rail is split halfway along. If yours are, bridge each one across the split.", "",
+    out += ["", "Rails: L+ is 3.3 V and R+ is 5 V, both from the BreadVolt, and both minus rails are ground. Top to "
+            "bottom the rails read + -, then + - (R+, R-, the board, L+, L-), as on the ELEGOO board: + is the red "
+            "stripe, - the blue. On some 830-point boards each rail is split halfway along. If "
+            "yours are, bridge each one across the split: the BreadVolt feeds only the row-63 half.", "",
             "### Wiring", "",
             "![Bench wiring](drawings/bench-wiring.svg)", ""]
     out += _table(["#", "Colour", "Signal", "From", "To"],
                   [[k, w.colour, f"{B.TITLES[w.net]}: {w.desc}", B.end_label(w.a), B.end_label(w.b)]
                    for k, w in enumerate(plan, 1)])
     out += ["", "### Setup", "",
-            "Do these in order. The motor supply goes on last, after the logic side has been checked on USB alone.", "",
-            "1. **Charge the cells, one at a time.** Use the TP4056 on each 18650 alone. It is a 1-cell charger, "
-            "so never charge the pair in series. Each cell should read 4.1-4.2 V when charged.",
-            "2. **Make the pack.** Put both cells in the 2S holder and check the leads read 6.0-8.4 V.",
-            "3. **Set the MP1584 to 6.0 V.** Connect the pack to IN+ and IN- (wires "
-            f"{_nums(steps['motor'][-2:])}), with nothing on OUT. Turn its trimmer until a meter on OUT+/OUT- "
-            "reads 6.0 V. Then disconnect the pack.",
-            "4. **Place the parts** as in the layout, with no power connected.",
-            f"5. **Wire the rails:** wires {_nums(steps['rails'])}.",
-            f"6. **Wire the motor control signals:** wires {_nums(steps['signals'])}.",
-            f"7. **Wire the Hall switches:** wires {_nums(steps['halls'])}.",
-            "8. **Check on USB alone.** Plug in the DevKit's USB, with the pack still disconnected. Measure "
-            "3.2-3.4 V on the L+ rail and 4.7-5.25 V on the R+ rail, both against ground. Nothing should get warm.",
-            f"9. **Flash and test the switches.** The firmware must enable the internal pull-ups on GPIO "
-            f"{_nums(pullups)}; without them, the A3144 inputs float. Each switch reads 1 with no magnet and 0 "
-            "with a magnet's south pole against its branded face. See [Firmware](#firmware) below.",
-            "10. **Connect the motor supply.** Unplug USB. Connect the pack to the MP1584 again, then its OUT to "
-            f"the board and the motor leads (wires {_nums(steps['motor'][:-2])}). Plug USB back in.",
+            "Do these in order. The DevKit goes on USB last, after the rails have been checked without it.", "",
+            "1. **Charge the BreadVolt** over its USB-C port. The red CHG LED goes out when it's full.",
+            "2. **Set and check its jumpers, on the empty board.** Switch it off. Put the L side's jumper (the side "
+            "over the L+/L- rails) on 3V3 and the R side's on 5V. Plug it into the row-63 end, minus pins in the "
+            "blue rails. Switch on and measure, against the minus rails: 3.2-3.4 V on L+ and 4.75-5.25 V on R+. "
+            "Switch off.",
+            "3. **Place the parts** as in the layout, with the BreadVolt off and USB unplugged.",
+            f"4. **Wire the rails:** wires {_nums(steps['rails'])}. Nothing goes to the DevKit's 3V3 or 5V pins.",
+            f"5. **Wire the motor control signals:** wires {_nums(steps['signals'])}.",
+            f"6. **Power the Hall modules:** wires {_nums(steps['halls'])}, and fit the three 20 kΩ resistors "
+            f"(holes {hall_s_rows} to the top - rail). Leave the S wires off for now.",
+            f"7. **Wire the motor:** wires {_nums(steps['motor'])}.",
+            "8. **Check the power, still without USB.** Switch the BreadVolt on: L+ reads 3.2-3.4 V and R+ "
+            "4.75-5.25 V, nothing gets warm, and the motor stays still (the TB6612 pulls STBY low itself). Switch "
+            "off if anything's wrong.",
+            f"9. **Check each module's S before it meets the ESP32.** BreadVolt on, still no USB. On each S row "
+            f"({hall_s_rows}): 2.6-3.5 V with no magnet, and under 0.5 V with the magnet's south pole at the "
+            "A3144's branded face (the module's LED lights). Above 3.6 V: don't connect it; the board's pull-up is "
+            "stronger than 10k and the resistor must be smaller. Then switch off and fit the S wires: "
+            f"{_nums(steps['hall_s'])}.",
+            "10. **Flash and test the switches.** BreadVolt on, then plug in the DevKit's USB. `sensors on` prints "
+            "each switch every 0.5 s: 1 with no magnet, 0 with one. See [Firmware](#firmware) below.",
             "11. **Test the motor.** With STBY (GPIO 20) high: AIN1 (GPIO 18) high and AIN2 (GPIO 19) low turns "
             "it one way, and the reverse turns it the other. Both low lets it coast; both high brakes it. "
-            "PWM on the high pin sets the speed.",
-            "12. **When you're done,** disconnect the pack. It has no protection circuit: stop using it when either "
-            "cell reaches 3.0 V (6.0 V for the pack), and recharge.", ""]
+            "PWM on the high pin sets the speed. Keep the BreadVolt on whenever motor code runs: driving the "
+            "TB6612's inputs high while it's unpowered feeds it through them.",
+            "12. **When you're done,** switch the BreadVolt off. It cuts out by itself when its cell is flat "
+            "(2.4 V); recharge it over USB-C.", ""]
     return out
 
 
@@ -203,7 +217,7 @@ def pin_map() -> list[str]:
     for net, (g, _, desc) in sorted(PIN_MAP.items(), key=lambda kv: kv[1][0]):
         bench = B.BENCH.omit.get(("MCU", f"GPIO{g}"))
         bench = f"unused ({bench})" if bench else B.TITLES[net].split(" (")[0] + \
-            (" (A3144)" if net.startswith("HALL") else "")
+            (" (KY-003)" if net.startswith("HALL") else "")
         rows.append([g, net, desc, bench])
     out = ["## Pin map", "",
            "Both builds use the same GPIOs, so the same firmware runs on both. The map is `PIN_MAP` in "
@@ -217,14 +231,24 @@ def pin_map() -> list[str]:
 def firmware() -> list[str]:
     return ["## Firmware", "",
             "Build and flash with `./esp.sh lock_unit flash monitor` from the repo root (see "
-            "[firmware/README.md](../firmware/README.md)). Today `lock_unit` reads only the door switch and "
-            "simulates the motor:", "",
+            "[firmware/README.md](../firmware/README.md)). The defaults match this pin map, so both builds need no "
+            "menuconfig for the motor:", "",
+            "- **Motor:** the H-bridge driver (menuconfig: Lochness lock unit, then Motor driver) drives AIN1/AIN2 "
+            "(GPIO 18/19) with 20 kHz PWM and STBY/nSLEEP (GPIO 20). A move runs until the bolt switch for its "
+            "target reports (GPIO 22 locked, 23 unlocked, pull-ups on), then brakes. If the switch never reports, "
+            "the motor timeout (5 s, `config motor-timeout`) stops it and the lock reports a jam. On the bench, "
+            "hold the magnet to the target switch to end a move. If it turns the wrong way, turn on \"Reverse "
+            "the motor\".",
+            "- **Bolt position:** read from the bolt switches at boot and whenever they change, so turning the bolt "
+            "by hand (or moving the magnet) shows up as a manual lock or unlock. `status` shows what the switches "
+            "read.",
             "- **Door switch:** set `LOCHNESS_DOOR_GPIO` to 2 (`./esp.sh lock_unit menuconfig`, "
             "\"Lochness lock unit\"). It already enables the pull-up, and reads a low input as door closed, "
-            "which is what both the A3144 and the DRV5032 give with the magnet present.",
-            "- **Status LED:** the DevKit's RGB LED on GPIO 8 (`LOCHNESS_STATUS_LED_GPIO`).",
-            "- **Not written yet:** the motor driver and the bolt switches. Until they are, test them with a "
-            "short bring-up program using the pin map above, including the pull-ups each build needs.", ""]
+            "which is what both the KY-003 and the DRV5032 give with the magnet present.",
+            "- **Status LED:** the DevKit's RGB LED on GPIO 8 (`LOCHNESS_STATUS_LED_GPIO`): red locked and "
+            "green unlocked (only while the bolt switch confirms it), amber while the motor runs, blinking red "
+            "jammed, white when the bolt is at neither switch.",
+            "- **Not written yet:** the encoder (dev kit) and the DRV8833's nFAULT input (GPIO 3).", ""]
 
 
 def checks() -> list[str]:
@@ -237,9 +261,12 @@ def checks() -> list[str]:
            "- An electrical rule check (`wiring/erc.py`) finds no shorts, supply fights, over- or under-voltage, "
            "missing pull-ups or grounds, or pulled-down strapping pins, using each part's datasheet limits.", "",
            "What it can't check: whether your boards match the pinouts drawn here. Before powering up, check by eye:", "",
-           "- The TB6612 breakout's pin order and row spacing (drawn as SparkFun's ROB-14451, rows 0.7\" apart).",
+           "- The TB6612 breakout's pin order and row spacing (drawn as SparkFun's ROB-14451 from its board file: rows 0.6\" apart, PWMA directly opposite VM).",
            "- Which SOT-23 adapter holes carry the DRV5032's VCC, OUT and GND (assumed 1, 3 and 5).",
-           "- The A3144's legs: branded face towards you, legs down, they are VCC, GND and OUT from left to right.",
+           "- The BreadVolt: which jumper is which side (the drawing's L side is over the L+/L- rails), and that "
+           "its minus pins are in the blue rails.",
+           "- The Hall modules' pin labels (drawn as KY-003: -, +, S from left to right) and S with no magnet "
+           "(2.6-3.5 V with the 20 kΩ fitted).",
            "- That your Espressif board is the DevKitC-1 (bench) or DevKitM-1 (dev kit). The other one has the "
            "same GPIOs on different rows.", ""]
     return out
@@ -254,8 +281,8 @@ def setup_md() -> str:
         ["Board", "ESP32-C6-DevKitC-1", "ESP32-C6-DevKitM-1"],
         ["Motor driver", "TB6612FNG breakout", "Pololu #2130 (DRV8833)"],
         ["Motor", "N20, 6 V, no encoder", "Pololu #5193, 150:1, 12 CPR encoder"],
-        ["Bolt and door switches", "3x A3144", "3x DRV5032FA on SOT-23 adapters"],
-        ["Motor supply", "2x 18650, MP1584EN at 6.0 V", "4x AA lithium"],
+        ["Bolt and door switches", "3x KY-003 (A3144) modules", "3x DRV5032FA on SOT-23 adapters"],
+        ["Power", "USB for the DevKit; SunFounder BreadVolt for the rails (motor at 5 V)", "USB for the DevKit; 4x AA lithium for the motor"],
         ["Wires", str(len(B.wire_plan())), str(len(R.WIRING))],
     ])
     lines += ["", "Both run the same firmware: the GPIO map is the same, and the bench leaves out only what its "
@@ -265,8 +292,8 @@ def setup_md() -> str:
               "- [Stage 2: the printed dev kit](#stage-2-the-printed-dev-kit)",
               "- [Firmware](#firmware)",
               "- [Checks behind this guide](#checks-behind-this-guide)", "",
-              "> **Safety:** the 18650 pack has no protection circuit. Charge each cell alone on the TP4056, set the "
-              "MP1584 to 6.0 V before connecting it, and stop at 3.0 V per cell. Connect motor power last, and only "
-              "after checking the logic side on USB alone.", ""]
+              "> **Safety (bench):** set the BreadVolt's jumpers (L side 3V3, R side 5V) and check the rails with a "
+              "meter before anything else is on the board. Never wire the DevKit's 3V3 or 5V pin to a rail: the "
+              "DevKit runs from its USB and shares only ground with the rails.", ""]
     lines += pin_map() + bench_section() + devkit_section() + firmware() + checks()
     return "\n".join(lines).rstrip() + "\n"

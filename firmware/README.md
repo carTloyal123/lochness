@@ -99,7 +99,7 @@ From any shell, without sourcing ESP-IDF first:
 
 `esp.sh` loads ESP-IDF and passes its arguments to `idf.py`. If the first argument names an app, it runs in that app, and `all` runs it in each app in turn. Otherwise it runs in the current directory. Use the board's "UART" USB port; add `-p /dev/cu.usbserial-XXXX` if more than one is connected.
 
-`idf.py menuconfig` → **Lochness lock unit** sets the door-sensor GPIO and simulated motor timing. **Lochness platform** selects the PIN key source.
+`idf.py menuconfig` → **Lochness lock unit** sets the motor driver (the real H-bridge by default, or the simulator), its pins and direction, the bolt and door switch GPIOs, and the status LED. **Lochness platform** selects the PIN key source.
 
 ## Console (development stand-in for keypad/Matter/app)
 
@@ -147,7 +147,7 @@ lochness> code add 1 1234
 lochness> pair keypad              # stand-in for the lock's pair button (60 s window)
 keypad>   pair                     # or hold the BOOT button for 3 s
           ... keypad logs "PAIRED"; `peers` on the lock shows it
-keypad>   keys 1234#               # → lock unlocks (simulated motor), keypad shows UNLOCKED
+keypad>   keys 1234#               # → lock unlocks, keypad shows UNLOCKED
 keypad>   keys L                   # one-touch lock
 ```
 
@@ -157,7 +157,7 @@ With no input hardware configured, the keypad's `keys` command stands in for the
 
 ## Status LED
 
-The lock shows its bolt on the DevKitC-1's RGB LED (GPIO 8): red locked, green unlocked, amber moving, blinking red jammed, blinking blue while a pairing window is open. `idf.py menuconfig` → **Lochness lock unit** sets the pin (-1 turns it off) and brightness.
+The lock shows its bolt on the DevKitC-1's RGB LED (GPIO 8): red locked, green unlocked, amber while the motor runs, blinking red jammed, white unknown, blinking blue while a pairing window is open. With bolt switches, red and green show only while the switch confirms the position; a bolt at neither switch shows white. `idf.py menuconfig` → **Lochness lock unit** sets the pin (-1 turns it off) and brightness.
 
 ## Bench tests (two boards)
 
@@ -166,7 +166,7 @@ The lock shows its bolt on the DevKitC-1's RGB LED (GPIO 8): red locked, green u
 python3 firmware/tools/bench/bench.py --lock /dev/cu.usbserial-210 --keypad /dev/cu.usbserial-110
 ```
 
-It factory-resets the lock, re-pairs the keypad, then measures cold, typed and warm request latency and checks lockout (including across a lock reboot), recovery from either board rebooting mid-session, persistence across power cycles, battery and log reporting, and that pairing without a window fails. `--keep` reuses the current pairing, `--only a,b` picks tests, `--json` saves results. The keypad logs `timing: link … ms, result … ms after connect` for each cold request.
+Build the lock with the simulated motor for these (menuconfig: Lochness lock unit, then Motor driver): with the real one, every move waits for a bolt switch, and with no magnet to move it each times out as a jam. It factory-resets the lock, re-pairs the keypad, then measures cold, typed and warm request latency and checks lockout (including across a lock reboot), recovery from either board rebooting mid-session, persistence across power cycles, battery and log reporting, and that pairing without a window fails. `--keep` reuses the current pairing, `--only a,b` picks tests, `--json` saves results. The keypad logs `timing: link … ms, result … ms after connect` for each cold request.
 
 ## Which board is which
 

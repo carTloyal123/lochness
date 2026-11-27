@@ -2,6 +2,11 @@
 CONFIG_IDF_TARGET="esp32c6"
 
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+# The image is built for 4 MB (the DevKitM-1-N4 and the product); esptool writes each
+# board's real flash size into the bootloader when flashing (the bench DevKitC-1 has 8 MB),
+# so neither warns. It skips the bootloader's SHA-256 check: fine for dev boards, revisit
+# with secure boot.
+CONFIG_ESPTOOLPY_HEADER_FLASHSIZE_UPDATE=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 

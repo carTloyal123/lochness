@@ -10,9 +10,9 @@ Two ways to build the lock's electronics before the main PCB exists:
 | Board | ESP32-C6-DevKitC-1 | ESP32-C6-DevKitM-1 |
 | Motor driver | TB6612FNG breakout | Pololu #2130 (DRV8833) |
 | Motor | N20, 6 V, no encoder | Pololu #5193, 150:1, 12 CPR encoder |
-| Bolt and door switches | 3x A3144 | 3x DRV5032FA on SOT-23 adapters |
-| Motor supply | 2x 18650, MP1584EN at 6.0 V | 4x AA lithium |
-| Wires | 26 | 24 |
+| Bolt and door switches | 3x KY-003 (A3144) modules | 3x DRV5032FA on SOT-23 adapters |
+| Power | USB for the DevKit; SunFounder BreadVolt for the rails (motor at 5 V) | USB for the DevKit; 4x AA lithium for the motor |
+| Wires | 20 | 24 |
 
 Both run the same firmware: the GPIO map is the same, and the bench leaves out only what its parts don't have.
 
@@ -22,7 +22,7 @@ Both run the same firmware: the GPIO map is the same, and the bench leaves out o
 - [Firmware](#firmware)
 - [Checks behind this guide](#checks-behind-this-guide)
 
-> **Safety:** the 18650 pack has no protection circuit. Charge each cell alone on the TP4056, set the MP1584 to 6.0 V before connecting it, and stop at 3.0 V per cell. Connect motor power last, and only after checking the logic side on USB alone.
+> **Safety (bench):** set the BreadVolt's jumpers (L side 3V3, R side 5V) and check the rails with a meter before anything else is on the board. Never wire the DevKit's 3V3 or 5V pin to a rail: the DevKit runs from its USB and shares only ground with the rails.
 
 ## Pin map
 
@@ -30,15 +30,15 @@ Both builds use the same GPIOs, so the same firmware runs on both. The map is `P
 
 | GPIO | Net | Dev kit | Bench |
 |---|---|---|---|
-| 2 | HALL_DOOR | Door (DRV5032 OUT) | Door (A3144) |
+| 2 | HALL_DOOR | Door (DRV5032 OUT) | Door (KY-003) |
 | 3 | DRV_nFAULT | Driver fault (open drain) | unused (TB6612FNG has no fault output) |
 | 4 | ENC_B | Motor encoder B | unused (N20 has no encoder) |
 | 18 | MOT_IN1 | Motor A in 1 (PWM) | Motor A in 1 |
 | 19 | MOT_IN2 | Motor A in 2 (PWM) | Motor A in 2 |
 | 20 | DRV_nSLEEP | Driver enable | Driver enable |
 | 21 | ENC_A | Motor encoder A | unused (N20 has no encoder) |
-| 22 | HALL_LOCKED | Bolt locked (DRV5032 OUT) | Bolt locked (A3144) |
-| 23 | HALL_UNLOCKED | Bolt unlocked (DRV5032 OUT) | Bolt unlocked (A3144) |
+| 22 | HALL_LOCKED | Bolt locked (DRV5032 OUT) | Bolt locked (KY-003) |
+| 23 | HALL_UNLOCKED | Bolt unlocked (DRV5032 OUT) | Bolt unlocked (KY-003) |
 
 Avoided on purpose: GPIO 8, 9 and 15 (strapping pins; 8 also drives the DevKit's RGB LED), 12 and 13 (USB), 16 and 17 (UART0).
 
@@ -48,8 +48,8 @@ The lock's circuit on one breadboard, from the parts on hand. It differs from th
 
 - **Motor driver:** a TB6612FNG instead of the DRV8833. Its STBY pin is on GPIO 20, where the DRV8833's nSLEEP was. PWMA is tied to 3.3 V, so PWM on AIN1/AIN2 drives it the same way. It has no fault output, so GPIO 3 is unused.
 - **Motor:** the N20 has no encoder, so GPIO 21 and 4 are unused.
-- **Hall switches:** A3144s instead of DRV5032s. They need 4.5 V or more, so they run from the DevKit's 5 V. Their outputs are open collector, so the firmware turns on the GPIO pull-ups.
-- **Motor supply:** 2x 18650 through an MP1584EN set to 6.0 V, instead of 4xAA.
+- **Hall switches:** KY-003 modules (an A3144 on a small board with an LED) instead of DRV5032s. The A3144 needs 4.5 V or more, so they run from the 5 V rail. Each board pulls its S output up to that 5 V, too much for a GPIO, so a 20 kΩ resistor from S to ground brings it to about 3.3 V. S goes low, and the LED lights, when a magnet's south pole faces the A3144's branded face.
+- **Supplies:** a SunFounder BreadVolt on the rails, instead of 4xAA and the DevKit's 3V3. Its L side makes 3.3 V for the TB6612's logic, its R side 5 V for the Hall modules and the motor. The DevKit runs from its USB and shares only ground with the rails: its 3V3 and 5V pins stay unwired. The N20 runs at 5 V, a little slower than its rated 6 V.
 
 ### Parts
 
@@ -58,21 +58,19 @@ The lock's circuit on one breadboard, from the parts on hand. It differs from th
 | 1 | Espressif ESP32-C6-DevKitC-1 | yes | Headers fitted. The bench drawing is for this board. |
 | 1 | TB6612FNG dual motor driver breakout | yes | Solder its two 1x8 headers, pins down. |
 | 1 | N20 gearmotor, 6 V, no encoder | yes | Solder a red and a black lead to its tabs. |
-| 3 | A3144 Hall switch (TO-92) | yes | Locked, unlocked and door. Needs 4.5 V or more. |
-| 1 | MP1584EN buck module | yes | Solder leads or pins to IN+, IN-, OUT+ and OUT-. Set to 6.0 V before use. |
-| 2 | 18650 Li-ion cell | yes | Charged one at a time on the TP4056. |
-| 1 | TP4056 1-cell charger module | yes | For charging only. It is not in the circuit. |
+| 3 | KY-003 Hall switch module (A3144 with an LED; pins - + S) | yes | Locked, unlocked and door. Needs 4.5 V or more. The board pulls S up to 5 V. |
+| 3 | 20 kΩ resistor | **check** | One from each module's S to GND, so S is about 3.3 V. Or two 10 kΩ soldered end to end. |
+| 1 | SunFounder BreadVolt breadboard power module | yes | Charge it over USB-C first. Jumpers: L side 3V3, R side 5V. |
 | 1 | 830-point breadboard with power rails | yes (ELEGOO kit) |  |
-| 26 | Jumper wires | yes (ELEGOO kit) |  |
-| 1 | 2-cell 18650 holder, in series, with leads | **no** | Not in your inventory. Any 2S holder. |
-| 1 | Small neodymium magnet | **check** | To trigger the A3144s (south pole to the branded face). |
+| 20 | Jumper wires | yes (ELEGOO kit) |  |
+| 1 | Small neodymium magnet | **check** | To trigger the modules: south pole to the A3144's branded face (the module's LED lights). |
 | 1 | USB-C data cable | **check** | Powers and programs the DevKit. |
 
-Jumper wires by colour: 10 black, 6 red, 4 orange, 3 blue, 1 yellow, 1 green, 1 white.
+Jumper wires by colour: 7 black, 4 orange, 3 red, 3 blue, 1 yellow, 1 green, 1 white.
 
-Tools: Multimeter (to set the MP1584 and check the rails), soldering iron.
+Tools: Multimeter (to check the rails before the DevKit goes on), soldering iron (TB6612 headers, motor leads).
 
-Not used: Seeed XIAO ESP32C6, PN532 NFC, and the ELEGOO kit's power module.
+Not used: Seeed XIAO ESP32C6, PN532 NFC, the ELEGOO kit's power module, and the MP1584EN, 18650s and TP4056 (kept for a 6 V motor supply later).
 
 ### Layout
 
@@ -83,13 +81,15 @@ Where each part sits. Holes are row (1-63) and column (a-j), or a rail: L+ and L
 | Part | Where | Orientation |
 |---|---|---|
 | ESP32-C6-DevKitC-1 | J1 pins in column i, J3 pins in column b; pin 1 (3V3 / G) in row 17, pin 16 (NC) in row 2 | Antenna towards row 20, USB-C ports hanging off the row-1 end |
-| TB6612FNG breakout | Control row (PWMA..GND) in column c, power row (VM..GND) in column h, rows 22-29 | PWMA and VM in row 22; check your board's silkscreen order |
-| A3144 locked | Legs in column f, rows 34-36 | Branded (flat) face towards the centre gap (column e), so VCC, GND, OUT run left to right as you face it |
-| A3144 unlocked | Legs in column f, rows 39-41 | Branded (flat) face towards the centre gap (column e), so VCC, GND, OUT run left to right as you face it |
-| A3144 door | Legs in column f, rows 44-46 | Branded (flat) face towards the centre gap (column e), so VCC, GND, OUT run left to right as you face it |
-| N20 motor, MP1584EN, 2x 18650 | Off the board, on the bench | Leads soldered on; the buck's OUT goes to the board only after it's set to 6.0 V |
+| TB6612FNG breakout | Control row (PWMA..GND) in column h, power row (VM..GND) in column d, rows 22-29 | Chips up. PWMA top left (22h), VM opposite it (22d) |
+| KY-003 locked | Pins in column f, rows 34-36 | Labels facing you (towards column e), so -, +, S run left to right |
+| KY-003 unlocked | Pins in column f, rows 39-41 | Labels facing you (towards column e), so -, +, S run left to right |
+| KY-003 door | Pins in column f, rows 44-46 | Labels facing you (towards column e), so -, +, S run left to right |
+| 3x 20k resistor | From each module's S row (column h) to the top - rail: rows 36, 41, 46 | Either way round |
+| SunFounder BreadVolt | Over the row-63 end, its four pins in the four rails (about row 61) | Minus pins in the blue (-) rails. Jumpers: L side (over L+/L-) on 3V3, R side (over R+/R-) on 5V |
+| N20 motor | Off the board, on the bench | Red and black leads soldered on, into the wired holes |
 
-Rails: L+ is 3.3 V, R+ is 5 V, and both minus rails are ground. On some 830-point boards each rail is split halfway along. If yours are, bridge each one across the split.
+Rails: L+ is 3.3 V and R+ is 5 V, both from the BreadVolt, and both minus rails are ground. Top to bottom the rails read + -, then + - (R+, R-, the board, L+, L-), as on the ELEGOO board: + is the red stripe, - the blue. On some 830-point boards each rail is split halfway along. If yours are, bridge each one across the split: the BreadVolt feeds only the row-63 half.
 
 ### Wiring
 
@@ -97,49 +97,43 @@ Rails: L+ is 3.3 V, R+ is 5 V, and both minus rails are ground. On some 830-poin
 
 | # | Colour | Signal | From | To |
 |---|---|---|---|---|
-| 1 | yellow | Motor A in 1 (PWM): GPIO 18 to TB6612 AIN1 | DevKit GPIO 18 (8a) | TB6612 AIN1 (24a) |
-| 2 | green | Motor A in 2 (PWM): GPIO 19 to TB6612 AIN2 | DevKit GPIO 19 (9a) | TB6612 AIN2 (23a) |
-| 3 | white | Driver enable: GPIO 20 to TB6612 STBY | DevKit GPIO 20 (10a) | TB6612 STBY (25a) |
-| 4 | red | 3.3 V: DevKit 3V3 to the 3V3 rail | DevKit 3V3 (17j) | 3V3 rail (L+, row 17) |
-| 5 | black | Ground: DevKit GND to the GND rail | DevKit G (17a) | GND rail (L-, row 17) |
-| 6 | orange | 5 V (DevKit 5V pin, from USB): DevKit 5V to the 5V rail | DevKit 5V (4j) | 5V rail (R+, row 4) |
-| 7 | black | Ground: joins the two GND rails | GND rail (L-, row 20) | GND rail (R-, row 20) |
-| 8 | red | 3.3 V: TB6612 PWMA held high | TB6612 PWMA (22a) | 3V3 rail (L+, row 22) |
-| 9 | black | Ground: TB6612 GND (control side) | TB6612 GND (29a) | GND rail (L-, row 29) |
-| 10 | red | 3.3 V: TB6612 VCC (logic 3.3 V) | TB6612 VCC (23j) | 3V3 rail (L+, row 23) |
-| 11 | black | Ground: TB6612 GND (power side) | TB6612 GND (24j) | GND rail (R-, row 24) |
-| 12 | red | Motor supply (MP1584 out, 6 V): MP1584 OUT+ (6 V) to TB6612 VM | MP1584 OUT+ | TB6612 VM (22j) |
-| 13 | black | Ground: MP1584 OUT- to the GND rail | MP1584 OUT- | GND rail (R-, row 30) |
-| 14 | red | Motor M1: TB6612 AO1 to the motor | TB6612 AO1 (25j) | motor M1 |
-| 15 | black | Motor M2: TB6612 AO2 to the motor | TB6612 AO2 (26j) | motor M2 |
-| 16 | orange | 5 V (DevKit 5V pin, from USB): hall_locked VCC to the 5V rail | hall_locked VCC (34j) | 5V rail (R+, row 34) |
-| 17 | black | Ground: hall_locked GND to the GND rail | hall_locked GND (35j) | GND rail (R-, row 35) |
-| 18 | blue | Bolt locked (A3144 OUT): hall_locked OUT to GPIO 22 | hall_locked OUT (36g) | DevKit GPIO 22 (12a) |
-| 19 | orange | 5 V (DevKit 5V pin, from USB): hall_unlocked VCC to the 5V rail | hall_unlocked VCC (39j) | 5V rail (R+, row 39) |
-| 20 | black | Ground: hall_unlocked GND to the GND rail | hall_unlocked GND (40j) | GND rail (R-, row 40) |
-| 21 | blue | Bolt unlocked (A3144 OUT): hall_unlocked OUT to GPIO 23 | hall_unlocked OUT (41g) | DevKit GPIO 23 (13a) |
-| 22 | orange | 5 V (DevKit 5V pin, from USB): hall_door VCC to the 5V rail | hall_door VCC (44j) | 5V rail (R+, row 44) |
-| 23 | black | Ground: hall_door GND to the GND rail | hall_door GND (45j) | GND rail (R-, row 45) |
-| 24 | blue | Door (A3144 OUT): hall_door OUT to GPIO 2 | hall_door OUT (46g) | DevKit GPIO 2 (6j) |
-| 25 | red | 2x 18650 + (6.0-8.4 V): 18650 pack + to MP1584 IN+ | 18650 pack + | MP1584 IN+ |
-| 26 | black | Ground: 18650 pack - to MP1584 IN- | 18650 pack - | MP1584 IN- |
+| 1 | yellow | Motor A in 1 (PWM): GPIO 18 to TB6612 AIN1 | DevKit GPIO 18 (8a) | TB6612 AIN1 (24j) |
+| 2 | green | Motor A in 2 (PWM): GPIO 19 to TB6612 AIN2 | DevKit GPIO 19 (9a) | TB6612 AIN2 (23j) |
+| 3 | white | Driver enable: GPIO 20 to TB6612 STBY | DevKit GPIO 20 (10a) | TB6612 STBY (25j) |
+| 4 | black | Ground: DevKit GND to the GND rail | DevKit G (17a) | GND rail (L-, row 17) |
+| 5 | red | 3.3 V (BreadVolt L side): TB6612 PWMA held high | TB6612 PWMA (22j) | 3V3 rail (L+, row 22) |
+| 6 | black | Ground: TB6612 GND (control side) | TB6612 GND (29j) | GND rail (R-, row 29) |
+| 7 | red | 3.3 V (BreadVolt L side): TB6612 VCC (logic 3.3 V) | TB6612 VCC (23a) | 3V3 rail (L+, row 23) |
+| 8 | black | Ground: TB6612 GND (power side) | TB6612 GND (24a) | GND rail (L-, row 24) |
+| 9 | orange | 5 V (BreadVolt R side): TB6612 VM (motor supply) to the 5V rail | TB6612 VM (22a) | 5V rail (R+, row 22) |
+| 10 | red | Motor M1: TB6612 AO1 to the motor | TB6612 AO1 (25a) | motor M1 |
+| 11 | black | Motor M2: TB6612 AO2 to the motor | TB6612 AO2 (26a) | motor M2 |
+| 12 | black | Ground: hall_locked - to the GND rail | hall_locked - (34j) | GND rail (R-, row 34) |
+| 13 | orange | 5 V (BreadVolt R side): hall_locked + to the 5V rail | hall_locked + (35j) | 5V rail (R+, row 35) |
+| 14 | blue | Bolt locked (KY-003 S): hall_locked S to GPIO 22 | hall_locked S (36g) | DevKit GPIO 22 (12a) |
+| 15 | black | Ground: hall_unlocked - to the GND rail | hall_unlocked - (39j) | GND rail (R-, row 39) |
+| 16 | orange | 5 V (BreadVolt R side): hall_unlocked + to the 5V rail | hall_unlocked + (40j) | 5V rail (R+, row 40) |
+| 17 | blue | Bolt unlocked (KY-003 S): hall_unlocked S to GPIO 23 | hall_unlocked S (41g) | DevKit GPIO 23 (13a) |
+| 18 | black | Ground: hall_door - to the GND rail | hall_door - (44j) | GND rail (R-, row 44) |
+| 19 | orange | 5 V (BreadVolt R side): hall_door + to the 5V rail | hall_door + (45j) | 5V rail (R+, row 45) |
+| 20 | blue | Door (KY-003 S): hall_door S to GPIO 2 | hall_door S (46g) | DevKit GPIO 2 (6j) |
 
 ### Setup
 
-Do these in order. The motor supply goes on last, after the logic side has been checked on USB alone.
+Do these in order. The DevKit goes on USB last, after the rails have been checked without it.
 
-1. **Charge the cells, one at a time.** Use the TP4056 on each 18650 alone. It is a 1-cell charger, so never charge the pair in series. Each cell should read 4.1-4.2 V when charged.
-2. **Make the pack.** Put both cells in the 2S holder and check the leads read 6.0-8.4 V.
-3. **Set the MP1584 to 6.0 V.** Connect the pack to IN+ and IN- (wires 25 and 26), with nothing on OUT. Turn its trimmer until a meter on OUT+/OUT- reads 6.0 V. Then disconnect the pack.
-4. **Place the parts** as in the layout, with no power connected.
-5. **Wire the rails:** wires 4, 5, 6, 7, 8, 9, 10 and 11.
-6. **Wire the motor control signals:** wires 1, 2 and 3.
-7. **Wire the Hall switches:** wires 16, 17, 18, 19, 20, 21, 22, 23 and 24.
-8. **Check on USB alone.** Plug in the DevKit's USB, with the pack still disconnected. Measure 3.2-3.4 V on the L+ rail and 4.7-5.25 V on the R+ rail, both against ground. Nothing should get warm.
-9. **Flash and test the switches.** The firmware must enable the internal pull-ups on GPIO 2, 22 and 23; without them, the A3144 inputs float. Each switch reads 1 with no magnet and 0 with a magnet's south pole against its branded face. See [Firmware](#firmware) below.
-10. **Connect the motor supply.** Unplug USB. Connect the pack to the MP1584 again, then its OUT to the board and the motor leads (wires 12, 13, 14 and 15). Plug USB back in.
-11. **Test the motor.** With STBY (GPIO 20) high: AIN1 (GPIO 18) high and AIN2 (GPIO 19) low turns it one way, and the reverse turns it the other. Both low lets it coast; both high brakes it. PWM on the high pin sets the speed.
-12. **When you're done,** disconnect the pack. It has no protection circuit: stop using it when either cell reaches 3.0 V (6.0 V for the pack), and recharge.
+1. **Charge the BreadVolt** over its USB-C port. The red CHG LED goes out when it's full.
+2. **Set and check its jumpers, on the empty board.** Switch it off. Put the L side's jumper (the side over the L+/L- rails) on 3V3 and the R side's on 5V. Plug it into the row-63 end, minus pins in the blue rails. Switch on and measure, against the minus rails: 3.2-3.4 V on L+ and 4.75-5.25 V on R+. Switch off.
+3. **Place the parts** as in the layout, with the BreadVolt off and USB unplugged.
+4. **Wire the rails:** wires 4, 5, 6, 7, 8 and 9. Nothing goes to the DevKit's 3V3 or 5V pins.
+5. **Wire the motor control signals:** wires 1, 2 and 3.
+6. **Power the Hall modules:** wires 12, 13, 15, 16, 18 and 19, and fit the three 20 kΩ resistors (holes 36h, 41h, 46h to the top - rail). Leave the S wires off for now.
+7. **Wire the motor:** wires 10 and 11.
+8. **Check the power, still without USB.** Switch the BreadVolt on: L+ reads 3.2-3.4 V and R+ 4.75-5.25 V, nothing gets warm, and the motor stays still (the TB6612 pulls STBY low itself). Switch off if anything's wrong.
+9. **Check each module's S before it meets the ESP32.** BreadVolt on, still no USB. On each S row (36h, 41h, 46h): 2.6-3.5 V with no magnet, and under 0.5 V with the magnet's south pole at the A3144's branded face (the module's LED lights). Above 3.6 V: don't connect it; the board's pull-up is stronger than 10k and the resistor must be smaller. Then switch off and fit the S wires: 14, 17 and 20.
+10. **Flash and test the switches.** BreadVolt on, then plug in the DevKit's USB. `sensors on` prints each switch every 0.5 s: 1 with no magnet, 0 with one. See [Firmware](#firmware) below.
+11. **Test the motor.** With STBY (GPIO 20) high: AIN1 (GPIO 18) high and AIN2 (GPIO 19) low turns it one way, and the reverse turns it the other. Both low lets it coast; both high brakes it. PWM on the high pin sets the speed. Keep the BreadVolt on whenever motor code runs: driving the TB6612's inputs high while it's unpowered feeds it through them.
+12. **When you're done,** switch the BreadVolt off. It cuts out by itself when its cell is flat (2.4 V); recharge it over USB-C.
 
 ## Stage 2: the printed dev kit
 
@@ -241,11 +235,13 @@ The breadboards from above, at true scale, with every part where the model puts 
 
 ## Firmware
 
-Build and flash with `./esp.sh lock_unit flash monitor` from the repo root (see [firmware/README.md](../firmware/README.md)). Today `lock_unit` reads only the door switch and simulates the motor:
+Build and flash with `./esp.sh lock_unit flash monitor` from the repo root (see [firmware/README.md](../firmware/README.md)). The defaults match this pin map, so both builds need no menuconfig for the motor:
 
-- **Door switch:** set `LOCHNESS_DOOR_GPIO` to 2 (`./esp.sh lock_unit menuconfig`, "Lochness lock unit"). It already enables the pull-up, and reads a low input as door closed, which is what both the A3144 and the DRV5032 give with the magnet present.
-- **Status LED:** the DevKit's RGB LED on GPIO 8 (`LOCHNESS_STATUS_LED_GPIO`).
-- **Not written yet:** the motor driver and the bolt switches. Until they are, test them with a short bring-up program using the pin map above, including the pull-ups each build needs.
+- **Motor:** the H-bridge driver (menuconfig: Lochness lock unit, then Motor driver) drives AIN1/AIN2 (GPIO 18/19) with 20 kHz PWM and STBY/nSLEEP (GPIO 20). A move runs until the bolt switch for its target reports (GPIO 22 locked, 23 unlocked, pull-ups on), then brakes. If the switch never reports, the motor timeout (5 s, `config motor-timeout`) stops it and the lock reports a jam. On the bench, hold the magnet to the target switch to end a move. If it turns the wrong way, turn on "Reverse the motor".
+- **Bolt position:** read from the bolt switches at boot and whenever they change, so turning the bolt by hand (or moving the magnet) shows up as a manual lock or unlock. `status` shows what the switches read.
+- **Door switch:** set `LOCHNESS_DOOR_GPIO` to 2 (`./esp.sh lock_unit menuconfig`, "Lochness lock unit"). It already enables the pull-up, and reads a low input as door closed, which is what both the KY-003 and the DRV5032 give with the magnet present.
+- **Status LED:** the DevKit's RGB LED on GPIO 8 (`LOCHNESS_STATUS_LED_GPIO`): red locked and green unlocked (only while the bolt switch confirms it), amber while the motor runs, blinking red jammed, white when the bolt is at neither switch.
+- **Not written yet:** the encoder (dev kit) and the DRV8833's nFAULT input (GPIO 3).
 
 ## Checks behind this guide
 
@@ -257,7 +253,8 @@ Build and flash with `./esp.sh lock_unit flash monitor` from the repo root (see 
 
 What it can't check: whether your boards match the pinouts drawn here. Before powering up, check by eye:
 
-- The TB6612 breakout's pin order and row spacing (drawn as SparkFun's ROB-14451, rows 0.7" apart).
+- The TB6612 breakout's pin order and row spacing (drawn as SparkFun's ROB-14451 from its board file: rows 0.6" apart, PWMA directly opposite VM).
 - Which SOT-23 adapter holes carry the DRV5032's VCC, OUT and GND (assumed 1, 3 and 5).
-- The A3144's legs: branded face towards you, legs down, they are VCC, GND and OUT from left to right.
+- The BreadVolt: which jumper is which side (the drawing's L side is over the L+/L- rails), and that its minus pins are in the blue rails.
+- The Hall modules' pin labels (drawn as KY-003: -, +, S from left to right) and S with no magnet (2.6-3.5 V with the 20 kΩ fitted).
 - That your Espressif board is the DevKitC-1 (bench) or DevKitM-1 (dev kit). The other one has the same GPIOs on different rows.

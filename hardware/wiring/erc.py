@@ -12,7 +12,7 @@ range, then applies RULES:
 | one-driver | two supplies or push-pull outputs on one net (they fight) |
 | short-to-ground | a supply or output on the GND net |
 | over-voltage | a net above the maximum of any pin on it (5 V on a 3.3 V GPIO, the pack on logic VCC) |
-| under-voltage | a supply pin below its minimum (an A3144 on 3.3 V), or with no source at all |
+| under-voltage | a supply pin below its minimum (a KY-003's A3144 on 3.3 V), or with no source at all |
 | pull-up | an open-drain output with nothing pulling its net up (no resistor, no GPIO pull-up) |
 | ground | a part with a supply but no ground, or a ground pin on another net |
 | strapping | GPIO 8 or 9 pulled low or driven by another part at boot (wrong boot mode) |
@@ -120,19 +120,18 @@ def tb6612(pin: str) -> E:
         (OUT("P-VM") if name[:2] in ("AO", "BO") else IN(6.0))
 
 
-def a3144(pin: str) -> E:
-    """A3144 (Allegro A3144E): VCC 4.5-24 V, open-collector output, off-state up to 24 V."""
-    return {"1": SUP(4.5, 24.0), "2": GND, "3": OD(24.0)}[pin]
+def ky003(pin: str) -> E:
+    """KY-003 Hall switch module: an A3144 (Allegro A3144E, VCC 4.5-24 V) whose open-collector output
+    the board pulls up to its own + through about 10k (and an LED). So S swings to + like a push-pull
+    output: on the 5 V rail, too high for a GPIO unless a divider brings it down."""
+    return {"-": GND, "+": SUP(4.5, 24.0), "S": OUT("+")}[pin]
 
 
-def mp1584(pin: str) -> E:
-    """MP1584EN module: input 4.5-28 V; output set by its trimmer (6.0 V here); grounds common."""
-    return {"IN+": SUP(4.5, 28.0), "IN-": GND, "OUT+": SRC(5.9, 6.1), "OUT-": GND}[pin]
-
-
-def pack_2s(pin: str) -> E:
-    """2x 18650 Li-ion in series: 3.0-4.2 V per cell (stop at 3.0)."""
-    return SRC(6.0, 8.4) if pin == "+" else GND
+def breadvolt(pin: str) -> E:
+    """SunFounder BreadVolt, jumpered L side 3.3 V and R side 5 V: 3.3 V/1 A from an LDO, 5 V/1.5 A,
+    from one 14500 cell (SunFounder BreadVolt docs, hardware introduction); both sides' minus common.
+    3.3 V is taken down to 3.0 V as the cell sags; 5 V to 4.75 V."""
+    return {"L+": SRC(3.0, 3.4), "R+": SRC(4.75, 5.25)}.get(pin, GND)
 
 
 def mini1(pin: str) -> E:
@@ -210,9 +209,12 @@ def configs() -> dict[str, Config]:
             else (lambda pin: PAS))
     return {
         "bench": Config(
-            models={"devkit": espressif_devkit(bench.DEVKITC_J1, bench.DEVKITC_J3), "tb6612": tb6612, **{h: a3144 for h in halls}, "motor": lambda p: PAS,
-                    "buck": mp1584, "battery": pack_2s},
-            pullups={_gpio_pin(bench.BENCH, g) for g in (22, 23, 2)}),
+            models={"devkit": espressif_devkit(bench.DEVKITC_J1, bench.DEVKITC_J3), "tb6612": tb6612,
+                    **{h: ky003 for h in halls}, **{r: (lambda pin: RES) for r in bench.R_DIV.values()},
+                    "motor": lambda p: PAS, "breadvolt": breadvolt},
+            # S: the module's ~10k pull-up to 5 V over the 20k to GND, at most 5.25 V x 20/30.
+            levels={n: (0.0, 5.25 * 20 / 30, "KY-003 10k pull-up to 5 V, 20k to GND")
+                    for n in ("HALL_LOCKED", "HALL_UNLOCKED", "HALL_DOOR")}),
         "devkit": Config(
             models={"devkit": devkitm1, "drv8833": pololu_2130, **{h: drv5032_adapter for h in halls},
                     "motor": pololu_motor, "battery": pack_4aa},
@@ -269,6 +271,8 @@ def check(nets: dict[str, list[Pin]], cfg: Config) -> list[Finding]:
             weak.setdefault(net_of[p], []).append((3.3, 3.3))
 
     def hi_of(n: str) -> float | None:
+        if n in cfg.levels:  # declared: the inference can't see dividers, so this range is the answer
+            return cfg.levels[n][1]
         vals = [strong[n][1]] if n in strong else [w[1] for w in weak.get(n, [])]
         for p in nets[n]:  # push-pull outputs swing up to their own supply
             e = model[p]

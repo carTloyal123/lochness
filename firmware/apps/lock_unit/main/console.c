@@ -22,8 +22,13 @@
 #include "ble_server.h"
 #include "matter_lock.h"
 #endif
-#include "motor_sim.h"
+#include "bolt_sense.h"
+#include "door.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "motor.h"
 #include "platform_esp/pe_platform.h"
+#include "sdkconfig.h"
 
 #define PIN_ARG(s) (const uint8_t *)(s), strlen(s)
 #define COUNT_OF(a) (sizeof(a) / sizeof((a)[0]))
@@ -580,7 +585,8 @@ static int do_status(lock_ctx_t *ctx, void *arg)
     (void)arg;
     lc_wall_time_t wall = {0};
     bool known = lc->plat.wall_time(NULL, &wall);
-    printf("bolt     %s\n", bolt_name(lc->bolt));
+    printf("bolt     %s (switches: %s; motor: %s)\n", bolt_name(lc->bolt), bolt_sense_name(bolt_sense_read()),
+           motor_driver_name());
     printf("door     %s\n", door_name(lc->door));
     printf("mode     %s\n", MODE_NAMES[lc->mode]);
     if (lc->rl.locked) {
@@ -773,10 +779,63 @@ static int cmd_sim(int argc, char **argv)
                (strcmp(argv[2], "locked") == 0 || strcmp(argv[2], "unlocked") == 0)) {
         lock_task_post_bolt_position(strcmp(argv[2], "locked") == 0 ? LC_BOLT_LOCKED : LC_BOLT_UNLOCKED);
     } else if (argc == 2 && strcmp(argv[1], "jam") == 0) {
-        motor_sim_fail_next();
+        if (!motor_fail_next()) {
+            printf("the real motor can't fake a jam: hold the bolt, or keep the magnet off its switch\n");
+            return 1;
+        }
     } else {
         printf("usage: sim door open|closed | sim turn locked|unlocked | sim jam\n");
         return 1;
+    }
+    return 0;
+}
+
+/* ---- sensor watch ---------------------------------------------------------- */
+
+enum { SENSORS_PERIOD_US = 500000 };
+
+static esp_timer_handle_t s_sensors_timer; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): console state
+
+static const char *level_name(int level)
+{
+    if (level < 0) {
+        return "-";
+    }
+    return level == 0 ? "0 MAGNET" : "1 none";
+}
+
+/* One line: each switch's GPIO level (0 = magnet at it) and what the lock
+ * makes of them. Runs on the esp_timer task or the console task. */
+static void print_sensors(void *arg)
+{
+    (void)arg;
+    int locked = -1;
+    int unlocked = -1;
+    bolt_sense_levels(&locked, &unlocked);
+    int door = door_level();
+    ESP_LOGI("sensors", "locked(GPIO %d)=%s  unlocked(GPIO %d)=%s  -> bolt %s  |  door(GPIO %d)=%s",
+             CONFIG_LOCHNESS_BOLT_LOCKED_GPIO, level_name(locked), CONFIG_LOCHNESS_BOLT_UNLOCKED_GPIO,
+             level_name(unlocked), bolt_sense_name(bolt_sense_read()), CONFIG_LOCHNESS_DOOR_GPIO,
+             door < 0 ? "off (set LOCHNESS_DOOR_GPIO)" : level_name(door));
+}
+
+static int cmd_sensors(int argc, char **argv)
+{
+    if (argc == 1) {
+        print_sensors(NULL);
+        return 0;
+    }
+    if (argc != 2 || (strcmp(argv[1], "on") != 0 && strcmp(argv[1], "off") != 0)) {
+        printf("usage: sensors [on|off]   (on: print every 0.5 s)\n");
+        return 1;
+    }
+    if (!s_sensors_timer) {
+        const esp_timer_create_args_t args = {.callback = print_sensors, .name = "sensors"};
+        ESP_ERROR_CHECK(esp_timer_create(&args, &s_sensors_timer));
+    }
+    esp_timer_stop(s_sensors_timer); /* not running is fine */
+    if (strcmp(argv[1], "on") == 0) {
+        ESP_ERROR_CHECK(esp_timer_start_periodic(s_sensors_timer, SENSORS_PERIOD_US));
     }
     return 0;
 }
@@ -869,6 +928,7 @@ void console_start(void)
     reg("pair", "Open a pairing window (stand-in for the lock's pair button)", cmd_pair);
     reg("peers", "List or remove paired keypads/phones", cmd_peers);
     reg("sim", "Simulate door sensor, manual turns, jams", cmd_sim);
+    reg("sensors", "Hall switch levels: once, or on|off for every 0.5 s", cmd_sensors);
     reg("factory-reset", "Erase all lock state", cmd_factory_reset);
 #if LOCHNESS_MATTER
     reg("matter", "Matter: status | commission [min] | radio [reset | link on|off] | reset confirm", cmd_matter);
